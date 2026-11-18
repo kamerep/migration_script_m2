@@ -72,14 +72,19 @@ DOC_TYPES = {
     'kyc_compliance': r'kyc|\bform a\b|\bform k\b|\bfatca\b|\bcrs\b|world ?check|pep|compliance|due diligence|'
                       r'\bcdd\b|\bedd\b|sanction|source of (funds|wealth)|risk',
     'lei': r'\blei\b|legal entity identifier',
-    'bank': r'bank|account|konto|\biban\b|statement|kontoauszug|mandate letter',
-    'invoice_fee': r'invoice|rechnung|honorar|\bfee\b|faktura|\babf\b|\bflf\b',
-    'financials': r'bilanz|balance|financial|jahresrechnung|annual account|audit|revision|p&l|erfolgsrechnung',
+    'invoice_fee': r'invoice|rechnung|honorar|\bfee\b|faktura|\babf\b|\bflf\b|\bbill\b',
+    'financials': r'bilanz|balance sheet|financial|jahresrechnung|annual account|audit|revision|p&l|'
+                  r'erfolgsrechnung|accounting|buchhaltung|ledger|trial balance|adjusting entr|\bfs\b',
+    'bank': r'\bbank|kontoauszug|bank statement|account statement|\biban\b|mandate letter|account opening|'
+            r'kontoeröffnung',
     'tax': r'steuer|\btax\b|\bvat\b|mwst|\btin\b',
     'contract': r'vertrag|contract|agreement|engagement|mandatsvertrag|\bnda\b|service agreement',
     'correspondence': r'brief|letter|mail|korrespondenz|correspondence|\.msg$|\.eml$',
 }
 DOC_RULES = [(k, re.compile(v, re.I)) for k, v in DOC_TYPES.items()]
+# Program data of accounting software (QuickBooks, Banana, ...): not documents to attach to the client.
+SYSTEM_FILE = re.compile(r'\.(qbw|qbb|qbm|qbo|tlg|nd|dsn|ini|lgb|cfs|cfx|cfe|si|dat|db|lnk|tmp|bak|ldb|lck)$|'
+                         r'(^|[\\/])(segments(_\w+)?|segments\.gen|_[a-z0-9]+\.(cfs|cfx|cfe|si))$', re.I)
 # Names that say nothing about the content (scanner output, numbers): no model is asked, a person must look.
 GENERIC_NAME = re.compile(r'^(scan|img|image|dsc|doc|dok|document|dokument|file|datei|neu|new|copy|kopie)?'
                           r'[\s_-]*[\d\s_()-]*\.[a-z0-9]{2,5}$', re.I)
@@ -191,27 +196,38 @@ class AI:
                   'prompt_sha': hashlib.sha256((system + user).encode()).hexdigest()[:12], 'items': len(payload.get(
                       'items', [])) if isinstance(payload, dict) else None}
         started = time.time()
+        messages = [{'role': 'user', 'content': user}]
         try:
             client = self._client(provider)
-            if provider == 'ollama':
-                model = self.s['ollama_model']
-                resp = client.messages.create(model=model, max_tokens=max_tokens, system=system,
-                                              messages=[{'role': 'user', 'content': user}])
-            else:
-                model = self.s['claude_model']
-                resp = client.beta.messages.create(
-                    model=model, max_tokens=max_tokens, system=system,
-                    output_config={'effort': self.s['claude_effort']},
-                    betas=['server-side-fallback-2026-07-01'], fallbacks='default',
-                    messages=[{'role': 'user', 'content': user}])
-                if resp.stop_reason == 'refusal':
-                    raise RuntimeError('the model declined the request')
-            answer = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
-            record.update(model=model, ok=True, seconds=round(time.time() - started, 2),
+            for attempt in (1, 2):
+                if provider == 'ollama':
+                    model = self.s['ollama_model']
+                    resp = client.messages.create(model=model, max_tokens=max_tokens, system=system,
+                                                  messages=messages)
+                else:
+                    model = self.s['claude_model']
+                    resp = client.beta.messages.create(
+                        model=model, max_tokens=max_tokens, system=system,
+                        output_config={'effort': self.s['claude_effort']},
+                        betas=['server-side-fallback-2026-07-01'], fallbacks='default', messages=messages)
+                    if resp.stop_reason == 'refusal':
+                        raise RuntimeError('the model declined the request')
+                answer = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
+                try:
+                    parsed = parse_json(answer)
+                    break
+                except ValueError:
+                    if attempt == 2:
+                        raise
+                    # Small local models sometimes answer in prose: ask once more, for the JSON only.
+                    messages = messages + [{'role': 'assistant', 'content': answer or '(empty)'},
+                                           {'role': 'user', 'content': 'Reply again with only the JSON, exactly '
+                                                                       'as asked, and no other text.'}]
+            record.update(model=model, ok=True, seconds=round(time.time() - started, 2), attempts=attempt,
                           tokens_in=getattr(resp.usage, 'input_tokens', None),
                           tokens_out=getattr(resp.usage, 'output_tokens', None))
             self.calls.append(record)
-            return parse_json(answer)
+            return parsed
         except Exception as exc:  # noqa: BLE001 - one failed call must not stop the others
             record.update(ok=False, error=f"{type(exc).__name__}: {exc}"[:300], seconds=round(time.time() - started, 2))
             self.calls.append(record)
@@ -469,11 +485,19 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
     docs = summary.get('documents') or []
     types, todo = {}, []
     for i, d in enumerate(docs):
-        name = f"{d.get('folder') or ''}/{d.get('file') or ''} {d.get('description') or ''} {d.get('type') or ''}"
-        hit = next((k for k, rx in DOC_RULES if rx.search(name)), None)
+        file = d.get('file') or ''
+        own = f"{file} {d.get('description') or ''}"          # the file's own name first, then its folder
+        hit = next((k for k, rx in DOC_RULES if rx.search(own)), None)
+        how, conf = 'keyword in the file name', 0.9
+        if not hit:
+            hit = next((k for k, rx in DOC_RULES if rx.search(d.get('folder') or '')), None)
+            how, conf = 'keyword in the folder name', 0.75
         doc_id = f"d{i}"
-        if hit:
-            types[doc_id] = {'value': hit, 'confidence': 0.9, 'reason': 'keyword rule', 'provider': 'rules'}
+        if SYSTEM_FILE.search(file):
+            types[doc_id] = {'value': 'system_file', 'confidence': 0.95, 'reason': 'accounting-software data file',
+                             'provider': 'rules'}
+        elif hit:
+            types[doc_id] = {'value': hit, 'confidence': conf, 'reason': how, 'provider': 'rules'}
         elif GENERIC_NAME.match(d.get('file') or '') and not d.get('description'):
             types[doc_id] = {'value': 'other', 'confidence': 0.2, 'reason': 'generic file name: open it to type it',
                              'provider': 'rules'}
@@ -514,12 +538,31 @@ def summarize(run_dir, ai=None, config=None):
     for e in events:
         if e.get('level') in ('error', 'review', 'warning'):
             by_code[e['code']] = by_code.get(e['code'], 0) + 1
+    docs = summary.get('documents') or []
+    archive_only = not (summary.get('clients') or []) and bool(docs)
     payload = {'totals': summary.get('totals'), 'levels': summary.get('levels'), 'by_code': by_code,
-               'examples': worst}
+               'examples': worst, 'archive_only': archive_only,
+               'document_folders': len({d.get('key') for d in docs})}
+    try:                                       # what the document check found, when it ran before
+        found = json.loads((run_dir / SUGGESTIONS_FILE).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        found = {}
+    if found.get('documents'):
+        types = {}
+        for d in found['documents']:
+            types[d['doc_type']] = types.get(d['doc_type'], 0) + 1
+        gaps = found.get('document_gaps') or []
+        payload['document_types'] = dict(sorted(types.items(), key=lambda kv: -kv[1]))
+        payload['clients_without_any_kyc_document'] = sum(1 for g in gaps if len(g['missing']) == 3)
+        payload['clients_with_full_kyc_set'] = payload['document_folders'] - len(gaps)
+    if archive_only:
+        payload['note'] = ("Archive-only run: only the file list of the document archive was given, on purpose. "
+                           "NO_MANDATES is expected; it is not a failure. Report what the archive shows (document types, KYC coverage); there are no rows to review.")
     system = ("You write the status report of one run of a data migration (M2 Mandat -> CSP Odoo). Audience: the "
               "operations team. JSON only: {\"headline\": one sentence, \"status\": \"green\"|\"amber\"|\"red\", "
               "\"actions\": [up to 6 short imperative actions, most blocking first], \"notes\": short paragraph}. "
-              "Red when there are errors, amber when rows are in review, green otherwise.")
+              "Red when there are errors, amber when rows are in review, green otherwise; for an archive-only "
+              "run: amber, and the actions are about adding the mandate export and checking KYC documents.")
     answer = ai.ask('summary', system, payload, provider='ollama', max_tokens=1500)
     if not isinstance(answer, dict):
         lv = summary.get('levels') or {}

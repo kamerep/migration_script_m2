@@ -120,5 +120,30 @@ class TestDocuments(unittest.TestCase):
             self.assertTrue(all(prov == 'ollama' for _t, prov, _p in ai.asked))
 
 
+class TestDocumentRules(unittest.TestCase):
+
+    def run_docs(self, docs):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, 'summary.json').write_text(json.dumps({'documents': docs}))
+            return m2_ai.classify_documents(tmp, FakeAI({'documents': []}), use_model=False)['documents']
+
+    def test_folder_words_do_not_make_bank_documents(self):
+        out = self.run_docs([{'key': 'A', 'folder': 'Financial Statement', 'file': 'FS 2019 signed.pdf'},
+                             {'key': 'A', 'folder': 'Financial accounting', 'file': 'Ledger 2018.xlsx'},
+                             {'key': 'A', 'folder': 'Bank Statements', 'file': 'UBS March.pdf'}])
+        self.assertEqual([d['doc_type'] for d in out], ['financials', 'financials', 'bank'])
+
+    def test_file_name_before_folder(self):
+        out = self.run_docs([{'key': 'A', 'folder': 'Invoices PDF', 'file': 'Passport copy.pdf'},
+                             {'key': 'A', 'folder': 'Invoices PDF', 'file': '20220336 2022-12-16.pdf'}])
+        self.assertEqual([d['doc_type'] for d in out], ['passport_id', 'invoice_fee'])
+        self.assertEqual([d['confidence'] for d in out], [0.9, 0.75])
+
+    def test_accounting_software_files(self):
+        out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
+                             ('Lovina Ltd.qbw', 'Lovina Ltd.qbw.TLG', 'segments_1k', 'segments.gen', '_a.cfx')])
+        self.assertEqual({d['doc_type'] for d in out}, {'system_file'})
+
+
 if __name__ == '__main__':
     unittest.main()
