@@ -216,7 +216,11 @@ def english(out):
                  ('NOVA-PH\\KP-00501-ACC\\scan_0003.pdf', 40112, '2026-06-30 08:21'),
                  ('NOVA-PH\\KP-00502-TRU\\Trust deed.pdf', 512000, '2018-02-01 09:00'),
                  ('NOVA-PH\\KP-00777-ENT\\Register extract.pdf', 64000, '2024-10-24 03:39'),
-                 ('NOVA-PH\\Thumbs.db', 4096, '2024-10-24 03:39')]
+                 ('NOVA-PH\\Thumbs.db', 4096, '2024-10-24 03:39'),
+                 # an older copy of the holder's archive: identical files are indexed once, new ones kept
+                 ('NOVA-PH 2\\NOVA-PH\\KP-00501-ACC\\KYC\\Passport A Example.pdf', 182044, '2024-03-02 10:15'),
+                 ('NOVA-PH 2\\NOVA-PH\\KP-00503-CON\\Passport B Example.pdf', 120400, '2023-11-07 09:30'),
+                 ('Archive (L) - Verknüpfung.lnk', 1024, '2026-08-19 15:34')]
     lines = ['"Path","Length","Modified"'] + [f'"{a}","{b}","{c}"' for a, b, c in inventory]
     (out / 'Archive inventory.csv').write_text('\r\n'.join(lines) + '\r\n', encoding='utf-8-sig')
     print(f"Sample M2 (English interface) exports written to {out}")

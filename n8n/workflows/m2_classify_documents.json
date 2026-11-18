@@ -116,7 +116,7 @@
    "parameters": {
     "width": 560,
     "height": 200,
-    "content": "## M2 documents: type by name (local)\nPOST `{\"files\": [\"AP-00031-ENT/KYC/passport.pdf\", ...]}` to the webhook `m2-classify`. Keyword rules first, the rest goes to Ollama on this machine (never to the cloud: file names carry client names). Answers `{documents: [{file, type, confidence, by}]}`."
+    "content": "## M2 documents: type by name (local)\nPOST `{\"files\": [\"KP-00031-ENT/KYC/passport.pdf\", ...]}` to the webhook `m2-classify`. Keyword rules first, the rest goes to Ollama on this machine (never to the cloud: file names carry client names). Answers `{documents: [{file, type, confidence, by}]}`."
    },
    "id": "6aae5aff-242b-5359-b22f-dbb8a1e2dcfd",
    "name": "Note",

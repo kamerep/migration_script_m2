@@ -30,10 +30,10 @@ the header, total lines, Windows-1252 CSVs with `;` are handled. A file is class
 score of every candidate is kept.
 
 An export of one mandate's grid has no mandate column: name the file after the mandate
-(`AP-482-ACC Detail addr.xlsx`) or keep the report title with the number, and every row is linked to it. On those
+(`KP-482-ACC Detail addr.xlsx`) or keep the report title with the number, and every row is linked to it. On those
 grids `Adrno.` / `Address no.` is the person's or the bank's address, never the client's.
 
-Sub-folders named after a mandate number (M2's document store, e.g. `AP-00482-ACC/LEI/…`) are indexed as the
+Sub-folders named after a mandate number (M2's document store, e.g. `KP-00482-ACC/LEI/…`) are indexed as the
 client's documents.
 
 ## What it writes (per run, in `runs/<stamp>/` from the UI)
@@ -67,7 +67,7 @@ bottom right (saved, failed, run finished, with Undo or the next step as a butto
 working, placeholders while a section loads, and a banner with automatic reconnection when the tool stops answering.
 
 Keys: `Ctrl+K` search and commands (sections, mandates, rules, guides), `Ctrl+Enter` run, `/` search of the section,
-`[` `]` and `1`–`0` change section, `?` the list. Every place has an address: `#decide`, `#records/AP-482-ACC`,
+`[` `]` and `1`–`0` change section, `?` the list. Every place has an address: `#decide`, `#records/KP-482-ACC`,
 `#journal/COMPANY_UNKNOWN`, `#docs/ref-api`, and `?run=<stamp>` for an earlier run.
 
 Logo and icons are in `assets/` (`icon.svg`, `favicon.svg`, `logo.svg`, `logo-dark.svg` are the sources;
@@ -80,7 +80,7 @@ each guide from its HTML.
 * Closed mandates (status closed, or end date passed) are not loaded unless switched on; their register rows follow.
 * M2 `Surname, Given name` becomes `Given Surname`; persons split in name columns are joined.
 * Register rows link to their client by mandate no → debtor no → address no → exact unique name; close names are
-  suggested, never guessed. M2 numbers match without their zero padding (`AP-00482-ACC` = `AP-482-ACC`).
+  suggested, never guessed. M2 numbers match without their zero padding (`KP-00482-ACC` = `KP-482-ACC`).
 * The mandate's address is found by address no, by debtor no, or by the debtor no as the address *Number* (in M2 the
   debtor is an address).
 * `Active = N` closes a mandate like a closed status. `Postcode, City` printed together (`MH 96960 Majuro`) is
@@ -138,11 +138,11 @@ work over client data to the local model instead of reading it in the cloud.
 
 ## Archive inventory (M2 document archive without copying it)
 
-When the M2 database cannot be shared, the document archive (`Z:\ARVIS-PH\AP-00031-ENT\…`, one folder per mandate)
+When the M2 database cannot be shared, the document archive (`Z:\NOVA-PH\KP-00031-ENT\…`, one folder per mandate)
 still tells which client has which documents. On the Windows side:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\m2_archive_inventory.ps1 -Root 'Z:\ARVIS-PH'
+powershell -ExecutionPolicy Bypass -File tools\m2_archive_inventory.ps1 -Root 'Z:\NOVA-PH'
 ```
 
 writes `M2 Archive inventory.csv` (path, size, date only: no file is opened or copied). Put it next to the exports:

@@ -5,31 +5,55 @@ th{background:#eef1f4}code,pre{background:#eef1f4;padding:1px 5px;border-radius:
 .note{border-left:3px solid #3a1846;background:#f4f1fa;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}.by{margin-top:32px;padding-top:8px;border-top:1px solid #d8dee5;color:#59636e;font-size:12.5px}
 @page{size:A4;margin:14mm}@media print{body{margin:0;max-width:none;padding:0}}</style></head><body><h1>M2 Migration – Archive Inventory</h1>
 
-<p>The M2 document archive (drive <code>Z:</code> “M2 Archiv”, e.g. <code>Z:\ARVIS-PH</code>) keeps one folder per mandate:
-<code>AP-00031-ENT</code>, <code>AP-00035-ACC</code>, … When the M2 database itself cannot be shared, the folder structure still tells
+<p>The M2 document archive (drive <code>Z:</code> “M2 Archiv”, e.g. <code>Z:\NOVA-PH</code>) keeps one folder per mandate:
+<code>KP-00031-ENT</code>, <code>KP-00035-ACC</code>, … When the M2 database itself cannot be shared, the folder structure still tells
 which client has which documents. The archive inventory reads only that structure: path, size and date of every file. No file is opened or copied.</p>
 <h2>1. Make the inventory (Windows)</h2>
 <p>Copy <code>tools\m2_archive_inventory.ps1</code> to the Windows machine and run:</p>
-<pre>powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\ARVIS-PH'</pre>
+<pre>powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\NOVA-PH'</pre>
 <p>It writes <code>Documents\M2 Archive inventory.csv</code> (or the path given with <code>-Out</code>) and prints the number of files and folders.
-<code>-Root 'Z:\'</code> lists every holder folder of the drive in one file. Thumbs.db, desktop.ini and Office lock files are left out.</p>
+<code>-Root 'Z:\'</code> lists every mandate holder folder of the drive in one file. Only files inside folders are listed:
+loose files of the root (such as the <i>Archive (L) - Verknüpfung</i> shortcut), shortcuts (<code>.lnk</code>), Thumbs.db, desktop.ini and Office lock files are left out.</p>
+<p>From the Linux PC over Remmina, with the project's <code>m2_db</code> folder shared to the session (it shows as <i>m2_db on PK</i>):</p>
+<pre>powershell -ExecutionPolicy Bypass -File '\\tsclient\m2_db\m2_archive_inventory.ps1' -Root 'Z:\' -Out '\\tsclient\m2_db\M2 Archive inventory - all mandates.csv'</pre>
+<p>Keep one inventory per run folder: a holder listed in two CSVs is counted twice.</p>
 <p>Without the script, the same in one line:</p>
-<pre>Get-ChildItem 'Z:\ARVIS-PH' -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Substring(3)}}, Length, @{n='Modified';e={$_.LastWriteTime.ToString('yyyy-MM-dd HH:mm')}} | Export-Csv "$env:USERPROFILE\Documents\M2 Archive inventory.csv" -NoTypeInformation -Encoding UTF8</pre>
+<pre>Get-ChildItem 'Z:\NOVA-PH' -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Substring(3)}}, Length, @{n='Modified';e={$_.LastWriteTime.ToString('yyyy-MM-dd HH:mm')}} | Export-Csv "$env:USERPROFILE\Documents\M2 Archive inventory.csv" -NoTypeInformation -Encoding UTF8</pre>
 <h2>2. Use it</h2>
 <p>Put the CSV in the folder with the M2 exports (or alone in a folder, for an archive-only run) and run the migration. The file is recognised as
 <b>Archive inventory (file list)</b> by its headers <code>Path</code>, <code>Length</code>, <code>Modified</code> (also <code>FullName</code>, <code>LastWriteTime</code>).</p>
 <table><tr><th>Path in the inventory</th><th>Read as</th></tr>
-<tr><td><code>ARVIS-PH\AP-00031-ENT\KYC\Passport.pdf</code></td><td>Mandate AP-00031-ENT = AP-31-ENT (zero padding ignored), holder archive ARVIS-PH, sub-folder KYC</td></tr>
-<tr><td><code>ARVIS-PH\AP-00054-ACC\scan.pdf</code></td><td>Mandate AP-54-ACC, no sub-folder</td></tr>
-<tr><td><code>ARVIS-PH\Thumbs.db</code></td><td>Not under a mandate folder: not indexed (one warning per folder)</td></tr></table>
+<tr><td><code>NOVA-PH\KP-00031-ENT\KYC\Passport.pdf</code></td><td>Mandate KP-00031-ENT = KP-31-ENT (zero padding ignored), holder archive NOVA-PH, sub-folder KYC</td></tr>
+<tr><td><code>NOVA-PH\KP-00054-ACC\scan.pdf</code></td><td>Mandate KP-54-ACC, no sub-folder</td></tr>
+<tr><td><code>NOVA-PH\Thumbs.db</code></td><td>Not under a mandate folder: not indexed (one warning per folder)</td></tr>
+<tr><td><code>Archive (L) - Verknüpfung.lnk</code></td><td>Loose file of the root or shortcut: skipped</td></tr></table>
 <h2>3. Rules</h2>
 <table><tr><th>Rule</th><th>Level</th><th>Meaning</th></tr>
 <tr><td><code>ARCHIVE_FOLDER</code></td><td>decision</td><td>Folder linked to a client of the exports; its files are indexed</td></tr>
 <tr><td><code>ARCHIVE_FOLDER_UNKNOWN</code></td><td>warning (info in an archive-only run)</td><td>Folder named like a mandate, but not a mandate of the exports (closed, or exported under another number); indexed under the folder name</td></tr>
 <tr><td><code>ARCHIVE_NOT_MANDATE</code></td><td>warning</td><td>Files not under a mandate folder</td></tr>
-<tr><td><code>ARCHIVE_NO_FOLDER</code></td><td>warning</td><td>Open mandates of the exports with no archive folder</td></tr></table>
+<tr><td><code>ARCHIVE_NO_FOLDER</code></td><td>warning</td><td>Open mandates of the exports with no archive folder</td></tr>
+<tr><td><code>ARCHIVE_COPY</code></td><td>info</td><td>Files identical to a file of the same mandate already indexed (same sub-folder, name and size), e.g. in an older copy such as <code>NOVA-PH 2\NOVA-PH</code>: indexed once. Files only in the copy are kept, under the copy's holder.</td></tr></table>
+<p>The mandate holder is always the top folder of the drive, also when the mandate folders sit one level deeper (<code>NOVA-PH 2\NOVA-PH\KP-00252-ENT</code> → holder NOVA-PH 2).</p>
 <p>The files appear in <b>Finance › Documents</b> and in the <i>Documents</i> sheet of the review workbook with “On disk” = <code>archive: …</code>.
-<b>AI assistant › Classify documents</b> then types each file and lists the clients missing KYC documents (all on this machine).</p>
+<b>AI assistant › Classify documents</b> then types each file and lists the mandates missing documents (all on this machine).</p>
+<h2>4. Coverage across the mandate holders</h2>
+<p>A mandate number has exactly one extension, and the same mandate, with its registers and files, can be filed under any of the
+mandate holders (NOVA-PH, NOVA-DUBAI, ORBIT-CH …). Coverage is therefore judged per mandate over every holder it appears under:
+a passport in <code>NOVA-DUBAI\KP-00031-ENT</code> counts for <code>NOVA-PH\KP-00031-ENT</code> too.</p>
+<table><tr><th>Extension</th><th>Mandate</th><th>Needs (each line: one of the types)</th></tr>
+<tr><td><code>ENT</code></td><td>Enterprise, mainly companies</td><td>incorporation · register extract or articles · KYC / compliance file · passport or ID of a director or UBO</td></tr>
+<tr><td><code>ACC</code></td><td>Accounting services (invoicing)</td><td>as ENT</td></tr>
+<tr><td><code>CON</code></td><td>Natural person, consultancy</td><td>passport or ID · proof of address · KYC / compliance file</td></tr>
+<tr><td><code>DIR</code></td><td>Director (rarely used)</td><td>as CON</td></tr>
+<tr><td><code>ADM</code></td><td>Internal company (one of the mandate holders)</td><td>not checked: status <i>internal</i></td></tr>
+<tr><td>other</td><td>any other extension</td><td>not checked: status <i>type unknown</i></td></tr></table>
+<p>A folder named KYC, Compliance, Due diligence, CDD or GwG counts as the KYC / compliance file. The check writes
+<code>Archive_KYC_coverage.xlsx</code> in the run folder:</p>
+<table><tr><th>Sheet</th><th>Content</th></tr>
+<tr><td>Mandates</td><td>One row per mandate: type, status (complete, gaps, internal, type unknown), holders, files, what is missing in every holder, and what is missing in one holder but found in another</td></tr>
+<tr><td>Where found</td><td>Every file with its holder, document type and folder</td></tr>
+<tr><td>Per holder</td><td>Per mandate holder: mandates, complete, with gaps, internal, type unknown, shared with another holder</td></tr></table>
 <div class='note'>The inventory holds client names in file names: keep it on internal shares, like the exports.</div>
 
 <p class="by">Prepared by Peter Kamere</p>

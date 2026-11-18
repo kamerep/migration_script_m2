@@ -511,20 +511,116 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
     rows = []
     for i, d in enumerate(docs):
         t = types.get(f"d{i}") or {'value': 'other', 'confidence': 0.0, 'reason': 'not classified', 'provider': ''}
-        rows.append({'key': d.get('key'), 'folder': d.get('folder'), 'file': d.get('file'),
+        where = d.get('where') or ''
+        rows.append({'key': d.get('key'), 'holder': where[len('archive '):] if where.startswith('archive ')
+                     else where, 'folder': d.get('folder'), 'file': d.get('file'),
                      'on_disk': d.get('on_disk'), 'doc_type': t['value'], 'confidence': t['confidence'],
                      'provider': t.get('provider'), 'reason': t.get('reason')})
-    coverage = {}
-    kyc_folder = re.compile(r'kyc|compliance|due diligence|\bcdd\b|gwg', re.I)
+    coverage, gaps = document_coverage(rows)
+    try:
+        write_coverage_workbook(run_dir / COVERAGE_FILE, coverage, rows)
+    except (OSError, ImportError) as exc:
+        print(f"Coverage workbook not written: {exc}", file=sys.stderr)
+    return save(run_dir, ai, documents=rows, document_gaps=gaps, document_coverage=coverage)
+
+
+# -- coverage per client, across the mandate holders ---------------------------------------------------------
+# The extension of an M2 mandate number is its service type; each number has exactly one extension, and the
+# same mandate (with its files) can sit under any of the mandate holders' archive folders.
+MANDATE_TYPES = {'ENT': 'company', 'ACC': 'company', 'CON': 'person', 'DIR': 'person', 'ADM': 'internal'}
+# What a mandate needs before its file counts as complete: each entry is one need, met by any of its types.
+REQUIRED = {
+    'company': (('incorporation',), ('register_extract', 'articles'), ('kyc_compliance',), ('passport_id',)),
+    'person': (('passport_id',), ('proof_of_address',), ('kyc_compliance',)),
+}
+KYC_FOLDER = re.compile(r'kyc|compliance|due diligence|\bcdd\b|gwg', re.I)
+COVERAGE_FILE = 'Archive_KYC_coverage.xlsx'
+
+
+def client_key(value):
+    """One key per mandate whatever the holder or the zero padding: KP-00031-ENT and KP-31-ENT are one."""
+    return re.sub(r'(?<!\d)0+(?=\d)', '', re.sub(r'\s+', '', str(value or '')).upper())
+
+
+def mandate_type(key):
+    """Service type from the extension of the mandate number (ENT, ACC, CON, DIR, ADM); None when unknown."""
+    found = re.search(r'-([A-Z]+)$', client_key(key))
+    return MANDATE_TYPES.get(found.group(1)) if found else None
+
+
+def document_coverage(rows):
+    """Per mandate, over every holder it is filed under: what it has, what it misses, what another holder fills.
+
+    Returns (coverage, gaps): coverage lists every mandate; gaps only companies and persons with a need unmet in
+    all holders together. A need met in one holder's folder but not in another's is 'covered_elsewhere'."""
+    per = {}
     for r in rows:
-        types_of = coverage.setdefault(r['key'] or '?', set())
-        types_of.add(r['doc_type'])
-        if kyc_folder.search(r.get('folder') or ''):     # a KYC folder is the client's KYC file
-            types_of.add('kyc_compliance')
-    must = ('passport_id', 'proof_of_address', 'kyc_compliance')
-    gaps = [{'key': k, 'missing': [m for m in must if m not in v]} for k, v in sorted(coverage.items())
-            if any(m not in v for m in must)]
-    return save(run_dir, ai, documents=rows, document_gaps=gaps)
+        key = client_key(r.get('key')) or '?'
+        c = per.setdefault(key, {'key': r.get('key') or '?', 'holders': {}, 'files': 0})
+        c['files'] += 1
+        types = c['holders'].setdefault(r.get('holder') or '', set())
+        types.add(r['doc_type'])
+        if KYC_FOLDER.search(r.get('folder') or ''):          # a KYC folder is the mandate's KYC file
+            types.add('kyc_compliance')
+    coverage, gaps = [], []
+    for key in sorted(per):
+        c = per[key]
+        kind = mandate_type(key)
+        found = set().union(*c['holders'].values())
+        entry = {'key': c['key'], 'type': kind or 'unknown', 'extension': key.rsplit('-', 1)[-1] if '-' in key
+                 else '', 'holders': sorted(c['holders']), 'files': c['files'], 'missing': [],
+                 'covered_elsewhere': []}
+        for need in REQUIRED.get(kind, ()):
+            label = ' or '.join(need)
+            if not found.intersection(need):
+                entry['missing'].append(label)
+                continue
+            have = sorted(h for h, t in c['holders'].items() if t.intersection(need))
+            lacking = sorted(h for h, t in c['holders'].items() if not t.intersection(need))
+            if lacking:
+                entry['covered_elsewhere'].append({'need': label, 'missing_in': lacking, 'found_in': have})
+        entry['status'] = ('internal' if kind == 'internal' else 'type unknown' if kind is None
+                           else 'gaps' if entry['missing'] else 'complete')
+        coverage.append(entry)
+        if entry['missing']:
+            gaps.append({k: entry[k] for k in ('key', 'type', 'holders', 'missing', 'covered_elsewhere')})
+    return coverage, gaps
+
+
+def write_coverage_workbook(path, coverage, rows):
+    """Archive_KYC_coverage.xlsx: one row per mandate, where each need was found, and a sheet per holder."""
+    import openpyxl
+    from openpyxl.styles import Font
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Mandates'
+    ws.append(['Mandate', 'Type', 'Status', 'Holders', 'Files', 'Missing in every holder',
+               'Missing in one holder, found in another'])
+    for c in coverage:
+        ws.append([c['key'], c['type'], c['status'], ', '.join(h or '(exports)' for h in c['holders']), c['files'],
+                   ', '.join(c['missing']), '; '.join(f"{x['need']}: in {', '.join(x['found_in'])}, not in "
+                                                      f"{', '.join(x['missing_in'])}" for x in c['covered_elsewhere'])])
+    wf = wb.create_sheet('Where found')
+    wf.append(['Mandate', 'Holder', 'Document type', 'Folder', 'File', 'Confidence'])
+    for r in sorted(rows, key=lambda r: (client_key(r.get('key')), r.get('holder') or '', r['doc_type'])):
+        wf.append([r.get('key'), r.get('holder'), r['doc_type'], r.get('folder'), r.get('file'), r['confidence']])
+    wh = wb.create_sheet('Per holder')
+    wh.append(['Holder', 'Mandates', 'Complete', 'With gaps', 'Internal (ADM)', 'Type unknown',
+               'Shared with another holder'])
+    holders = sorted({h for c in coverage for h in c['holders']})
+    for h in holders:
+        mine = [c for c in coverage if h in c['holders']]
+        wh.append([h or '(exports)', len(mine)] + [sum(1 for c in mine if c['status'] == s)
+                                                   for s in ('complete', 'gaps', 'internal', 'type unknown')]
+                  + [sum(1 for c in mine if len(c['holders']) > 1)])
+    for sheet in wb.worksheets:
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
+        sheet.freeze_panes = 'A2'
+        for col in sheet.columns:
+            sheet.column_dimensions[col[0].column_letter].width = min(60, max(10, *(len(str(x.value or ''))
+                                                                                    for x in col[:200])) + 2)
+    wb.save(path)
 
 
 def summarize(run_dir, ai=None, config=None):
@@ -553,8 +649,12 @@ def summarize(run_dir, ai=None, config=None):
             types[d['doc_type']] = types.get(d['doc_type'], 0) + 1
         gaps = found.get('document_gaps') or []
         payload['document_types'] = dict(sorted(types.items(), key=lambda kv: -kv[1]))
-        payload['clients_without_any_kyc_document'] = sum(1 for g in gaps if len(g['missing']) == 3)
-        payload['clients_with_full_kyc_set'] = payload['document_folders'] - len(gaps)
+        cov = found.get('document_coverage') or []
+        payload['mandates_by_status'] = {s: sum(1 for c in cov if c['status'] == s)
+                                         for s in ('complete', 'gaps', 'internal', 'type unknown')}
+        payload['mandates_under_several_holders'] = sum(1 for c in cov if len(c['holders']) > 1)
+        payload['gaps_filled_by_another_holder'] = sum(len(c['covered_elsewhere']) for c in cov)
+        payload['mandates_missing_documents'] = len(gaps)
     if archive_only:
         payload['note'] = ("Archive-only run: only the file list of the document archive was given, on purpose. "
                            "NO_MANDATES is expected; it is not a failure. Report what the archive shows (document types, KYC coverage); there are no rows to review.")

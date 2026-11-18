@@ -142,9 +142,9 @@ class TestSampleRun(unittest.TestCase):
 class TestKeys(unittest.TestCase):
 
     def test_zero_padding(self):
-        self.assertEqual(m2.rkey('AP-00482-ACC'), m2.rkey('AP-482-ACC'))
+        self.assertEqual(m2.rkey('KP-00482-ACC'), m2.rkey('KP-482-ACC'))
         self.assertEqual(m2.rkey('021091'), m2.rkey(21091))
-        self.assertNotEqual(m2.rkey('AP-482-ACC'), m2.rkey('AP-4820-ACC'))
+        self.assertNotEqual(m2.rkey('KP-482-ACC'), m2.rkey('KP-4820-ACC'))
         self.assertEqual(m2.MANDATE_RE.search('KP-482-ACC Detail addr')[1], 'KP-482-ACC')
 
 
@@ -254,7 +254,11 @@ class TestEnglishRun(unittest.TestCase):
         self.assertEqual(docs['Trust deed.pdf']['key'], 'KP-502-TRU')
         self.assertEqual(docs['Register extract.pdf']['client_state'], 'not in the exports')
         self.assertNotIn('Thumbs.db', docs)
-        for code in ('ARCHIVE_FOLDER', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE', 'ARCHIVE_NO_FOLDER'):
+        self.assertNotIn('Archive (L) - Verknüpfung.lnk', docs)                      # root shortcut skipped
+        self.assertEqual(sum(d['file'] == 'Passport A Example.pdf' for d in self.job.documents), 1)  # copy once
+        self.assertEqual(docs['Passport B Example.pdf']['where'], 'archive NOVA-PH 2')   # top folder = holder
+        for code in ('ARCHIVE_FOLDER', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE', 'ARCHIVE_NO_FOLDER',
+                     'ARCHIVE_COPY'):
             self.assertIn(code, self.codes)
 
 

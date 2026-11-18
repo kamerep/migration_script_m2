@@ -321,7 +321,7 @@ KINDS = {
                    'creator': ['Creator', 'Ersteller']},
         'key_fields': ['file_name'],
     },
-    # A file list of the M2 document archive (e.g. Z:\\ARVIS-PH\\AP-00031-ENT\\KYC\\pass.pdf), made on the Windows
+    # A file list of the M2 document archive (e.g. Z:\\NOVA-PH\\KP-00031-ENT\\KYC\\pass.pdf), made on the Windows
     # side with Get-ChildItem ... | Export-Csv, when the archive itself is not copied. The mandate is the first
     # folder of the path named like a mandate number; the folder above it is the mandate holder's archive.
     'inventory': {
@@ -446,7 +446,7 @@ REGISTER_KINDS = ['contacts', 'directors', 'ubos', 'shareholders', 'secretaries'
 
 COMPANY_WORDS = re.compile(r'\b(ag|gmbh|ltd|limited|inc|llc|llp|sa|sarl|trust|stiftung|foundation|corp|plc|fzco|fze|'
                            r'bv|nv|kg|holding|treuhand|anstalt|establishment|company|co|partners|group)\b\.?', re.I)
-# An M2 mandate number in a file name or report title: AP-482-ACC, AP-00482-ACC, M-0001
+# An M2 mandate number in a file name or report title: KP-482-ACC, KP-00482-ACC, M-0001
 MANDATE_RE = re.compile(r'(?<![A-Za-z0-9])([A-Z]{1,5}-\d{1,6}(?:-[A-Z0-9]{1,6})?)(?![A-Za-z0-9])')
 LEVELS = ('error', 'review', 'warning', 'decision', 'change', 'not_loaded', 'info')
 
@@ -464,7 +464,7 @@ def norm(value):
 
 def rkey(value):
     """Lookup key of an M2 number (mandate, debtor, address): as norm(), with the zero padding of each digit group
-    dropped, so AP-482-ACC (mandate list) and AP-00482-ACC (document folder) or 021091 and 21091 are one key."""
+    dropped, so KP-482-ACC (mandate list) and KP-00482-ACC (document folder) or 021091 and 21091 are one key."""
     return re.sub(r'(?<![\d])0+(?=\d)', '', norm(value))
 
 
@@ -916,7 +916,7 @@ class Migration:
                 self.ev('warning', 'NO_CLIENT_COLUMN', f"{label}: no mandate, debtor or address number column and "
                         "none in the file name: its rows cannot be linked to a client.", file=label,
                         fix="Export with the mandate column, or put the mandate number in the file name "
-                        "(e.g. 'AP-482-ACC Bank.xlsx').")
+                        "(e.g. 'KP-482-ACC Bank.xlsx').")
         used = set(index.values())
         unused = []
         for pos, name in enumerate(header):
@@ -1891,7 +1891,7 @@ class Migration:
             for row in table['rows']:
                 raw = text(row['v'].get('path'))
                 parts = [x for x in re.split(r'[\\/]+', raw) if x and not re.fullmatch(r'[A-Za-z]:', x)]
-                if not parts:
+                if len(parts) < 2 or parts[-1].lower().endswith('.lnk'):   # loose root files, shortcuts
                     continue
                 pos = next((i for i, x in enumerate(parts[:-1]) if MANDATE_RE.fullmatch(x)
                             or any(self.lookup[b].get(rkey(x)) for b in ('mandate', 'debtor'))), None)
@@ -1899,15 +1899,15 @@ class Migration:
                     per_folder.setdefault(('', parts[0] if len(parts) > 1 else ''), []).append((table, row, parts,
                                                                                                 None))
                     continue
-                holder = parts[pos - 1] if pos else ''
+                holder = parts[0] if pos else ''        # the top folder of the drive: the mandate holder
                 per_folder.setdefault((holder, parts[pos]), []).append((table, row, parts, pos))
         clients = bool(self.lookup['mandate'])
-        seen = set()
+        seen, copies, copied = set(), collections.Counter(), set()   # copies: same mandate, path, name and size
         for (holder, folder), files in per_folder.items():
             if files[0][3] is None:
                 self.ev('warning', 'ARCHIVE_NOT_MANDATE', f"Archive folder '{folder or '(root)'}': {len(files)} "
                         "file(s) not under a folder named like a mandate number: not indexed.", file=files[0][0]['file'],
-                        fix="Check the folder; mandate folders are named like AP-00031-ENT.")
+                        fix="Check the folder; mandate folders are named like KP-00031-ENT.")
                 continue
             entry = None
             for bucket in ('mandate', 'debtor', 'address'):
@@ -1916,6 +1916,11 @@ class Migration:
             seen.add(rkey(key))
             for table, row, parts, pos in files:
                 name, sub = parts[-1], '/'.join(parts[pos + 1:-1])
+                same = (rkey(key), norm(sub), norm(name), text(row['v'].get('size')))
+                if same in copied:
+                    copies[holder] += 1
+                    continue
+                copied.add(same)
                 modified, _n = self.conv.date(row['v'].get('modified')) if text(row['v'].get('modified')) \
                     else (None, None)
                 on_disk = 'archive: ' + '\\'.join(parts)
@@ -1940,6 +1945,9 @@ class Migration:
                            else "indexed under its folder name (archive only, no mandate export in this run)."),
                         key=folder, file=files[0][0]['file'],
                         fix="Add the mandate to the exports, or check the folder name." if clients else None)
+        for holder, count in copies.items():
+            self.ev('info', 'ARCHIVE_COPY', f"Archive '{holder}': {count} file(s) identical to a file of the same "
+                    "mandate already indexed (same sub-folder, name and size): indexed once.")
         if clients:
             without = sorted({e['ref'] for e in self.lookup['mandate'].values()
                               if rkey(e['ref']) not in seen and e.get('state') != 'closed'})

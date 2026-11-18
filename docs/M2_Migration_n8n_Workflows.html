@@ -26,7 +26,7 @@ The migration UI must run (<code>bin/m2ctl.sh start</code>).</p>
 To send the report, add an e-mail or chat node after <i>Format report</i>: the text is in <code>report</code>, the status in <code>status</code>.</p>
 <h2>3. M2 documents – classify by name with Ollama</h2>
 <pre>curl -X POST http://127.0.0.1:5678/webhook/m2-classify -H 'Content-Type: application/json' \
-  -d '{"files": ["AP-00031-ENT/KYC/Passport.pdf", "AP-00031-ENT/scan_0003.pdf"]}'</pre>
+  -d '{"files": ["KP-00031-ENT/KYC/Passport.pdf", "KP-00031-ENT/scan_0003.pdf"]}'</pre>
 <p>Keyword rules first, the rest to Ollama (<code>/api/chat</code>, JSON format, temperature 0); answer
 <code>{"documents": [{"file", "type", "confidence", "by"}]}</code>. File names carry client names: this flow never calls the cloud.</p>
 <h2>4. API used by the workflows</h2>

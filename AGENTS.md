@@ -45,7 +45,7 @@ The migration needs `import_spec.py` of `csp_client_import` (path in `CSP_IMPORT
    `m2_ai_assist`, `m2_decide`, `ollama_ask`). They talk to the running UI, so the person sees the same state.
 2. Or the HTTP API with the stable token (`bin/m2ctl.sh token`, header `X-Token`). `GET /api/routes` lists every
    route with what it does; the Docs tab shows the same under *Reference › HTTP API*.
-3. Point the person at a place with a link: `http://127.0.0.1:8796/#records/AP-482-ACC`,
+3. Point the person at a place with a link: `http://127.0.0.1:8796/#records/KP-482-ACC`,
    `#journal/COMPANY_UNKNOWN`, `#decide`, `#docs/ref-api`, `?run=<stamp>`.
 4. In a browser session, `window.M2` exposes `S` (state), `go(tab, arg)`, `api(path, body)`, `toast(msg)`.
 

@@ -94,7 +94,7 @@ class TestGuardrails(unittest.TestCase):
         self.assertIsNone(m2_ai.check_alias({**base, 'value': 'email'}, 'Remark', ['call back']))
         self.assertIsNotNone(m2_ai.check_alias({**base, 'value': 'email'}, 'Mail', ['a@b.ch']))
         self.assertLessEqual(m2_ai.check_alias({**base, 'value': 'name'}, 'Order', ['1', '2'])['confidence'], 0.3)
-        self.assertLessEqual(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'Ref', ['AP-1'])['confidence'], 0.4)
+        self.assertLessEqual(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'Ref', ['KP-1'])['confidence'], 0.4)
         # 'mandate_no' must not be read as a date field
         self.assertIsNotNone(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'Date', ['x']))
 
@@ -104,10 +104,10 @@ class TestDocuments(unittest.TestCase):
     def test_rules_then_model_and_gaps(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, 'summary.json').write_text(json.dumps({'documents': [
-                {'key': 'AP-1', 'folder': 'KYC', 'file': 'Passport J Doe.pdf'},
-                {'key': 'AP-1', 'folder': '', 'file': 'scan_0001.pdf'},
-                {'key': 'AP-1', 'folder': '', 'file': 'Mietvertrag Zug.pdf'},
-                {'key': 'AP-1', 'folder': '', 'file': 'Schreiben Kunde Mai.pdf'}]}))
+                {'key': 'KP-1-CON', 'folder': 'KYC', 'file': 'Passport J Doe.pdf'},
+                {'key': 'KP-1-CON', 'folder': '', 'file': 'scan_0001.pdf'},
+                {'key': 'KP-1-CON', 'folder': '', 'file': 'Mietvertrag Zug.pdf'},
+                {'key': 'KP-1-CON', 'folder': '', 'file': 'Schreiben Kunde Mai.pdf'}]}))
             ai = FakeAI({'documents': lambda p: [{'id': x['id'], 'value': 'other', 'confidence': 0.4}
                                                  for x in p['items']]})
             data = m2_ai.classify_documents(tmp, ai)
@@ -143,6 +143,52 @@ class TestDocumentRules(unittest.TestCase):
         out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
                              ('Lovina Ltd.qbw', 'Lovina Ltd.qbw.TLG', 'segments_1k', 'segments.gen', '_a.cfx')])
         self.assertEqual({d['doc_type'] for d in out}, {'system_file'})
+
+
+class TestCoverageAcrossHolders(unittest.TestCase):
+
+    @staticmethod
+    def row(key, holder, doc_type, folder=''):
+        return {'key': key, 'holder': holder, 'folder': folder, 'file': 'x.pdf', 'doc_type': doc_type,
+                'confidence': 0.9}
+
+    def test_mandate_is_judged_over_all_holders(self):
+        rows = [self.row('KP-00031-ENT', 'NOVA-PH', 'incorporation'),
+                self.row('KP-31-ENT', 'NOVA-DUBAI', 'register_extract'),      # same mandate, other padding
+                self.row('KP-31-ENT', 'NOVA-DUBAI', 'passport_id', 'KYC'),
+                self.row('KP-00040-CON', 'ORBIT-CH', 'passport_id'),
+                self.row('KP-00001-ADM', 'ORBIT-CH', 'other'),
+                self.row('KP-00133-DIR', 'NOVA-PH', 'financials'),
+                self.row('KP-00009-XYZ', 'NOVA-PH', 'financials')]
+        coverage, gaps = m2_ai.document_coverage(rows)
+        by = {m2_ai.client_key(c['key']): c for c in coverage}
+        ent = by['KP-31-ENT']
+        self.assertEqual(ent['holders'], ['NOVA-DUBAI', 'NOVA-PH'])
+        self.assertEqual(ent['status'], 'complete')                          # KYC folder in the other holder
+        self.assertIn({'need': 'passport_id', 'missing_in': ['NOVA-PH'], 'found_in': ['NOVA-DUBAI']},
+                      ent['covered_elsewhere'])
+        self.assertEqual(by['KP-40-CON']['missing'], ['proof_of_address', 'kyc_compliance'])
+        self.assertEqual(by['KP-1-ADM']['status'], 'internal')
+        self.assertEqual(by['KP-133-DIR']['type'], 'person')                  # director mandate
+        self.assertEqual(by['KP-9-XYZ']['status'], 'type unknown')
+        self.assertEqual([g['key'] for g in gaps], ['KP-00133-DIR', 'KP-00040-CON'])
+
+    def test_acc_is_checked_like_ent(self):
+        _cov, gaps = m2_ai.document_coverage([self.row('KP-00016-ACC', 'NOVA-PH', 'financials')])
+        self.assertEqual(gaps[0]['missing'], ['incorporation', 'register_extract or articles', 'kyc_compliance',
+                                              'passport_id'])
+
+    def test_workbook(self):
+        rows = [self.row('KP-00031-ENT', 'NOVA-PH', 'incorporation'), self.row('KP-31-ENT', 'ORBIT-SG', 'articles')]
+        coverage, _gaps = m2_ai.document_coverage(rows)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, m2_ai.COVERAGE_FILE)
+            m2_ai.write_coverage_workbook(path, coverage, rows)
+            import openpyxl
+            wb = openpyxl.load_workbook(path)
+            self.assertEqual(wb.sheetnames, ['Mandates', 'Where found', 'Per holder'])
+            self.assertEqual(wb['Mandates']['D2'].value, 'NOVA-PH, ORBIT-SG')
+            self.assertEqual(wb['Per holder'].max_row, 3)
 
 
 if __name__ == '__main__':
