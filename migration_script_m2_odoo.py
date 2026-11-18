@@ -1966,7 +1966,7 @@ class Migration:
         listed = self.source / 'archive_holders.txt'
         if not listed.is_file():
             return
-        squash = lambda x: re.sub(r'[\s_-]+', '', x).upper()      # ARVIS-PH2 = ARVIS-PH 2
+        squash = lambda x: re.sub(r'[\s_-]+', '', x).upper()      # NOVA-PH2 = NOVA-PH 2
         want = [x.strip() for x in listed.read_text(encoding='utf-8-sig').splitlines()
                 if x.strip() and not x.lstrip().startswith('#')]
         have = {squash(t) for t in tops}
