@@ -76,7 +76,8 @@ CLIENT_REF = {
                    'Mandate', 'Mandat', 'M-No', 'Mand No', 'M2 Reference', 'Client No', 'Kunden Nr'],
     'debtor_no': ['Debitor Nr', 'Debitorennummer', 'Debitor', 'Debtor No', 'Debtor Number', 'Debtor', 'PK No',
                   'PK Nr', 'Debtor-Adr.No.'],
-    'address_no': ['Adress Nr', 'Adressnummer', 'Adr Nr', 'Adrno', 'Adr No', 'Address No', 'Address Number'],
+    'address_no': ['Adress Nr', 'Adressnummer', 'Adr Nr', 'Adrno', 'Adr No', 'Address No', 'Address Number',
+                   'ADRNR'],
     'client_name': ['Mandatsname', 'Mandate Name', 'Mandate desig. 1', 'Mandatsbezeichnung 1', 'Firma',
                     'Gesellschaft', 'Company', 'Client', 'Kunde', 'Client Name'],
 }
@@ -119,20 +120,25 @@ KINDS = {
         'fields': {
             **{k: v for k, v in CLIENT_REF.items() if k != 'client_name'},
             'name': ['Mandatsname', 'Mandate Name', 'Mandate desig. 1', 'Mandate designation 1',
-                     'Mandatsbezeichnung 1', 'Firma', 'Firmenname', 'Company Name', 'Name', 'Bezeichnung'],
+                     'Mandatsbezeichnung 1', 'Firma', 'Firmenname', 'Company Name', 'Name', 'Bezeichnung',
+                     'MANDBEZ1'],
             'holder': ['Mandatsträger', 'Mandatstraeger', 'Treuhandmandat', 'Mandate Holder', 'Trust Mandate',
-                       'Mad.Company', 'Mand.Company', 'Mandate Company', 'Mandant', 'Holder'],
-            'mandate_kind': ['Mandatsart', 'Mandate Type', 'Art', 'Typ', 'Kategorie', 'Category', 'Code'],
+                       'Mad.Company', 'Mand.Company', 'Mandate Company', 'Mandant', 'Holder', 'MADFIRMA'],
+            'mandate_kind': ['Mandatsart', 'Mandate Type', 'Art', 'Typ', 'Kategorie', 'Category', 'Code', 'MART'],
+            # M2 table export (column names of the database): the number is split in prefix, number, type.
+            'mandate_prefix': ['MT'],
+            'mandate_seq': ['MNR'],
             'legal_form': ['Rechtsform', 'Gesellschaftsform', 'Legal Form', 'Company Type', 'Mandate form',
-                           'Mandatsform', 'Form'],
+                           'Mandatsform', 'Form', 'GESFORM'],
             'jurisdiction': ['Domizil', 'Sitz', 'Sitzland', 'Jurisdiktion', 'Jurisdiction'],
             'contract_start': ['Datum Mandatsvertrag', 'Mandatsbeginn', 'Eröffnung', 'Eröffnet', 'Engagement Letter',
                                'Date of Engagement Letter', 'Engagement Date', 'Opened', 'Opening Date',
                                'Mandate start', 'Mandate start date'],
             'contract_end': ['Mandatsende', 'Aufgehoben', 'Saldiert', 'Geschlossen', 'Closed', 'Date Closed',
-                             'Closing Date', 'Mandate end', 'Mandate end date', '-end'],
+                             'Closing Date', 'Mandate end', 'Mandate end date', '-end', 'LOESCHDATUM'],
             'advisor': ['Verantwortlicher', 'Verantwortlich', 'Sachbearbeiter', 'Verantw.SB', 'Verantw SB', 'CDB',
-                        'Kundenberater', 'Responsible', 'Responsible Employee', 'Advisor', 'Client Advisor'],
+                        'Kundenberater', 'Responsible', 'Responsible Employee', 'Advisor', 'Client Advisor',
+                        'VSB'],
             'deputy': ['Stellvertreter', 'Stellv.SB', 'Stellv SB', 'SSB', 'Stv', 'Deputy'],
             'bo_name': ['Wirtschaftlich Berechtigter', 'WB', 'Beneficial Owner', 'BO', 'BO Name', 'UBO'],
             'registration_number': ['Handelsregister Nr', 'HR Nr', 'Handelsregisternummer', 'Registration No',
@@ -148,11 +154,11 @@ KINDS = {
                        'Fiscal Year End', 'FYE'],
             'status': ['Status', 'Zustand'],
             'active': ['Aktiv', 'Active'],
-            'vat': ['MWST Nr', 'MWST', 'UID MWST', 'VAT', 'VAT No', 'Tax ID', 'TIN'],
+            'vat': ['MWST Nr', 'MWST', 'UID MWST', 'VAT', 'VAT No', 'Tax ID', 'TIN', 'MWSTNR'],
             'lei': ['LEI', 'Legal Entity Identifier'],
             'language': ['Sprache', 'Korrespondenzsprache', 'Language'],
             'notes': ['Bemerkung', 'Bemerkungen', 'Notiz', 'Notes', 'Remark', 'Remarks'],
-            'tags': ['Gruppe', 'Mandatsgruppe', 'Group', 'Tags', 'Organisationsform'],
+            'tags': ['Gruppe', 'Mandatsgruppe', 'Group', 'Tags', 'Organisationsform', 'MGRP'],
             **{k: v for k, v in ADDRESS.items()},
         },
         'key_fields': ['mandate_no'],
@@ -362,8 +368,9 @@ LEGAL_FORMS = {
     'trust': ['tru', 'trust', 'vtr', 'vista trust', 'treuhand', 'trusteeship'],
 }
 INDIVIDUAL_KINDS = {'kli', 'klient', 'client', 'person', 'privat', 'privatperson', 'individual', 'natürliche person',
-                    'natuerliche person', 'np', 'p'}
-COMPANY_KINDS = {'ges', 'gesellschaft', 'firma', 'company', 'corporate', 'juristische person', 'jp', 'f'}
+                    'natuerliche person', 'np', 'p', 'con', 'dir'}
+COMPANY_KINDS = {'ges', 'gesellschaft', 'firma', 'company', 'corporate', 'juristische person', 'jp', 'f', 'ent',
+                 'acc', 'adm'}
 CLOSED_STATUS = {'inaktiv', 'inactive', 'closed', 'geschlossen', 'saldiert', 'aufgehoben', 'gelöscht', 'geloescht',
                  'deleted', 'liquidiert', 'liquidated', 'struck off', 'dissolved', '0', 'false', 'nein', 'no'}
 
@@ -889,7 +896,9 @@ class Migration:
         if kind not in self.kinds:
             self.ev('error', 'KIND_INVALID', f"{label}: kind '{kind}' in Settings does not exist.", file=label)
             return
-        mapping = self._match_headers(normalized, self.kinds[kind]['fields'])
+        filled = {i for r in rows[h + 1:] for i, c in enumerate(r) if text(c)}
+        mapping = self._match_headers([c if i in filled else '' for i, c in enumerate(normalized)],
+                                      self.kinds[kind]['fields'])
         index = {field: pos for field, (pos, _alias) in mapping.items()}
         for field, (pos, alias) in sorted(mapping.items(), key=lambda kv: kv[1][0]):
             self.ev('info', 'COLUMN', f"{label}: column '{header[pos]}' -> {field}"
@@ -933,7 +942,7 @@ class Migration:
                         file=label, column=name, samples=samples,
                         fix=f"If it holds a CSP field, add '{name}' to Settings > extra aliases for {kind}.")
         data = []
-        blank = 0
+        blank = parts = 0
         for number_, raw in enumerate(rows[h + 1:], start=h + 2):
             if not any(text(c) for c in raw):
                 blank += 1
@@ -946,16 +955,34 @@ class Migration:
             if context_ref:
                 values['mandate_no'] = context_ref
                 values.pop('client_name', None)
+            composed = self._compose_mandate_no(values)
+            if composed:
+                values['mandate_no'] = composed
+                parts += 1
             extra = {header[i]: raw[i] for i in range(min(len(raw), len(header)))
                      if i not in used and header[i] and text(raw[i])}
             data.append({'row': number_, 'v': values, 'extra': extra})
         table = {'file': label, 'kind': kind, 'rows': data, 'header': header, 'mapping': {f: header[i] for f, i in
                                                                                           index.items()},
                  'unused': unused, 'note': note, 'scores': dict(ranked[:5])}
+        if parts:
+            self.ev('decision', 'REF_COMPOSED', f"{label}: M2 table export without a mandate number column: the "
+                    f"number of {parts} rows is built from '{table['mapping'].get('mandate_prefix', '')}', "
+                    f"'{table['mapping']['mandate_seq']}' and '{table['mapping'].get('mandate_kind', '')}' "
+                    "(e.g. KP-00031-ENT).", file=label)
         self.tables[kind].append(table)
         self.files.append(table)
         self.ev('info', 'FILE_READ', f"{label}: {len(data)} data rows ({note})" + (f", {blank} blank rows skipped"
                                                                                   if blank else '') + '.', file=label)
+
+    @staticmethod
+    def _compose_mandate_no(values):
+        """Mandate number of an M2 table export row: prefix-number-type (KP-00031-ENT), when the row has no number."""
+        seq = text(values.get('mandate_seq'))
+        if text(values.get('mandate_no')) or not seq.isdigit():
+            return None
+        return '-'.join(filter(None, [text(values.get('mandate_prefix')).upper(), seq.zfill(5),
+                                      text(values.get('mandate_kind')).upper()]))
 
     def _match_headers(self, normalized, fields):
         """field -> (column position, alias); each column is used once, exact names before partial ones."""

@@ -54,7 +54,10 @@ or the palette button at the foot of the side bar; kept per browser). Level colo
   **Needs decision** (what blocks rows: mandate holder → operating company, *never a default company*; M2 employee
   abbreviations; M2 Detail addr. type codes → register sheet; unrecognised files; unmapped columns; unresolved
   clients. Each section is marked *blocks rows* or *optional*; a saved answer gets a tick and an **Undo**, the bar
-  counts them, *Run again* applies them), **AI assistant**.
+  counts them, *Run again* applies them), **AI assistant**, **Data flow** (the M2 DataFlow chart from the M2
+  servers to Odoo production, with the open run's numbers: export rows by kind, archive inventory, what this tool
+  produced and what Ollama did on this machine; charts of the files read, documents per mandate holder, rows per
+  sheet and the local model's calls).
 * **Inspect**: **Journal** (the live event stream with filters by level, stage, rule, file and text; click an event
   for its details, the fix and the JSON), **Records** (the full decision trail of one M2 mandate across all files,
   plus its final import row), **Files & columns** (every column: read as which field, or not loaded with sample
@@ -136,6 +139,11 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
 * While the assistant works, a bar shows its progress from 0 to 100%, batch by batch, with the step it is on and
   the time left; **Stop** ends it after the current batch (`POST /api/ai/stop`). Classify documents asks once per
   name pattern, most common first, up to `doc_model_limit` names per run (default 1,000).
+* Answers are saved as they come (`runs/ai_cache.jsonl`): a stopped, failed or interrupted job shows **Resume**
+  (`POST /api/ai/run` with `resume`), which runs only the open tasks and reuses saved answers. The model's memory
+  is checked before it loads and freed when the job ends. The page gets the first 300 documents plus counts.
+* M2 table exports (database column names `MT`, `MNR`, `MART`, `MADFIRMA`, `MANDBEZ1`…) are read: the mandate
+  number is built as prefix-number-type (KP-00031-ENT), event `REF_COMPOSED`.
 * Terminal: `bin/m2ctl.sh ai status|suggest|documents|summary|all [runs/<stamp>]`. Output: `runs/<stamp>/ai_suggestions.json`.
 
 ## Claude Code (MCP server)

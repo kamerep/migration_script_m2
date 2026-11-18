@@ -366,6 +366,25 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 .tag.block { color: var(--orange-fg); border-color: color-mix(in srgb, var(--orange) 50%, var(--border)); }
 .progress-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .progress-row .bar { flex: 1 1 200px; }
+/* data flow: lanes from M2 to Odoo, the part this tool runs is outlined */
+.lane { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: stretch; }
+.lane > h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); padding-top: 10px; }
+.lane .nodes { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+.lane.mine .nodes { border: 2px solid var(--accent); border-radius: var(--radius); padding: 10px; background: var(--surface-2); }
+.fnode { flex: 1 1 200px; min-width: 0; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.fnode.out { border-style: dashed; background: transparent; color: var(--text-muted); }
+.fnode.ai { border-color: var(--violet); box-shadow: inset 3px 0 0 var(--violet); }
+.fnode.tool { box-shadow: inset 3px 0 0 var(--accent); }
+button.fnode { cursor: pointer; } button.fnode:hover { border-color: var(--accent); }
+.fnode b { font-size: 13.5px; display: flex; gap: 6px; align-items: center; } .fnode .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fnode .small { color: var(--text-muted); }
+.fdown { display: flex; justify-content: center; color: var(--text-muted); padding: 2px 0 2px 162px; } .fdown .ic { transform: rotate(90deg); }
+.fside { align-self: center; color: var(--violet); font-size: 12px; white-space: nowrap; }
+.hbars { display: grid; grid-template-columns: minmax(90px, max-content) 1fr auto; gap: 6px 10px; align-items: center; font-size: 13px; }
+.hbars .bar { height: 10px; } .hbars .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+@media (max-width: 700px) { .lane { grid-template-columns: 1fr; gap: 4px; } .lane > h3 { padding-top: 0; } .fdown { padding-left: 0; } .fside { display: none; } }
 /* ---------- records ---------- */
 .grid2 { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 14px; align-items: start; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
@@ -460,6 +479,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h13l-2.5 4.5L18 13H5"/></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9zM19 15v5M16.5 17.5h5"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="16" width="7" height="5" rx="1.5"/><path d="M6.5 8v4.5h11V16"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
   <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10.5" r="2"/><path d="M6 16c.6-1.5 1.7-2.2 3-2.2s2.4.7 3 2.2M15 10h3M15 14h3"/></symbol>
   <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16M3 9h18"/></symbol>
@@ -533,6 +553,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
       <section class="panel" data-tab="overview"></section>
       <section class="panel" data-tab="decide"></section>
       <section class="panel" data-tab="ai"></section>
+      <section class="panel" data-tab="flow"></section>
       <section class="panel" data-tab="journal"></section>
       <section class="panel" data-tab="records"></section>
       <section class="panel" data-tab="files"></section>
@@ -572,7 +593,7 @@ const LEVEL_COLOR = {error: 'var(--danger)', review: 'var(--orange)', warning: '
 const STAGES = [['files', 'Read & classify files'], ['clients', 'Build clients'], ['registers', 'Link registers'],
   ['finance', 'Fees & open items'], ['compliance', 'Compliance'], ['documents', 'Documents'], ['checks', 'Template checks'],
   ['write', 'Write files']];
-const NAV = [['Run', [['overview', 'Overview', 'grid'], ['decide', 'Needs decision', 'flag'], ['ai', 'AI assistant', 'spark']]],
+const NAV = [['Run', [['overview', 'Overview', 'grid'], ['decide', 'Needs decision', 'flag'], ['ai', 'AI assistant', 'spark'], ['flow', 'Data flow', 'flow']]],
   ['Inspect', [['journal', 'Journal', 'list'], ['records', 'Records', 'card'], ['files', 'Files & columns', 'columns'],
     ['review', 'Review rows', 'clipboard'], ['values', 'Changes & not loaded', 'swap'], ['finance', 'Finance', 'bank']]],
   ['Configure', [['settings', 'Settings', 'sliders'], ['docs', 'Docs', 'book']]]];
@@ -1088,7 +1109,7 @@ function renderFinance() {
     <div class="card"><h2>Compliance <span class="muted small">M2 ML-related, risk category, lock (${sm.compliance?.length || 0})</span></h2><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
     ${sm.compliance?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>ML-related</th><th>Risk category</th><th>Country of max. risk</th><th>Lock</th><th>Note</th></tr>${sm.compliance.map(c =>
       `<tr><td>${c.key ? `<span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span>` : ''}</td><td>${esc(c.client_state)}</td><td>${esc(c.ml_related)}</td><td>${esc(c.risk_category)}</td><td>${esc(c.risk_country)}</td><td>${c.lock === 'Yes' ? `<span class="lv warning">locked</span> ${esc(c.lock_text)}` : esc(c.lock)}</td><td>${esc(c.note)}</td></tr>`).join('')}</table></div>` : none('No compliance export in this run.')}</div>
-    <div class="card"><h2>Documents <span class="muted small">to attach in Odoo (${sm.documents?.length || 0})</span></h2><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
+    <div class="card"><h2>Documents <span class="muted small">to attach in Odoo (${fmt(sm.documents_total ?? sm.documents?.length ?? 0)})</span></h2><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).${sm.documents_total > (sm.documents || []).length ? ` The first ${fmt(sm.documents.length)} are shown; the full list is in the review workbook.` : ''}</p>
     ${sm.documents?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>Folder</th><th>File</th><th>Description</th><th>Created</th><th>Maturity</th><th>On disk</th></tr>${sm.documents.map(d =>
       `<tr><td>${d.key ? `<span class="key" data-key="${esc(d.key)}">${esc(d.key)}</span>` : ''}</td><td>${esc(d.client_state)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.description)}</td><td style="white-space:nowrap">${esc(d.created ?? '')}</td><td style="white-space:nowrap">${esc(d.maturity ?? '')}</td><td class="small mono">${d.on_disk ? esc(d.on_disk) : '<span class="lv warning">not copied</span>'}</td></tr>`).join('')}</table></div>` : none('No document export or document folders in this run.')}</div>`;
   bindKeys(el);
@@ -1112,34 +1133,44 @@ function bindAI(el) {
     const body = d.type === 'alias' ? {type: 'alias', key: d.key, kind: d.kind, field: d.value} : {type: d.type, key: d.key, value: d.value};
     busy(btn, () => decide(body, `${d.key} → ${d.value} saved (AI suggestion)`, {target: d.type, key: d.key, kind: d.kind, field: d.value})); });
 }
+function aiDocTypes(a) { if (a.document_types) return a.document_types; const m = {}; (a.documents || []).forEach(d => m[d.doc_type] = (m[d.doc_type] || 0) + 1); return m; }
+function aiResume() { const j = S.ai?.job; if (!['interrupted', 'stopped', 'failed'].includes(j?.state)) return '';
+  const left = (j.tasks || []).filter(t => !(j.done || []).includes(t)); if (!left.length) return '';
+  const why = {interrupted: 'was cut off (the tool or the machine restarted)', stopped: 'was stopped', failed: 'stopped on an error'}[j.state];
+  return `<div class="banner warn" style="margin:10px 0 0">${ic('warn')}<div><b>The assistant ${why} at ${(j.percent || 0).toFixed(1)}%.</b> Left: ${left.map(t => AI_TASK[t] || t).join(', ')}. Answers already given are kept and reused, so it goes on where it was.
+    <div style="margin-top:8px"><button class="btn small primary" id="airesume">${ic('refresh')}Resume</button></div></div></div>`; }
 function aiProgress() { const j = S.ai?.job; if (j?.state !== 'running') return '';
   const n = (j.tasks || []).length || 1, d = (j.done || []).length, el = j.started ? Math.max(0, (Date.now() - Date.parse(j.started)) / 1000) : 0;
   const pct = Math.max(0, Math.min(100, j.percent ?? 100 * d / n)), eta = j.eta ? `about ${secs(j.eta)} left in this step, ` : '';
   return `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${(j.tasks || []).map(t => `<span class="chip static ${(j.done || []).includes(t) ? 'on' : ''}">${(j.done || []).includes(t) ? ic('check') : ''} ${AI_TASK[t] || t}</span>`).join(' ')}</span>
     <div class="bar tall" role="progressbar" aria-label="Assistant progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-valuetext="${pct.toFixed(1)}%"><i style="width:${pct}%;background:var(--violet)"></i></div>
-    <b class="num" style="min-width:6ch;text-align:right">${pct.toFixed(1)}%</b><span class="small muted">${j.step ? esc(j.step) + ', ' : ''}${eta}${d} of ${n} task(s), ${secs(el)} so far</span>
+    <b class="num" style="min-width:6ch;text-align:right">${pct.toFixed(1)}%</b><span class="small muted">${j.step ? esc(j.step) + ', ' : ''}${j.reused ? `${fmt(j.reused)} saved answer(s) reused, ` : ''}${eta}${d} of ${n} task(s), ${secs(el)} so far</span>
     <button class="btn small" id="aistop" title="Stop after the current batch; finished tasks keep their results">${ic('x')}Stop</button></div>`; }
 async function loadAI() {
   if (!S.run) return; const run = S.run; const was = S.ai?.job?.state;
-  try { const r = await api(`/api/ai?run=${run}`, undefined, {quiet: true}); if (run !== S.run) return; S.ai = r; } catch (e) { S.ai = null; }
+  try { const light = was === 'running' && S.ai?.run === run;
+    const r = await api(`/api/ai?run=${run}${light ? '&job=1' : ''}`, undefined, {quiet: true}); if (run !== S.run) return;
+    S.ai = r.job?.state === 'running' && light ? {...S.ai, job: r.job} : r.job?.state !== 'running' && light ? await api(`/api/ai?run=${run}`, undefined, {quiet: true}) : r;
+  } catch (e) { S.ai = null; }
   const now = S.ai?.job?.state; clearTimeout(S.aiTimer);
   if (now === 'running') S.aiTimer = setTimeout(loadAI, 1500);
   const bad = (S.ai?.calls || []).filter(c => !c.ok && (!S.ai.job?.started || (c.at || '') >= S.ai.job.started));
   if (was === 'running' && now === 'done' && bad.length) toast(`The assistant finished, but ${bad.length} model call(s) failed`, {type: 'warn', ms: 9000, detail: bad[0].error || '',
     action: S.tab === 'ai' ? null : {label: 'Open', fn: () => go('ai')}});
-  else if (was === 'running' && now === 'done') toast('The assistant is done', {type: 'success', detail: `${(S.ai.suggestions || []).length} suggestion(s), ${(S.ai.documents || []).length} document(s) typed.`,
+  else if (was === 'running' && now === 'done') toast('The assistant is done', {type: 'success', detail: `${(S.ai.suggestions || []).length} suggestion(s), ${fmt(S.ai.documents_total ?? (S.ai.documents || []).length)} document(s) typed.`,
     action: S.tab === 'ai' ? null : {label: 'Open', fn: () => go('ai')}});
   if (was === 'running' && now === 'failed') toast('The assistant stopped: ' + (S.ai.job.error || ''), {type: 'error'});
   if (was === 'running' && now === 'stopped') toast('The assistant stopped', {detail: `Finished: ${(S.ai.job.done || []).map(t => AI_TASK[t] || t).join(', ') || 'nothing yet'}.`});
   if (now === 'running' && was === 'running') { const p = $('#aiprog'); if (p) { p.innerHTML = aiProgress(); bindAIStop(); return; } }
-  if (['ai', 'decide', 'overview'].includes(S.tab)) softRender(); else renderShell();
+  if (['ai', 'decide', 'overview', 'flow'].includes(S.tab)) softRender(); else renderShell();
 }
 function bindAIStop() { const b = $('#aistop'); if (!b) return;
   b.onclick = async () => { b.disabled = true; try { await api('/api/ai/stop', {run: S.run}); toast('Stopping after the current batch…'); } catch (e) { toast(e.message, {type: 'error'}); b.disabled = false; } }; }
-async function runAI(tasks) {
+async function runAI(tasks, resume) {
   if (!S.run || S.state === 'running') return toast('Wait for the run to finish.', {type: 'warn'});
-  try { await api('/api/ai/run', {run: S.run, tasks}); S.ai = {...(S.ai || {}), job: {state: 'running', tasks, done: [], started: new Date().toISOString()}};
-    toast('The assistant is working on this machine…', {detail: tasks.map(t => AI_TASK[t]).join(', ')}); softRender(); clearTimeout(S.aiTimer); S.aiTimer = setTimeout(loadAI, 800); }
+  try { const r = await api('/api/ai/run', {run: S.run, tasks, resume: !!resume}); tasks = r.tasks;
+    S.ai = {...(S.ai || {}), run: S.run, job: {state: 'running', tasks, done: [], started: new Date().toISOString()}};
+    toast(resume ? 'The assistant goes on where it stopped…' : 'The assistant is working on this machine…', {detail: tasks.map(t => AI_TASK[t]).join(', ')}); softRender(); clearTimeout(S.aiTimer); S.aiTimer = setTimeout(loadAI, 800); }
   catch (e) { toast(e.message, {type: 'error'}); }
 }
 async function renderAI() {
@@ -1160,7 +1191,7 @@ async function renderAI() {
     <button class="btn" data-ai-run="suggest" ${busyNow ? 'disabled' : ''}>Suggest decisions</button>
     <button class="btn" data-ai-run="documents" ${busyNow ? 'disabled' : ''}>Classify documents</button>
     <button class="btn" data-ai-run="summary" ${busyNow ? 'disabled' : ''}>Summary</button></div><div id="aiprog">${aiProgress()}</div>
-    ${a.job?.state === 'failed' ? `<div class="banner err" style="margin:10px 0 0">${ic('alert')}<div>${esc(a.job.error)}</div></div>` : ''}</div>`;
+    ${a.job?.state === 'failed' ? `<div class="banner err" style="margin:10px 0 0">${ic('alert')}<div>${esc(a.job.error)}</div></div>` : ''}${busyNow ? '' : aiResume()}</div>`;
   if (a.summary) html += `<div class="card"><h2><span class="dot ${esc(a.summary.status)}"></span>${esc(a.summary.headline)}</h2>
     ${(a.summary.actions || []).length ? `<ol style="margin:0;padding-left:20px">${a.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}<p class="small muted">${esc(a.summary.notes)}</p></div>`;
   const sug = a.suggestions || [];
@@ -1171,15 +1202,17 @@ async function renderAI() {
       <td>${meter(x.confidence)}</td><td class="small">${esc(x.reason)}</td><td class="small">${esc(x.provider)}</td>
       <td>${x.type === 'legal_form' ? '' : done ? `<span class="saved">${ic('check')}Saved</span>` : `<button class="btn small" data-ai-accept="${esc(JSON.stringify({type: x.type, key: x.key, kind: x.kind, value: v}))}">Accept</button>`}</td></tr>`; }).join('')}</table></div>` :
     busyNow ? '<div class="sk"></div><div class="sk" style="width:70%"></div>' : '<p class="muted" style="margin:0">No suggestion yet. Press <b>Suggest decisions</b>.</p>'}</div>`;
-  const docs = a.documents || [];
-  if (docs.length) { const by = {}; docs.forEach(d => by[d.doc_type] = (by[d.doc_type] || 0) + 1);
-    html += `<div class="card"><h2>Document types <span class="muted">${docs.length} file(s)</span></h2><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
+  const docs = a.documents || [], total = a.documents_total ?? docs.length;
+  if (docs.length) { const by = aiDocTypes(a);
+    html += `<div class="card"><h2>Document types <span class="muted">${fmt(total)} file(s)</span></h2><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
     ${(a.document_gaps || []).length ? `<h2 style="margin-top:12px">Mandates missing documents <span class="muted">${a.document_gaps.length}</span></h2><p class="muted">Checked over every mandate holder the mandate is filed under. ENT and ACC need company documents and people KYC; CON and DIR need person KYC; ADM (internal) is not checked. The full table is in Archive_KYC_coverage.xlsx.</p><div class="tablewrap free"><table><tr><th>M2 key</th><th>Type</th><th>Holders</th><th>Missing in every holder</th><th>Found in another holder</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${esc(g.type || '')}</td><td>${esc((g.holders || []).join(', '))}</td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td><td>${(g.covered_elsewhere || []).map(x => `<span class="lv ok">${esc(x.need)}</span> <span class="muted">in ${esc(x.found_in.join(', '))}</span>`).join('<br>')}</td></tr>`).join('')}</table></div>` : ''}
+    ${total > docs.length ? `<p class="small muted" style="margin:10px 0 0">The first ${fmt(docs.length)} of ${fmt(total)} are shown here; every file and its type is in Archive_KYC_coverage.xlsx.</p>` : ''}
     <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th>Confidence</th><th>By</th></tr>${docs.map(d => `<tr><td class="mono small">${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td>${meter(d.confidence)}</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
   if ((a.calls || []).length) html += `<details class="card"><summary>${ic('chev')}Model calls <span class="muted">${a.calls.length}</span></summary><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
     ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? '<span class="lv ok">ok</span>' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></details>`;
   el.innerHTML = html + aiSettingsCard(cfg);
   bindAIStop();
+  const rs = $('#airesume', el); if (rs) rs.onclick = () => runAI(null, true);
   $$('[data-ai-run]', el).forEach(b => b.onclick = () => runAI(b.dataset.aiRun.split(',')));
   $('#airecheck').onclick = () => { S.aiStatus = null; renderAI(); };
   bindAI(el); bindAISettings(el); bindKeys(el);
@@ -1306,7 +1339,56 @@ async function renderDocs() {
   $$('[data-doc]', el).forEach(b => b.onclick = () => { S.docScroll = true; go('docs', b.dataset.doc); });
 }
 
-const RENDER = {overview: renderOverview, decide: renderDecide, ai: renderAI, journal: renderJournal, records: renderRecords, files: renderFiles,
+// ---------- data flow: the M2 DataFlow chart, with the numbers of the open run ----------
+function hbars(rows, color = 'var(--accent)') {
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return `<div class="hbars">${rows.map(([label, n, sub]) => `<span class="small">${esc(label)}</span><div class="bar" role="img" aria-label="${esc(label)}: ${fmt(n)}"><i style="width:${100 * n / max}%;background:${color}"></i></div><span class="num small">${fmt(n)}${sub ? ` <span class="muted">${esc(sub)}</span>` : ''}</span>`).join('')}</div>`;
+}
+function renderFlow() {
+  const el = panel('flow'), sm = S.summary, a = S.ai || {}, st = S.aiStatus, inv = S.inv;
+  if (!st) api('/api/ai/status', undefined, {quiet: true}).then(r => { S.aiStatus = r; }).catch(e => { S.aiStatus = {error: e.message}; }).finally(() => { if (S.tab === 'flow') renderFlow(); });
+  if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
+  const kinds = S.info?.kinds || {}, files = sm?.files || [];
+  const byKind = {}; files.forEach(f => { const k = f.kind || 'unknown'; byKind[k] = byKind[k] || {files: 0, rows: 0}; byKind[k].files++; byKind[k].rows += f.rows || 0; });
+  const exports = Object.entries(byKind).filter(([k]) => k !== 'inventory'), listing = byKind.inventory;
+  const expRows = exports.reduce((n, [, v]) => n + v.rows, 0), expFiles = exports.reduce((n, [, v]) => n + v.files, 0);
+  const byHolder = {...(sm?.documents_by_holder || {})};
+  if (!sm?.documents_by_holder) (sm?.documents || []).forEach(d => { const w = d.where || ''; const h = w.startsWith('archive ') ? w.slice(8) : 'M2 documents'; byHolder[h] = (byHolder[h] || 0) + 1; });
+  const t = sm?.totals || {}, open = decisionProgress(decisionsNeeded()).open, cfg = st?.settings || {}, ol = st?.ollama || {};
+  const calls = a.calls || [], local = calls.filter(c => c.provider === 'ollama'), cloud = calls.filter(c => c.provider === 'claude');
+  const avg = local.length ? local.reduce((n, c) => n + (c.seconds || 0), 0) / local.length : 0;
+  const typed = a.documents_by_model ?? (a.documents || []).filter(d => d.provider && d.provider !== 'rules').length, job = a.job || {};
+  const node = (cls, icon, title, big, sub, go) => `<${go ? `button type="button" data-flow-go="${go}"` : 'div'} class="fnode ${cls}"><b>${icon ? ic(icon) : ''}${title}</b>${big !== '' ? `<span class="big">${big}</span>` : ''}<span class="small">${sub}</span></${go ? 'button' : 'div'}>`;
+  const lane = (title, nodes, mine) => `<div class="lane ${mine ? 'mine' : ''}"><h3>${title}</h3><div class="nodes">${nodes}</div></div>`;
+  const down = `<div class="fdown" aria-hidden="true">${ic('chev')}</div>`;
+  const olState = st ? (ol.up ? (ol.model_present ? '<span class="lv ok">ready</span>' : '<span class="lv warning">model not pulled</span>') : '<span class="lv error">not answering</span>') : '<span class="muted">checking…</span>';
+  let html = `<p class="muted" style="margin:0 0 12px">From M2 to Odoo, as in the M2 DataFlow chart. The outlined lane is what this tool does, on this machine; dashed boxes happen outside it. The numbers are from run <span class="mono">${esc(S.run || 'none open')}</span>.</p>
+  <div class="card">
+  ${lane('In M2', node('out', '', 'M2 database server', '', 'Interbase database, M2 program files, mandate documents (Dokument)') + node('out', '', 'Remote desktop server', '', 'M2 client sessions of the M2 users') + node('out', '', 'Archive server', '', 'Z: M2 archive, one folder per mandate holder'))}
+  ${down}${lane('Backup copies', node('out', '', 'Local server, Swiss cloud, external drive', '', 'Copies of the three servers. An isolated restore is the fallback only.'))}
+  ${down}${lane('Extract', node('', 'file', 'M2 exports', sm ? fmt(expRows) : '…', sm ? `rows in ${fmt(expFiles)} file(s) of ${exports.length} kind(s)${expFiles ? '' : ': none yet, export from the Gbak snapshot off hours'}` : 'open a run', 'files')
+      + node('', 'folder', 'File inventory', inv?.total ? `${fmt(inv.done)} of ${fmt(inv.total)}` : listing ? fmt(listing.rows) : '…', inv?.total ? `mandate holders listed, ${fmt(inv.files)} files, ${esc(inv.state)}` : listing ? 'files listed in the archive inventory' : 'no inventory CSV in the source folder', 'overview'))}
+  ${down}${lane('This tool', node('tool', 'swap', 'Source to Odoo models', sm ? fmt(t.import) : '…', sm ? `rows to import, ${fmt(t.review)} to review, ${fmt(t.documents)} documents indexed, ${fmt(open)} decision(s) open. Mapping, cleaning, Odoo fields, external IDs.` : 'run the migration', 'journal')
+      + `<span class="fside" aria-hidden="true">${ic('swap')}</span>` + node('ai', 'spark', `Ollama on this machine ${olState}`, local.length ? fmt(local.length) : '0', `model call(s), ${esc(cfg.ollama_model || '')}${local.length ? `, ${secs(avg)} each on average` : ''}. ${fmt((a.suggestions || []).length)} suggestion(s), ${fmt(typed)} document(s) typed by the model${job.state === 'running' ? `, working: ${(job.percent || 0).toFixed(1)}%` : ''}. Client data stays here${cfg.allow_cloud ? `; Claude sees headers and codes only (${fmt(cloud.length)} call(s))` : '; cloud off'}.`, 'ai'), true)}
+  ${down}${lane('Output', node('tool', 'download', 'CSP_Import_M2.xlsx', sm ? fmt(t.import) : '…', 'rows for Contacts › Configuration › Client Import', sm ? 'overview' : '') + node('tool', 'clipboard', 'CSP_Import_M2_Review.xlsx', sm ? fmt(t.review) : '…', 'rows left out, each with why and how to fix', 'review'), true)}
+  ${down}${lane('In Odoo', node('out', '', 'Odoo staging (odoo.sh)', '', 'Load the import file, then check') + node('out', '', 'Reconciliation and verification', '', 'Differences come back here as decisions, then run again') + node('out', '', 'Odoo production', '', 'Load once staging is reconciled'))}
+  </div>`;
+  if (sm) {
+    const kindRows = Object.entries(byKind).sort((x, y) => y[1].rows - x[1].rows).map(([k, v]) => [kinds[k] || k, v.rows, `${v.files} file(s)`]);
+    const holderRows = Object.entries(byHolder).sort((x, y) => y[1] - x[1]).map(([h, n]) => [h, n]);
+    const sheetRows = Object.values(sm.sheets || {}).map(x => [x.title, x.import + x.review, x.review ? `${fmt(x.review)} to review` : '']);
+    html += `<div class="fgrid">
+      <div class="card"><h2>${ic('file')}What came out of M2 <span class="muted">${fmt(files.length)} file(s)</span></h2>${kindRows.length ? hbars(kindRows) : empty('file', 'No export read', 'Put the M2 exports in the source folder and run again.')}</div>
+      <div class="card"><h2>${ic('folder')}Documents per mandate holder <span class="muted">${fmt(Object.values(byHolder).reduce((n, v) => n + v, 0))}</span></h2>${holderRows.length ? hbars(holderRows, 'var(--k1)') : empty('folder', 'No document indexed')}</div>
+      <div class="card"><h2>${ic('swap')}Rows per template sheet</h2>${sheetRows.some(r => r[1]) ? hbars(sheetRows) : empty('swap', 'No row for the template yet', 'The run read no client export: only the archive was listed.')}</div>
+      <div class="card"><h2>${ic('spark')}Local model work <span class="muted">${fmt(local.length)} call(s)</span></h2>${local.length ? hbars(Object.entries(local.reduce((m, c) => { m[c.task] = m[c.task] || [0, 0, 0]; m[c.task][0]++; m[c.task][1] += c.seconds || 0; m[c.task][2] += c.ok ? 0 : 1; return m; }, {})).map(([k, [n, sec, bad]]) => [k, n, `${secs(sec)}${bad ? `, ${bad} failed` : ''}`]), 'var(--violet)')
+        + (Object.keys(aiDocTypes(a)).length ? `<h3 style="margin:14px 0 6px;font-size:13px">Document types</h3>${hbars(Object.entries(aiDocTypes(a)).sort((x, y) => y[1] - x[1]).slice(0, 12), 'var(--violet)')}` : '')
+        : empty('spark', 'The local model has not worked on this run', '', `<button class="btn" data-flow-go="ai">${ic('spark')}Open the AI assistant</button>`)}</div></div>`;
+  }
+  el.innerHTML = html;
+  $$('[data-flow-go]', el).forEach(b => b.onclick = () => go(b.dataset.flowGo));
+}
+const RENDER = {overview: renderOverview, decide: renderDecide, ai: renderAI, flow: renderFlow, journal: renderJournal, records: renderRecords, files: renderFiles,
   review: renderReview, values: renderValues, finance: renderFinance, settings: renderSettings, docs: renderDocs};
 
 // ---------- navigation: every place has an address (#tab or #tab/argument) ----------

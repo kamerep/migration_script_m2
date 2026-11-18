@@ -65,6 +65,10 @@ def api_token():
 
 API_TOKEN = api_token()
 AI_JOBS = {}                    # run id -> {'state': running|done|stopped|failed, 'tasks': [...], 'error': ...}
+AI_JOB_FILE = 'ai_job.json'
+AI_VIEWS = {}                   # run id -> (mtime of ai_suggestions.json, its content with counts)     # the job's state in the run folder: read back after a restart or a crash
+PAGE_DOCS = 300                 # document rows sent to the page; the full list stays in the files
+KEEP_RUNS = 3                   # runs held in memory besides the running one (an archive run is ~50 MB)
 LOCK = threading.Lock()
 JOBS = {}                       # run id -> {'events': [...], 'state': running|done|failed, 'summary': {...}}
 
@@ -185,7 +189,25 @@ def load_run(run_id):
            'state': state.get('state') or ('done' if (path / 'summary.json').is_file() else 'failed'),
            'source': state.get('source'), 'started': state.get('started')}
     JOBS[run_id] = job
+    for old in [k for k, j in JOBS.items() if j['state'] != 'running' and k != run_id][:-KEEP_RUNS or None]:
+        JOBS.pop(old, None)
     return job
+
+
+def page_summary(job):
+    """The summary as the page needs it: the first document rows and counts, not the whole archive index."""
+    sm = job.get('summary')
+    if not sm or len(sm.get('documents') or []) <= PAGE_DOCS:
+        return sm
+    if 'page_summary' not in job:
+        docs, holders = sm['documents'], {}
+        for d in docs:
+            where = d.get('where') or ''
+            holder = where[len('archive '):] if where.startswith('archive ') else 'M2 documents'
+            holders[holder] = holders.get(holder, 0) + 1
+        job['page_summary'] = {**sm, 'documents': docs[:PAGE_DOCS], 'documents_total': len(docs),
+                               'documents_by_holder': holders}
+    return job['page_summary']
 
 
 def api_events(params):
@@ -194,7 +216,7 @@ def api_events(params):
     since = int(params.get('since') or 0)
     events = job['events'][since:since + 5000]
     return {'run': job['id'], 'state': job['state'], 'events': events, 'next': since + len(events),
-            'total': len(job['events']), 'summary': job['summary'] if job['state'] != 'running' else None,
+            'total': len(job['events']), 'summary': page_summary(job) if job['state'] != 'running' else None,
             'trace': job.get('trace'), 'source': job.get('source'), 'started': job.get('started')}
 
 
@@ -406,17 +428,35 @@ def api_ai_run(params):
         raise Error("The assistant is already working on this run.")
     tasks = [t for t in (params.get('tasks') or ['suggest', 'documents', 'summary'])
              if t in ('suggest', 'documents', 'summary')]
+    if params.get('resume'):
+        last = ai_job(run_id)
+        tasks = [t for t in last.get('tasks') or [] if t not in (last.get('done') or [])] or tasks
     config = m2.load_config(CONFIG)
     settings = m2_ai.load_settings(config)
     if not settings.get('enabled', True):
         raise Error("AI assistance is off (Settings > AI).")
+    ai = m2_ai.AI(settings, log=lambda m: server_log('WARN', f"ai {run_id}: {m}"))
+    short = ai.memory_check()
+    if short:
+        raise Error(short)
+    ai.cache_path = RUNS / m2_ai.CACHE_FILE
     job = AI_JOBS[run_id] = {'state': 'running', 'tasks': tasks, 'done': [], 'error': None, 'percent': 0,
-                             'step': '', 'eta': None, 'started': datetime.datetime.now().isoformat(timespec='seconds')}
+                             'step': '', 'eta': None, 'reused': 0,
+                             'started': datetime.datetime.now().isoformat(timespec='seconds')}
     server_log('INFO', f"ai {run_id}: {', '.join(tasks)} with {settings['provider']}")
+    saved = {'at': 0.0}
+
+    def keep(force=False):
+        """Write the job's state to the run folder (at most every 2 s while it works)."""
+        if force or time.time() - saved['at'] > 2:
+            saved['at'] = time.time()
+            data = {k: v for k, v in job.items() if k != 'ai'}
+            try:
+                (path / AI_JOB_FILE).write_text(json.dumps(data, default=str), encoding='utf-8')
+            except OSError as exc:
+                server_log('WARN', f"ai {run_id}: job state not saved: {exc}")
 
     def work():
-        ai = m2_ai.AI(settings, log=lambda m: server_log('WARN', f"ai {run_id}: {m}"))
-
         clock = {'task': time.time()}
 
         def progress(fraction, detail=''):
@@ -425,10 +465,13 @@ def api_ai_run(params):
             job['percent'] = max(job['percent'], min(99.9, round(100 * share, 1)))  # never back, 100 when done
             spent = time.time() - clock['task']
             job['eta'] = round(spent * (1 - fraction) / fraction) if fraction >= 0.01 and spent > 5 else None
+            job['reused'] = ai.reused
             if detail:
                 job['step'] = detail
+            keep()
         ai.on_progress = progress
         job['ai'] = ai
+        keep(True)
         try:
             for task in tasks:
                 ai.span, job['step'], job['eta'], clock['task'] = (0.0, 1.0), '', None, time.time()
@@ -445,9 +488,23 @@ def api_ai_run(params):
             server_log('ERROR', f"ai {run_id} failed: {exc}")
         finally:
             job.pop('ai', None)
+            job['reused'] = ai.reused
+            keep(True)
+            ai.unload()
 
     threading.Thread(target=work, daemon=True).start()
     return {'run': run_id, 'state': 'running', 'tasks': tasks}
+
+
+def ai_job(run_id):
+    """The assistant's job on a run: in memory, or read back from the run folder. A job the file says is still
+    running but this server does not hold was cut off (restart, crash, machine out of memory): 'interrupted'."""
+    if run_id in AI_JOBS:
+        return {k: v for k, v in AI_JOBS[run_id].items() if k != 'ai'}
+    job = read_json(run_dir(run_id) / AI_JOB_FILE, {}) or {}
+    if job.get('state') == 'running':
+        job.update(state='interrupted', step='', eta=None)
+    return job
 
 
 def api_ai_stop(params):
@@ -462,12 +519,30 @@ def api_ai_stop(params):
 
 
 def api_ai(params):
-    """What the assistant produced for a run (suggestions, document types, summary, model calls) and its job."""
+    """What the assistant produced for a run (suggestions, document types, summary, model calls) and its job;
+    job=1 returns the job only (for polling), docs=N the first N typed documents (default 300)."""
     run_id = params.get('run')
     path = run_dir(run_id)
-    data = read_json(path / m2_ai.SUGGESTIONS_FILE, {}) or {}
-    job = {k: v for k, v in (AI_JOBS.get(run_id) or {'state': 'done' if data else 'none'}).items() if k != 'ai'}
-    return {'run': run_id, 'job': job, **data}
+    job = ai_job(run_id)
+    if params.get('job') and job.get('state') == 'running':
+        return {'run': run_id, 'job': job}
+    file = path / m2_ai.SUGGESTIONS_FILE
+    stamp = file.stat().st_mtime if file.is_file() else None
+    cached = AI_VIEWS.get(run_id)
+    if not cached or cached[0] != stamp:
+        data = read_json(file, {}) or {}
+        docs = data.get('documents') or []
+        types = {}
+        for d in docs:
+            types[d.get('doc_type')] = types.get(d.get('doc_type'), 0) + 1
+        data.update(documents_total=len(docs), document_types=types,
+                    documents_by_model=sum(1 for d in docs if d.get('provider') not in (None, '', 'rules')))
+        AI_VIEWS.clear()                        # one run's view at a time: they are large
+        cached = AI_VIEWS[run_id] = (stamp, data)
+    data = cached[1]
+    limit = max(0, int(params.get('docs') or PAGE_DOCS))
+    job = job or {'state': 'done' if data else 'none'}
+    return {'run': run_id, 'job': job, **data, 'documents': (data.get('documents') or [])[:limit]}
 
 
 def api_summary(params):

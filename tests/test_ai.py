@@ -150,6 +150,43 @@ class TestDocuments(unittest.TestCase):
             ai.classify('officer_types', 's', [{'id': 'o0'}, {'id': 'o1'}, {'id': 'o2'}], set(m2_ai.REGISTERS))
         self.assertEqual(len(ai.asked), 1)
 
+class TestResume(unittest.TestCase):
+
+    def test_answers_kept_and_reused_after_a_stop(self):
+        items = [{'id': f"o{i}", 'code': f"C{i}"} for i in range(4)]
+        answer = lambda p: [{'id': x['id'], 'value': 'directors', 'confidence': 0.7} for x in p['items']]  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp:
+            first = FakeAI({'officer_types': answer}, batch=2)
+            first.cache_path = Path(tmp, m2_ai.CACHE_FILE)
+            first.on_progress = lambda frac, detail='': setattr(first, 'cancelled', frac >= 0.5)
+            with self.assertRaises(m2_ai.Cancelled):
+                first.classify('officer_types', 's', items, set(m2_ai.REGISTERS))
+            self.assertEqual(len(first.asked), 1)                       # stopped after the first batch
+            again = FakeAI({'officer_types': answer}, batch=2)
+            again.cache_path = first.cache_path
+            res = again.classify('officer_types', 's', items, set(m2_ai.REGISTERS))
+            self.assertEqual(len(res), 4)
+            self.assertEqual([x['code'] for x in again.asked[0][2]['items']], ['C2', 'C3'])   # only the rest
+            self.assertEqual(again.reused, 2)
+            self.assertEqual(oct(first.cache_path.stat().st_mode & 0o777), '0o600')
+            other = FakeAI({'officer_types': answer}, batch=2, ollama_model='other:1b')    # other model: ask again
+            other.cache_path = first.cache_path
+            other.classify('officer_types', 's', items, set(m2_ai.REGISTERS))
+            self.assertEqual(len(other.asked), 2)
+
+    def test_memory_check(self):
+        ai = m2_ai.AI({**m2_ai.DEFAULTS})
+        replies = {'/api/ps': {'models': []}, '/api/tags': {'models': [{'name': 'llama3.1:8b', 'size': 5 << 30}]}}
+        with mock.patch.object(ai, '_ollama', side_effect=lambda path, *a, **k: replies[path]):
+            with mock.patch.object(m2_ai, 'free_memory', return_value=3 << 30):
+                self.assertIn('Not enough free memory', ai.memory_check())
+            with mock.patch.object(m2_ai, 'free_memory', return_value=16 << 30):
+                self.assertIsNone(ai.memory_check())
+            replies['/api/ps'] = {'models': [{'name': 'llama3.1:8b'}]}             # loaded already
+            with mock.patch.object(m2_ai, 'free_memory', return_value=1 << 30):
+                self.assertIsNone(ai.memory_check())
+
+
 class TestDocumentRules(unittest.TestCase):
 
     def run_docs(self, docs):

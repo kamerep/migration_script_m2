@@ -11,6 +11,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
@@ -200,6 +201,28 @@ class TestServer(unittest.TestCase):
         self.assertNotIn('ZZ', config()['company_map'])
         self.assertNotIn('mobile', config()['extra_aliases'].get('addresses', {}))
         self.assertEqual(self.get('/api/decide', body={'type': 'unset', 'target': 'nothing', 'key': 'ZZ'})[0], 400)
+
+    def test_ai_job_interrupted_and_trimmed(self):
+        run = m2_ui.RUNS / '20990101-000000'
+        run.mkdir(parents=True)
+        (run / 'summary.json').write_text(json.dumps({'totals': {}, 'documents': [
+            {'key': f"KP-{i}-ENT", 'where': 'archive NOVA-PH', 'file': f"f{i}.pdf"} for i in range(500)]}))
+        (run / 'ai_suggestions.json').write_text(json.dumps({'documents': [
+            {'key': f"KP-{i}-ENT", 'doc_type': 'other', 'provider': 'rules'} for i in range(500)]}))
+        (run / m2_ui.AI_JOB_FILE).write_text(json.dumps({'state': 'running', 'tasks': ['suggest', 'documents'],
+                                                         'done': ['suggest'], 'percent': 61.0}))
+        data = json.loads(self.get(f"/api/ai?run={run.name}")[2])
+        self.assertEqual(data['job']['state'], 'interrupted')          # the file says running, no thread holds it
+        self.assertEqual((len(data['documents']), data['documents_total']), (m2_ui.PAGE_DOCS, 500))
+        self.assertEqual(data['document_types'], {'other': 500})
+        events = json.loads(self.get(f"/api/events?run={run.name}")[2])
+        self.assertEqual(events['summary']['documents_total'], 500)
+        self.assertEqual(events['summary']['documents_by_holder'], {'NOVA-PH': 500})
+        self.assertEqual(len(events['summary']['documents']), m2_ui.PAGE_DOCS)
+        with unittest.mock.patch.object(m2_ui.m2_ai.AI, 'memory_check', return_value='Not enough free memory'):
+            status, _c, body = self.get('/api/ai/run', body={'run': run.name, 'resume': True})
+        self.assertEqual(status, 400)
+        self.assertIn('Not enough free memory', json.loads(body)['error'])
 
     def test_errors_are_json(self):
         status, ctype, body = self.get('/api/nope')

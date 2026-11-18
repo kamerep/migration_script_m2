@@ -266,5 +266,34 @@ class TestEnglishRun(unittest.TestCase):
             self.assertIn(code, self.codes)
 
 
+
+class TestTableExport(unittest.TestCase):
+    """The mandate table of the M2 database exported as is: column names like MNR, MADFIRMA, MANDBEZ1."""
+
+    def test_mandate_number_built_from_its_parts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+            src.mkdir()
+            book = openpyxl.Workbook()
+            ws = book.active
+            ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDAT', 'MANDBEZ1', 'VSB', 'ADRNR', 'GESFORM',
+                       'MANDATSFORM', 'AKTIV'])
+            ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', None, 'Example Holding Ltd', 'FF', 1201.0, 'Ltd', None, 'J'])
+            ws.append(['NOVA-PH', 'KP', 7.0, 'CON', None, 'Doe, Jane', 'FF', 1202.0, None, None, 'J'])
+            book.save(src / 'Mandate list extract.xlsx')
+            job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+            job.run()
+            clients = {r['m2_reference']: r for r in job.rows['clients']}
+            self.assertEqual(set(clients), {'KP-00031-ENT', 'KP-00007-CON'})
+            self.assertEqual(clients['KP-00031-ENT']['name'], 'Example Holding Ltd')
+            self.assertEqual(clients['KP-00031-ENT']['type'], 'Company')
+            self.assertEqual(clients['KP-00007-CON']['type'], 'Individual')
+            self.assertEqual(clients['KP-00031-ENT']['company'], 'Nova Services Inc')     # MADFIRMA = holder
+            mapping = job.files[0]['mapping']
+            self.assertEqual(mapping['legal_form'], 'GESFORM')        # the empty MANDATSFORM does not take it
+            self.assertNotIn('MANDAT', mapping.values())
+            self.assertIn('REF_COMPOSED', [e['code'] for e in job.journal.events])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -71,7 +71,7 @@ audit() {
   [ -n "$core" ] && [ -n "$chrome" ] || { echo "Needs playwright-core (PW_CORE) and Chromium (CHROME_PATH): npm i -g playwright-core && npx playwright install chromium"; return 2; }
   healthy || { echo "The UI is not running: bin/m2ctl.sh start"; return 2; }
   run="${1:-$(ls -1d "$HERE"/runs/*/ 2>/dev/null | sort | tail -1 | xargs -r basename)}"
-  sections="overview decide ai journal records files review values finance settings docs"
+  sections="overview decide ai flow journal records files review values finance settings docs"
   local pages="" s; for s in $sections; do pages="$pages,/?run=$run#$s"; done
   mkdir -p "$HERE/logs/ui-audit"
   local rc=0

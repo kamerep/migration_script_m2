@@ -34,9 +34,10 @@ in order, with the row it finally has in the import file or the reason it waits 
 <h2>6. Load into Odoo</h2><p>Download <code>CSP_Import_M2.xlsx</code> from the Overview and load it in Contacts › Configuration › Client Import
 (Check, then Import). Fix the rows of <code>CSP_Import_M2_Review.xlsx</code>, paste them into the import file and load again: the M2 Reference makes
 every load an update.</p>
+<h2>Data flow</h2><p><b>Data flow</b> draws the M2 DataFlow chart: the M2 servers, the backup copies, the extract (M2 exports from the Gbak snapshot and the file inventory of the archive), this tool with Ollama beside it, the two workbooks, then Odoo staging, reconciliation and production. The outlined lane is what this tool does on this machine; dashed boxes happen outside it. Each box shows the numbers of the open run; click it to open the section behind it. Below are charts of the files read from M2 by kind, the documents per mandate holder, the rows per template sheet and the local model's calls and document types. Server addresses are left out on purpose.</p>
 <h2>7. Finding your way in the page</h2>
 <table><tr><th>Where</th><th>What it is for</th></tr>
-<tr><td>Side bar</td><td>The sections in three groups: <i>Run</i> (Overview, Needs decision, AI assistant), <i>Inspect</i> (Journal, Records, Files &amp; columns, Review rows,
+<tr><td>Side bar</td><td>The sections in three groups: <i>Run</i> (Overview, Needs decision, AI assistant, Data flow), <i>Inspect</i> (Journal, Records, Files &amp; columns, Review rows,
 Changes &amp; not loaded, Finance) and <i>Configure</i> (Settings, Docs). The button at its foot folds it to icons.
 On a phone or a window narrower than 900 px the side bar becomes a top bar: the button with the current section's name opens every section as a list.</td></tr>
 <tr><td>Needs decision count</td><td>Red: decisions you can save here (company, employee, file kind, column, type code) that are not saved yet.

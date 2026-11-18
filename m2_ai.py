@@ -53,7 +53,10 @@ DEFAULTS = {
     'doc_model_limit': 1000,                 # most distinct document names the local model types per run
     'companies': [],                         # Odoo operating companies the holder codes may map to
     'after_run': False,                      # run the assistant by itself after each migration run (UI)
+    'unload_after': True,                    # free the model's memory when a job ends (Ollama keeps it 5 min)
+    'memory_check': True,                    # refuse to load the model when the machine lacks the memory for it
 }
+CACHE_FILE = 'ai_cache.jsonl'                # model answers kept beside the runs: a job resumes where it stopped
 
 # Tasks whose input is only headers / codes: the only ones that may ever go to the cloud.
 CLOUD_SAFE = {'columns_cloud', 'file_kinds_cloud', 'officer_types', 'companies', 'legal_forms'}
@@ -124,6 +127,12 @@ def parse_json(text):
     raise ValueError(f"no JSON in the answer: {text[:200]!r}")
 
 
+def free_memory():
+    """Bytes of memory the system can still give (MemAvailable of Linux)."""
+    with open('/proc/meminfo', encoding='ascii') as fh:
+        return next(int(x.split()[1]) * 1024 for x in fh if x.startswith('MemAvailable:'))
+
+
 class Cancelled(Exception):
     """The person stopped the assistant."""
 
@@ -139,6 +148,8 @@ class AI:
         self.on_progress = None         # callback(fraction 0..1 of the current task, detail text)
         self.span = (0.0, 1.0)          # share of the current task the next classify() fills
         self.cancelled = False          # set from another thread to stop at the next batch
+        self.cache_path = None          # file of earlier model answers (runs/ai_cache.jsonl); None = no reuse
+        self.reused = 0                 # answers taken from the cache in this job
 
     # -- progress --------------------------------------------------------------------------------------------
     def part(self, index, count):
@@ -153,6 +164,81 @@ class AI:
             self.on_progress(lo + (hi - lo) * done / max(1, total), detail)
         if self.cancelled:
             raise Cancelled
+
+    # -- answers kept on disk: a stopped, failed or interrupted job goes on where it was ---------------------
+    def _answers(self):
+        if '_cache' not in self.__dict__:
+            self._cache = {}
+            try:
+                with open(self.cache_path, encoding='utf-8') as fh:
+                    for line in fh:
+                        try:
+                            key, value = json.loads(line)
+                            self._cache[key] = value
+                        except ValueError:
+                            pass        # a line cut by a crash
+            except (OSError, TypeError):
+                pass
+        return self._cache
+
+    def _answer_key(self, task, system, allowed, item):
+        provider = self.route(task)
+        model = self.s['ollama_model'] if provider == 'ollama' else self.s['claude_model']
+        body = {k: v for k, v in item.items() if k != 'id'}
+        raw = json.dumps([task, provider, model, system, sorted(allowed), body], sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+    def _keep(self, pairs):
+        """Append answers to the cache file at once, so a crash loses at most the batch in flight."""
+        if not self.cache_path or not pairs:
+            return
+        self._answers().update(pairs)
+        try:
+            new = not os.path.exists(self.cache_path)
+            with open(self.cache_path, 'a', encoding='utf-8') as fh:
+                fh.writelines(json.dumps([k, v], ensure_ascii=False) + '\n' for k, v in pairs.items())
+            if new:
+                os.chmod(self.cache_path, 0o600)    # file names of client documents: this user only
+        except OSError as exc:
+            self.log(f"answers not kept: {exc}")
+
+    # -- memory: the local model needs several GB; loading it on a full machine ends in the OOM killer -------
+    def _ollama(self, path, body=None, timeout=5):
+        import urllib.request  # noqa: PLC0415
+        req = urllib.request.Request(self.s['ollama_url'].rstrip('/') + path, json.dumps(body).encode()
+                                     if body is not None else None, {'content-type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 - local Ollama
+            return json.loads(r.read() or b'{}')
+
+    def memory_check(self):
+        """None when the model fits (or is loaded already), else a message saying how much memory is missing."""
+        if not self.s.get('memory_check', True):
+            return None
+        try:
+            model = self.s['ollama_model']
+            if any(m.get('name') == model or m.get('model') == model for m in self._ollama('/api/ps').get('models')
+                   or []):
+                return None
+            size = next((m.get('size') or 0 for m in self._ollama('/api/tags').get('models') or []
+                         if m.get('name') == model), 0)
+            free = free_memory()
+        except (OSError, ValueError, StopIteration):
+            return None             # no Ollama or no /proc: the call itself reports the problem
+        need = int(size * 1.3) + (1 << 30)              # weights, context and a margin for the rest
+        if size and free < need:
+            gb = lambda n: f"{n / (1 << 30):.1f} GB"   # noqa: E731
+            return (f"Not enough free memory for {model}: it needs about {gb(need)}, {gb(free)} is free. Close "
+                    "browser windows or other programs, then start again: saved answers are reused.")
+        return None
+
+    def unload(self):
+        """Ask Ollama to free the model now instead of keeping it in memory for minutes."""
+        if not self.s.get('unload_after', True):
+            return
+        try:
+            self._ollama('/api/generate', {'model': self.s['ollama_model'], 'keep_alive': 0}, timeout=15)
+        except Exception as exc:  # noqa: BLE001 - best effort
+            self.log(f"model not unloaded: {exc}")
 
     # -- providers -------------------------------------------------------------------------------------------
     def _client(self, provider):
@@ -284,11 +370,21 @@ class AI:
         """items: [{'id':..., ...}] -> {id: {'value', 'confidence', 'reason', 'provider'}} (values in `allowed`)."""
         results = {}
         size = max(1, int(self.s['batch']))
-        steps = -(-len(items) // size)
-        for i in range(0, len(items), size):
-            chunk = items[i:i + size]
-            self.report(i // size, steps, f"{task}: batch {i // size + 1} of {steps}")
+        keys = {str(x['id']): self._answer_key(task, system, allowed, x) for x in items} if self.cache_path else {}
+        saved = self._answers() if keys else {}
+        for x in items:
+            hit = saved.get(keys.get(str(x['id'])))
+            if hit and hit.get('value') in allowed:
+                results[str(x['id'])] = dict(hit, reused=True)
+        self.reused += len(results)
+        todo = [x for x in items if str(x['id']) not in results]
+        steps = -(-len(todo) // size)
+        again = f", {len(results)} answer(s) reused" if results else ''
+        for i in range(0, len(todo), size):
+            chunk = todo[i:i + size]
+            self.report(i // size, steps, f"{task}: batch {i // size + 1} of {steps}{again}")
             answer = self.ask(task, system, {'allowed': sorted(allowed), 'items': chunk})
+            fresh = {}
             for row in _rows(answer):
                 key, value = str(row.get('id')), row.get('value')
                 if value in allowed and key in {str(x['id']) for x in chunk}:
@@ -298,6 +394,9 @@ class AI:
                     results[key] = {'value': value, 'confidence': conf,
                                     'reason': str(row.get('reason') or '')[:300],
                                     'provider': self.calls[-1].get('provider'), 'model': self.calls[-1].get('model')}
+                    if key in keys:
+                        fresh[keys[key]] = results[key]
+            self._keep(fresh)
         # escalation of the weak ones, headers/codes only
         if self.s['provider'] in ('auto', 'claude') and self.cloud_ready():
             cloud_task = cloud_task or task
@@ -757,13 +856,21 @@ def main(argv=None):
         return 0
     if not a.run or not Path(a.run).is_dir():
         p.error('give the run folder')
+    short = ai.memory_check()
+    if short:
+        print(short, file=sys.stderr)
+        return 2
+    ai.cache_path = Path(a.run).resolve().parent / CACHE_FILE
     result = {}
-    if a.command in ('suggest', 'all'):
-        result = suggest(a.run, ai, config)
-    if a.command in ('documents', 'all'):
-        result = classify_documents(a.run, ai, config)
-    if a.command in ('summary', 'all'):
-        result = summarize(a.run, ai, config)
+    try:
+        if a.command in ('suggest', 'all'):
+            result = suggest(a.run, ai, config)
+        if a.command in ('documents', 'all'):
+            result = classify_documents(a.run, ai, config)
+        if a.command in ('summary', 'all'):
+            result = summarize(a.run, ai, config)
+    finally:
+        ai.unload()
     print(json.dumps({k: result.get(k) for k in ('suggestions', 'summary', 'document_gaps') if k in result},
                      indent=1, ensure_ascii=False, default=str)[:6000])
     return 0

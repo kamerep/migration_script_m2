@@ -179,21 +179,25 @@ def m2_record(key: str, run: str = '') -> dict:
 
 
 @mcp.tool()
-def m2_ai_assist(run: str = '', tasks: list[str] | None = None, wait_seconds: int = 180) -> dict:
+def m2_ai_assist(run: str = '', tasks: list[str] | None = None, wait_seconds: int = 180,
+                 resume: bool = False) -> dict:
     """Run the local assistant on a finished run: 'suggest' (proposed decisions), 'documents' (document types,
-    missing KYC documents), 'summary' (report for people). Waits for it and returns the result."""
+    missing KYC documents), 'summary' (report for people). Waits for it and returns the result. Model answers are
+    kept as they come, so a stopped or interrupted job goes on where it was; resume=True runs only its unfinished
+    tasks."""
     run = _run_id(run)
-    _api('/api/ai/run', {'run': run, 'tasks': tasks or ['suggest', 'documents', 'summary']})
+    _api('/api/ai/run', {'run': run, 'tasks': tasks or ['suggest', 'documents', 'summary'], 'resume': resume})
     deadline = time.time() + max(10, wait_seconds)
     data = {}
     while time.time() < deadline:
-        data = _api('/api/ai', run=run)
+        data = _api('/api/ai', run=run, job=1)
         if (data.get('job') or {}).get('state') != 'running':
+            data = _api('/api/ai', run=run)
             break
         time.sleep(2)
     return {'run': run, 'job': data.get('job'), 'summary': data.get('summary'),
             'suggestions': data.get('suggestions'), 'document_gaps': (data.get('document_gaps') or [])[:50],
-            'documents': len(data.get('documents') or [])}
+            'documents': data.get('documents_total', 0), 'document_types': data.get('document_types')}
 
 
 @mcp.tool()
@@ -225,7 +229,8 @@ def ollama_ask(prompt: str, system: str = '', run: str = '', include: str = '') 
                                   if e.get('level') in ('error', 'review')][:150], ensure_ascii=False)
         elif include == 'documents':
             context = json.dumps([{k: d.get(k) for k in ('key', 'folder', 'file', 'doc_type')} for d in
-                                  (_api('/api/ai', run=run).get('documents') or [])][:400], ensure_ascii=False)
+                                  (_api('/api/ai', run=run, docs=400).get('documents') or [])],
+                                 ensure_ascii=False)
         else:
             context = json.dumps(_api('/api/summary', run=run), ensure_ascii=False)
     client = ai._client('ollama')  # noqa: SLF001

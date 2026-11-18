@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 960" width="900" height="960" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#1f1f24">
+  <title>M2 data flow: from the M2 servers to Odoo production</title>
+  <desc>Generic labels only: no server address or client name. Source of M2_DataFlow.pdf.</desc>
+  <defs>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f1f24"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1a9b5a"/></marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e06c12"/></marker>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9b4fd1"/></marker>
+    <marker id="v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7c3aed"/></marker>
+    <style>
+      .srv { fill: #b9b9bd; } .step { fill: #f5e9fb; } .prod { fill: #97e8c6; } .ai { fill: #ede4fe; stroke: #7c3aed; stroke-width: 1.5; }
+      .pill { fill: #e6fbd9; stroke: #2e9e4f; stroke-width: 1.5; } .grp { fill: #e9f1fb; stroke: #6b6b73; stroke-width: 1.5; stroke-dasharray: 7 5; }
+      .b { font-weight: 700; } .i { font-style: italic; } .s { font-size: 10px; fill: #4a4a52; }
+      .ln { fill: none; stroke-width: 1.4; } .lk { stroke: #1f1f24; } .lg { stroke: #1a9b5a; } .lo { stroke: #e06c12; } .lp { stroke: #9b4fd1; } .lv { stroke: #7c3aed; }
+      .dot { stroke-dasharray: 2 4; } .dash { stroke-dasharray: 6 4; }
+    </style>
+  </defs>
+
+  <!-- lines first, boxes on top -->
+  <path class="ln lk dot" d="M450 78V118" marker-end="url(#k)"/>
+  <path class="ln lg dot" d="M360 160H296" marker-end="url(#g)"/>
+  <path class="ln lg dot" d="M540 160H604" marker-end="url(#g)"/>
+  <path class="ln lk" d="M450 200V250" marker-end="url(#k)"/>
+  <path class="ln lk" d="M200 200V345H352" marker-end="url(#k)"/>
+  <path class="ln lk" d="M700 200V345H548" marker-end="url(#k)"/>
+  <path class="ln lk dot" d="M450 440V490" marker-end="url(#k)"/>
+  <path class="ln lp" d="M110 150H86V535H104" marker-end="url(#p)"/>
+  <path class="ln lp" d="M790 150H814V535H796" marker-end="url(#p)"/>
+  <path class="ln lo" d="M290 535H352" marker-end="url(#o)"/>
+  <path class="ln lo" d="M450 575V622" marker-end="url(#o)"/>
+  <path class="ln lo" d="M700 575V600H500V622" marker-end="url(#o)"/>
+  <path class="ln lv" d="M548 680H604" marker-start="url(#v)" marker-end="url(#v)"/>
+  <path class="ln lo" d="M360 680H200V792" marker-end="url(#o)"/>
+  <path class="ln lo" d="M290 835H352" marker-end="url(#o)"/>
+  <path class="ln lo" d="M540 835H602" marker-end="url(#o)"/>
+  <path class="ln lo dash" d="M450 795V748" marker-end="url(#o)"/>
+
+  <!-- M2 users -->
+  <rect class="srv" x="380" y="20" width="140" height="58" rx="12"/>
+  <text x="450" y="44" class="b">M2 users</text>
+  <text x="450" y="60" class="i s">Access via remote desktop</text>
+
+  <!-- servers -->
+  <rect class="srv" x="110" y="120" width="180" height="80" rx="12"/>
+  <text x="200" y="144" class="b">M2 database server</text>
+  <text x="200" y="161" class="s">Interbase database</text>
+  <text x="200" y="174" class="s">M: share with M2 program files</text>
+  <text x="200" y="187" class="s">Mandate documents (Dokument)</text>
+
+  <rect class="srv" x="360" y="120" width="180" height="80" rx="12"/>
+  <text x="450" y="152" class="b">Remote desktop server</text>
+  <text x="450" y="169" class="s">M2 client sessions</text>
+
+  <rect class="srv" x="610" y="120" width="180" height="80" rx="12"/>
+  <text x="700" y="144" class="b">Archive server</text>
+  <text x="700" y="161" class="s">Z: M2 archive</text>
+  <text x="700" y="174" class="s">One folder per mandate holder</text>
+  <text x="700" y="187" class="s">(group entity)</text>
+
+  <!-- backup copies -->
+  <rect class="grp" x="360" y="252" width="180" height="188" rx="16"/>
+  <rect class="pill" x="378" y="266" width="144" height="42" rx="14"/><text x="450" y="291" class="b i">Local server</text>
+  <rect class="pill" x="378" y="325" width="144" height="42" rx="14"/><text x="450" y="350" class="b i">Swiss cloud</text>
+  <rect class="pill" x="378" y="384" width="144" height="42" rx="14"/><text x="450" y="409" class="b i">External drive</text>
+
+  <!-- extract -->
+  <rect class="step" x="110" y="495" width="180" height="80" rx="12"/>
+  <text x="200" y="522" class="b">Gbak snapshot</text>
+  <text x="200" y="538" class="i s">Entire database</text>
+  <text x="200" y="552" class="s">Needs to be done off hours</text>
+
+  <rect class="step" x="360" y="495" width="180" height="80" rx="12"/>
+  <text x="450" y="528" class="b">Isolated restore</text>
+  <text x="450" y="545" class="s">Restore / fallback only</text>
+
+  <rect class="step" x="610" y="495" width="180" height="80" rx="12"/>
+  <text x="700" y="528" class="b">File inventory</text>
+  <text x="700" y="545" class="s">Documents and archive</text>
+
+  <!-- this tool -->
+  <rect class="step" x="360" y="624" width="180" height="122" rx="12"/>
+  <text x="450" y="648" class="b">Source to Odoo models</text>
+  <text x="450" y="664" class="s">Extract, mapping specification,</text>
+  <text x="450" y="677" class="s">target, clean, Odoo fields,</text>
+  <text x="450" y="690" class="s">external ID pattern (unique ID),</text>
+  <text x="450" y="703" class="s">filter by operating company</text>
+  <text x="450" y="716" class="s">and mandate</text>
+  <text x="450" y="734" class="i s">M2 → CSP migration tool</text>
+
+  <rect class="ai" x="610" y="636" width="180" height="88" rx="12"/>
+  <text x="700" y="660" class="b">Ollama, local model</text>
+  <text x="700" y="677" class="s">Suggests mappings and decisions,</text>
+  <text x="700" y="690" class="s">types documents, writes the summary.</text>
+  <text x="700" y="707" class="s">Client data stays on this machine.</text>
+
+  <!-- Odoo -->
+  <rect class="step" x="110" y="795" width="180" height="80" rx="12"/>
+  <text x="200" y="839" class="b">Odoo build (odoo.sh) staging</text>
+
+  <rect class="step" x="360" y="795" width="180" height="80" rx="12"/>
+  <text x="450" y="831" class="b">Data reconciliation</text>
+  <text x="450" y="846" class="b">and verification</text>
+
+  <rect class="prod" x="610" y="795" width="180" height="80" rx="12"/>
+  <text x="700" y="839" class="b">Odoo production</text>
+
+  <!-- legend -->
+  <g font-size="10" text-anchor="start" fill="#4a4a52">
+    <path class="ln lk" d="M110 915H140"/><text x="146" y="918">copy</text>
+    <path class="ln lg dot" d="M190 915H220"/><text x="226" y="918">session access</text>
+    <path class="ln lp" d="M310 915H340"/><text x="346" y="918">snapshot / listing</text>
+    <path class="ln lo" d="M440 915H470"/><text x="476" y="918">migration</text>
+    <path class="ln lo dash" d="M535 915H565"/><text x="571" y="918">findings back to mapping</text>
+    <path class="ln lv" d="M700 915H730"/><text x="736" y="918">local AI</text>
+  </g>
+</svg>
