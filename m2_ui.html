@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M2 Migration</title>
+<style>
+:root {
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+  --radius: 8px; --radius-sm: 6px;
+  --bg: #f6f8fa; --surface: #ffffff; --surface-2: #eef1f4; --surface-3: #e4e8ec;
+  --border: #d8dee5; --border-strong: #c3cbd4;
+  --text: #1f2328; --text-muted: #59636e;
+  --accent: #0f766e; --accent-hover: #115e59; --accent-contrast: #ffffff;
+  --ok: #1a7f37; --warn: #9a6700; --danger: #cf222e; --info: #0969da; --violet: #8250df; --orange: #bc4c00;
+  --soft: 9%;
+  --shadow: 0 8px 24px rgba(31,35,40,.16);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1316; --surface: #161b20; --surface-2: #1d242b; --surface-3: #232b33;
+    --border: #2a333c; --border-strong: #3a4550;
+    --text: #e6edf3; --text-muted: #8b98a5;
+    --accent: #2dd4bf; --accent-hover: #5eead4; --accent-contrast: #062a26;
+    --ok: #3fb950; --warn: #d29922; --danger: #f85149; --info: #58a6ff; --violet: #bc8cff; --orange: #f0883e;
+    --soft: 14%; --shadow: 0 8px 24px rgba(0,0,0,.5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1316; --surface: #161b20; --surface-2: #1d242b; --surface-3: #232b33;
+  --border: #2a333c; --border-strong: #3a4550;
+  --text: #e6edf3; --text-muted: #8b98a5;
+  --accent: #2dd4bf; --accent-hover: #5eead4; --accent-contrast: #062a26;
+  --ok: #3fb950; --warn: #d29922; --danger: #f85149; --info: #58a6ff; --violet: #bc8cff; --orange: #f0883e;
+  --soft: 14%; --shadow: 0 8px 24px rgba(0,0,0,.5); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/20px var(--font); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+.topbar { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; gap: 10px; align-items: center; padding: 8px 16px; flex-wrap: wrap; }
+.brand { font-weight: 650; font-size: 16px; margin-right: 6px; white-space: nowrap; }
+.brand span { color: var(--accent); }
+.src { flex: 1 1 320px; display: flex; gap: 6px; min-width: 0; }
+.src input { flex: 1; min-width: 0; }
+input[type=text], input:not([type]), select, textarea { background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 5px 8px; }
+textarea { width: 100%; font-family: var(--mono); font-size: 12.5px; }
+.btn { border: 1px solid var(--border-strong); background: var(--surface-2); border-radius: var(--radius-sm);
+  padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--surface-3); }
+.btn.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.small { padding: 2px 8px; font-size: 12.5px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+.pill.running { color: var(--info); border-color: var(--info); }
+.pill.done { color: var(--ok); border-color: var(--ok); }
+.pill.failed { color: var(--danger); border-color: var(--danger); }
+.strip { display: flex; gap: 4px; padding: 6px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+  overflow-x: auto; align-items: center; }
+.stage { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted);
+  white-space: nowrap; }
+.stage.on { background: color-mix(in srgb, var(--info) 18%, var(--surface)); color: var(--info); font-weight: 600; }
+.stage.past { color: var(--ok); }
+.counts { margin-left: auto; display: flex; gap: 6px; }
+.tabs { display: flex; gap: 2px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+  overflow-x: auto; }
+.tab { padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-muted); white-space: nowrap;
+  background: none; border-top: 0; border-left: 0; border-right: 0; }
+.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tab .n { font-size: 11.5px; background: var(--surface-2); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
+.tab .n.hot { background: var(--danger); color: #fff; }
+main { padding: 16px; max-width: 1500px; margin: 0 auto; }
+.panel { display: none; }
+.panel.on { display: block; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  margin-bottom: 14px; }
+.card h3 { margin: 0 0 10px; font-size: 15px; }
+.muted { color: var(--text-muted); }
+.small { font-size: 12.5px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px;
+  cursor: pointer; }
+.kpi b { display: block; font-size: 24px; line-height: 30px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12.5px; color: var(--text-muted); }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--text-muted); font-weight: 600; background: var(--surface-2); position: sticky; top: 0; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--surface-2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tablewrap { overflow: auto; max-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.lv { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; text-transform: uppercase;
+  white-space: nowrap; letter-spacing: .02em; }
+.lv.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger); }
+.lv.review { background: color-mix(in srgb, var(--orange) 18%, var(--surface)); color: var(--orange); }
+.lv.warning { background: color-mix(in srgb, var(--warn) 18%, var(--surface)); color: var(--warn); }
+.lv.decision { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info); }
+.lv.change { background: color-mix(in srgb, var(--violet) 15%, var(--surface)); color: var(--violet); }
+.lv.not_loaded { background: var(--surface-3); color: var(--text-muted); }
+.lv.info { background: var(--surface-2); color: var(--text-muted); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.chip { border: 1px solid var(--border-strong); border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 12.5px;
+  background: var(--surface); user-select: none; }
+.chip.on { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.toolbar input[type=search] { flex: 1 1 220px; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 5px 8px; }
+.key { color: var(--accent); cursor: pointer; text-decoration: underline dotted; font-family: var(--mono); font-size: 12.5px; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--surface);
+  border-left: 1px solid var(--border); box-shadow: var(--shadow); z-index: 40; transform: translateX(105%);
+  transition: transform .18s; display: flex; flex-direction: column; }
+.drawer.on { transform: none; }
+.drawer header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.drawer header h3 { margin: 0; font-size: 15px; flex: 1; }
+.drawer .body { overflow: auto; padding: 14px 16px; }
+dl.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 0; }
+dl.kv dt { color: var(--text-muted); font-size: 12.5px; }
+dl.kv dd { margin: 0; word-break: break-word; }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2); padding: 8px; border-radius: var(--radius-sm);
+  font: 12px/17px var(--mono); margin: 0; }
+.fix { border-left: 3px solid var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); padding: 6px 10px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 8px 0; }
+.trail { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
+.trail li { position: relative; padding: 4px 0 8px 14px; }
+.trail li::before { content: ''; position: absolute; left: -6px; top: 9px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--border-strong); }
+.trail li.error::before { background: var(--danger); } .trail li.review::before { background: var(--orange); }
+.trail li.warning::before { background: var(--warn); } .trail li.decision::before { background: var(--info); }
+.trail li.change::before { background: var(--violet); }
+.grid2 { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 14px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.list { max-height: 72vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.list div { padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.list div:hover, .list div.on { background: var(--surface-2); }
+.list .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decide { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 8px 0;
+  border-bottom: 1px solid var(--border); }
+.decide:last-child { border-bottom: 0; }
+.decide .ctl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 700px) { .decide { grid-template-columns: 1fr; } .decide .ctl { justify-content: flex-start; } }
+.bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; min-width: 60px; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.empty { padding: 26px; text-align: center; color: var(--text-muted); }
+.banner { padding: 10px 14px; border-radius: var(--radius); margin-bottom: 14px; border: 1px solid; }
+.banner.err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.banner.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+  padding: 8px 14px; border-radius: var(--radius-sm); z-index: 60; display: none; max-width: 90vw; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 50; display: none; align-items: center; justify-content: center; }
+.modal.on { display: flex; }
+.modal .box { background: var(--surface); border-radius: var(--radius); width: min(640px, 94vw); max-height: 80vh; display: flex;
+  flex-direction: column; box-shadow: var(--shadow); }
+.modal .box header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+.modal .box .body { overflow: auto; padding: 6px 0; }
+.modal .row { padding: 5px 14px; cursor: pointer; }
+.modal .row:hover { background: var(--surface-2); }
+.kvedit { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 6px; margin-bottom: 6px; }
+label.tog { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.sheetname { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">M2 <span>→</span> CSP Migration</div>
+  <div class="src">
+    <input id="source" placeholder="Folder with the M2 exports (.xlsx, .xls, .csv)" spellcheck="false">
+    <button class="btn" id="browse">Browse…</button>
+    <button class="btn" id="sample" title="Write a set of fictitious M2 exports (German headers) to try the tool">Sample data</button>
+    <button class="btn" id="sample-en" title="Fictitious exports with the English M2 grid titles (Mandate overview, Detail addr., Bank, Fees, Invoices, Compliance, Documents)">Sample (English M2)</button>
+  </div>
+  <button class="btn primary" id="run">Run migration</button>
+  <select id="runs" title="Earlier runs"></select>
+  <span class="pill" id="status">idle</span>
+</div>
+<div class="strip" id="strip"></div>
+<nav class="tabs" id="tabs"></nav>
+<main>
+  <div id="banner"></div>
+  <section class="panel" data-tab="overview"></section>
+  <section class="panel" data-tab="decide"></section>
+  <section class="panel" data-tab="journal"></section>
+  <section class="panel" data-tab="records"></section>
+  <section class="panel" data-tab="files"></section>
+  <section class="panel" data-tab="review"></section>
+  <section class="panel" data-tab="values"></section>
+  <section class="panel" data-tab="finance"></section>
+  <section class="panel" data-tab="settings"></section>
+</main>
+<aside class="drawer" id="drawer"><header><h3 id="dtitle"></h3><button class="btn small" id="dclose">Close</button></header>
+  <div class="body" id="dbody"></div></aside>
+<div class="modal" id="picker"><div class="box"><header><b>Choose the folder</b><span class="muted small grow" id="ppath" style="flex:1;overflow:hidden;text-overflow:ellipsis"></span>
+  <button class="btn small primary" id="puse">Use this folder</button><button class="btn small" id="pclose">Cancel</button></header>
+  <div class="body" id="plist"></div></div></div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+const TOKEN = '__TOKEN__';
+const LEVELS = ['error', 'review', 'warning', 'decision', 'change', 'not_loaded', 'info'];
+const LEVEL_LABEL = {error: 'Errors', review: 'To review', warning: 'Warnings', decision: 'Decisions', change: 'Changes',
+  not_loaded: 'Not loaded', info: 'Info'};
+const STAGES = [['files', 'Read & classify files'], ['clients', 'Build clients'], ['registers', 'Link registers'],
+  ['finance', 'Fees & open items'], ['compliance', 'Compliance'], ['documents', 'Documents'], ['checks', 'Template checks'],
+  ['write', 'Write files']];
+const TABS = [['overview', 'Overview'], ['decide', 'Needs decision'], ['journal', 'Journal'], ['records', 'Records'],
+  ['files', 'Files & columns'], ['review', 'Review rows'], ['values', 'Changes & not loaded'], ['finance', 'Finance'],
+  ['settings', 'Settings']];
+
+const S = {run: null, state: 'idle', events: [], next: 0, summary: null, trace: null, info: null, tab: 'overview',
+  filter: {levels: new Set(['error', 'review', 'warning', 'decision', 'change', 'not_loaded']), q: '', stage: '', code: '',
+  file: '', follow: true, limit: 1500}, record: null, recQ: '', valuesMode: 'change', timer: null, browsePath: null};
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const fmt = n => (n ?? 0).toLocaleString();
+
+async function api(path, body) {
+  const opt = {headers: {'X-Token': TOKEN}};
+  if (body !== undefined) { opt.method = 'POST'; opt.body = JSON.stringify(body); opt.headers['Content-Type'] = 'application/json'; }
+  const res = await fetch(path, opt);
+  const data = await res.json().catch(() => ({error: res.statusText}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h);
+  t._h = setTimeout(() => t.style.display = 'none', ms); }
+
+// ---------- derived data ----------
+function counts() { const c = {}; LEVELS.forEach(l => c[l] = 0); S.events.forEach(e => c[e.level]++); return c; }
+function byKey() { const m = new Map(); S.events.forEach(e => { if (e.key) { if (!m.has(e.key)) m.set(e.key, []); m.get(e.key).push(e); } }); return m; }
+function decisionsNeeded() {
+  const g = {company: new Map(), employee: new Map(), kind: [], column: [], notfound: [], legal: new Map(), func: [], other: []};
+  for (const e of S.events) {
+    if (e.code === 'COMPANY_UNKNOWN') { const k = e.value || ''; if (!g.company.has(k)) g.company.set(k, {keys: [], alts: e.alternatives || []}); g.company.get(k).keys.push(e.key); }
+    else if (e.code === 'EMPLOYEE_UNKNOWN') { const k = e.value; if (!g.employee.has(k)) g.employee.set(k, []); g.employee.get(k).push(e.key); }
+    else if (e.code === 'KIND_UNKNOWN' || (e.code === 'KIND' && e.level === 'warning')) g.kind.push(e);
+    else if (e.code === 'COLUMN_UNUSED') g.column.push(e);
+    else if (e.code === 'CLIENT_NOT_FOUND') g.notfound.push(e);
+    else if (e.code === 'ENTITY_TYPE_UNKNOWN') { const m = /legal form '([^']*)'/.exec(e.message); const k = m ? m[1] : '?';
+      if (!g.legal.has(k)) g.legal.set(k, []); g.legal.get(k).push(e.key); }
+    else if (e.code === 'OFFICER_FUNCTION_UNKNOWN') g.func.push(e);
+    else if (['DUPLICATE_REF', 'ROW_INVALID', 'FILE_UNREADABLE', 'NO_MANDATES', 'CRASH', 'ADDRESS_MISSING', 'AMOUNT_NO_CURRENCY',
+              'IBAN_CHECK', 'TYPE_UNKNOWN', 'ENTITY_TYPE_CHECK', 'SWIFT_FORMAT', 'CLIENT_IN_REVIEW', 'BANK_AMBIGUOUS',
+              'COMPLIANCE_LOCK', 'NO_CLIENT_COLUMN', 'FOLDER_NOT_CLIENT', 'DOCUMENTS_MISSING', 'LEI_RENEWAL_CONFLICT',
+              'OFFICER_TYPE_INVALID', 'OPEN_ITEM_PAID_BUT_OPEN'].includes(e.code)) g.other.push(e);
+  }
+  g.total = g.company.size + g.employee.size + g.kind.length + g.column.length + g.notfound.length + g.legal.size + g.func.length + g.other.length;
+  return g;
+}
+
+// ---------- shell ----------
+function renderShell() {
+  const c = counts();
+  const cur = [...S.events].reverse().find(e => e.code === 'STAGE');
+  const idx = cur ? STAGES.findIndex(s => s[0] === cur.stage) : -1;
+  $('#strip').innerHTML = STAGES.map(([k, l], i) => `<span class="stage ${S.state === 'running' && i === idx ? 'on' :
+    (i < idx || (S.state !== 'running' && idx >= 0 && i <= idx)) ? 'past' : ''}">${i + 1}. ${l}</span>`).join('') +
+    `<span class="counts">${LEVELS.filter(l => l !== 'info').map(l => `<span class="lv ${l}" title="${LEVEL_LABEL[l]}">${LEVEL_LABEL[l]} ${fmt(c[l])}</span>`).join('')}</span>`;
+  const st = $('#status'); st.className = 'pill ' + S.state; st.textContent = S.state === 'running' ? `running · ${fmt(S.events.length)} events` : S.state;
+  const dn = decisionsNeeded().total;
+  $('#tabs').innerHTML = TABS.map(([k, l]) => {
+    let n = '';
+    if (k === 'decide' && dn) n = `<span class="n hot">${dn}</span>`;
+    if (k === 'journal') n = `<span class="n">${fmt(S.events.length)}</span>`;
+    if (k === 'review' && S.summary) n = `<span class="n">${fmt(S.summary.totals.review)}</span>`;
+    return `<button class="tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}${n}</button>`; }).join('');
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.dataset.tab === S.tab));
+  $('#run').disabled = S.state === 'running';
+  const crash = S.events.find(e => e.code === 'CRASH');
+  $('#banner').innerHTML = crash ? `<div class="banner err"><b>The run stopped:</b> ${esc(crash.message)}<details><summary>Traceback</summary><pre>${esc(crash.trace || S.trace || '')}</pre></details></div>` : '';
+}
+function render() { renderShell(); (RENDER[S.tab] || (() => {}))(); }
+
+// ---------- overview ----------
+function renderOverview() {
+  const el = $('[data-tab=overview]'); const c = counts(); const sm = S.summary;
+  if (!S.run) { el.innerHTML = `<div class="card"><h3>Start</h3><p>Choose the folder holding the M2 exports (addresses, mandates, officers, beneficial
+    owners, shareholders, bank accounts, signatories, contact persons, fees, open items: Excel or CSV, German or English headers) and press
+    <b>Run migration</b>. Nothing is written to Odoo: the run produces <span class="mono">CSP_Import_M2.xlsx</span> for the Client Import of
+    Odoo and <span class="mono">CSP_Import_M2_Review.xlsx</span> with everything left out, and records every decision it made.</p>
+    <p class="muted">No export at hand? <b>Sample data</b> writes a small fictitious set with the typical problems in it.</p>
+    <p class="muted small">Template: <span class="mono">${esc(S.info?.spec)}</span></p></div>`; return; }
+  const kp = [['To import', sm?.totals.import, 'review'], ['To review', sm?.totals.review, 'review'], ['Errors', c.error, 'error'],
+    ['Warnings', c.warning, 'warning'], ['Decisions', c.decision, 'decision'], ['Values changed', c.change, 'change'],
+    ['Not loaded', c.not_loaded, 'not_loaded'], ['Closed mandates', sm?.totals.closed, 'decision']];
+  let html = `<div class="kpis">${kp.map(([l, v, lv]) => `<div class="kpi" data-lv="${lv}" data-label="${l}"><b>${v === undefined ? '…' : fmt(v)}</b><span>${l}</span></div>`).join('')}</div>`;
+  const dn = decisionsNeeded();
+  if (S.state !== 'running' && dn.total) html += `<div class="banner err">${dn.total} item(s) need a decision before the next run: open <a href="#" data-go="decide">Needs decision</a>.</div>`;
+  else if (S.state === 'done' && !c.error && !sm?.totals.review) html += `<div class="banner ok">Clean run: every row is in the import file.</div>`;
+  if (sm) {
+    html += `<div class="card"><h3>Result per template sheet</h3><div class="tablewrap" style="max-height:none"><table><tr><th>Sheet</th><th class="num">To import</th><th class="num">To review</th><th style="width:40%">Share loadable</th></tr>
+      ${Object.entries(sm.sheets).map(([k, s]) => { const t = s.import + s.review; return `<tr class="click" data-sheet="${k}"><td class="sheetname">${esc(s.title)}</td><td class="num">${fmt(s.import)}</td><td class="num">${fmt(s.review)}</td>
+      <td>${t ? `<div class="bar"><i style="width:${Math.round(100 * s.import / t)}%"></i></div>` : '<span class="muted small">no rows</span>'}</td></tr>`; }).join('')}</table></div></div>
+      <div class="card"><h3>Files of this run</h3><div class="toolbar">${sm.outputs.map(f => `<a class="btn" href="/api/download?run=${S.run}&file=${encodeURIComponent(f)}&token=${TOKEN}">⬇ ${esc(f)}</a>`).join('')}
+      <a class="btn" href="/api/download?run=${S.run}&file=run.log&token=${TOKEN}">⬇ run.log</a><button class="btn" id="openfolder">Open folder</button></div>
+      <p class="muted small">Source <span class="mono">${esc(sm.source)}</span> · finished ${esc(sm.finished)} · run folder <span class="mono">runs/${esc(S.run)}</span></p></div>`;
+  }
+  const codes = {}; S.events.forEach(e => { if (e.level !== 'info') codes[e.code + '|' + e.level] = (codes[e.code + '|' + e.level] || 0) + 1; });
+  const top = Object.entries(codes).sort((a, b) => b[1] - a[1]).slice(0, 25);
+  html += `<div class="card"><h3>Rules that fired</h3><p class="muted small">Each rule is one kind of decision. Click one to see all its events in the journal.</p>
+    <div class="tablewrap" style="max-height:none"><table><tr><th>Rule</th><th>Level</th><th class="num">Events</th><th>Example</th></tr>
+    ${top.map(([k, n]) => { const [code, lv] = k.split('|'); const ex = S.events.find(e => e.code === code && e.level === lv);
+      return `<tr class="click" data-code="${code}"><td class="mono">${code}</td><td><span class="lv ${lv}">${lv}</span></td><td class="num">${n}</td><td class="small">${esc(ex.message)}</td></tr>`; }).join('')}
+    </table></div></div>`;
+  el.innerHTML = html;
+  el.querySelectorAll('.kpi').forEach(k => k.onclick = () => { const lv = k.dataset.lv;
+    if (k.dataset.label === 'To import') { go('review'); return; }
+    S.filter.levels = new Set([lv]); go('journal'); });
+  el.querySelectorAll('[data-code]').forEach(r => r.onclick = () => { S.filter.code = r.dataset.code; S.filter.levels = new Set(LEVELS); go('journal'); });
+  el.querySelectorAll('[data-sheet]').forEach(r => r.onclick = () => go('review'));
+  el.querySelectorAll('[data-go]').forEach(a => a.onclick = ev => { ev.preventDefault(); go(a.dataset.go); });
+  const of = $('#openfolder'); if (of) of.onclick = () => api('/api/open', {run: S.run}).catch(e => toast(e.message));
+}
+
+// ---------- needs decision ----------
+const OFFICER_SHEETS = [['directors', 'Directors'], ['ubos', 'UBOs'], ['shareholders', 'Shareholders'], ['secretaries', 'Secretaries'],
+  ['agents', 'Agents'], ['contacts', 'Contact persons'], ['signatories', 'Bank signatories'], ['ignore', 'Ignore these rows']];
+function renderDecide() {
+  const el = $('[data-tab=decide]'); const g = decisionsNeeded();
+  if (!S.run) { el.innerHTML = '<div class="empty">Run the migration first.</div>'; return; }
+  if (!g.total) { el.innerHTML = `<div class="empty">${S.state === 'running' ? 'Running… decisions appear here as they are found.' : 'Nothing waits for a decision.'}</div>`; return; }
+  const companies = [...new Set(Object.values(S.info?.config?.company_map || {}).filter(v => typeof v === 'string'))];
+  const kinds = Object.entries(S.info?.kinds || {});
+  let html = `<div class="card"><div class="toolbar"><b style="flex:1">Your decisions are saved to the settings (m2_config.json) and apply on the next run.</b>
+    <button class="btn primary" id="rerun">Run again with these decisions</button></div></div>`;
+  if (g.company.size) html += `<div class="card"><h3>Operating company of a mandate holder <span class="lv review">never a default</span></h3>
+    <p class="muted small">Each M2 mandate holder (trust-mandate code) is one of our operating companies. Its mandates wait in review until you name it.</p>
+    <datalist id="companies">${companies.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    ${[...g.company].map(([holder, d]) => `<div class="decide"><div><b class="mono">${esc(holder || '(no holder)')}</b> · ${d.keys.length} mandate(s):
+      ${d.keys.slice(0, 12).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}${d.keys.length > 12 ? ' …' : ''}</div>
+      <div class="ctl">${holder ? `<input list="companies" placeholder="Odoo company name" data-holder="${esc(holder)}"><button class="btn small primary" data-save-company="${esc(holder)}">Save</button>` :
+      '<span class="muted small">Fill the holder in M2 or Operating Company in the review file</span>'}</div></div>`).join('')}</div>`;
+  if (g.employee.size) html += `<div class="card"><h3>Employees not in the employee map</h3><p class="muted small">M2 stores the employee abbreviation; Odoo needs the employee's name.</p>
+    ${[...g.employee].map(([abbr, keys]) => `<div class="decide"><div><b class="mono">${esc(abbr)}</b> · on ${keys.length} mandate(s) ${keys.slice(0, 10).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}</div>
+      <div class="ctl"><input placeholder="Employee name in Odoo" data-emp="${esc(abbr)}"><button class="btn small primary" data-save-emp="${esc(abbr)}">Save</button></div></div>`).join('')}</div>`;
+  if (g.kind.length) html += `<div class="card"><h3>Files not recognised, or a close call</h3>
+    ${g.kind.map(e => `<div class="decide"><div><b>${esc(e.file)}</b> <span class="lv ${e.level}">${e.level}</span><div class="small muted">${esc(e.message)}</div>
+      ${e.scores ? `<div class="small mono">${Object.entries(e.scores).map(([k, v]) => `${k} ${v}`).join(' · ')}</div>` : ''}</div>
+      <div class="ctl"><select data-kind-file="${esc(e.file.replace(/ \[.*\]$/, ''))}"><option value="">Read as…</option>${kinds.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('')}<option value="ignore">Ignore this file</option></select>
+      <button class="btn small primary" data-save-kind="${esc(e.file.replace(/ \[.*\]$/, ''))}">Save</button></div></div>`).join('')}</div>`;
+  if (g.column.length) html += `<div class="card"><h3>Columns with no CSP field</h3><p class="muted small">Their values are kept in the review file and the client's Notes. If one is really a CSP field under another name, map it.</p>
+    ${g.column.map(e => { const t = (S.summary?.files || []).find(f => f.file === e.file); const kind = t?.kind;
+      return `<div class="decide"><div><b class="mono">${esc(e.column)}</b> in ${esc(e.file)} <span class="muted small">(${esc(S.info?.kinds?.[kind] || kind || '')})</span>
+      <div class="small muted">e.g. ${(e.samples || []).map(esc).join(' · ')}</div></div>
+      <div class="ctl">${kind ? `<select data-alias-col="${esc(e.column)}" data-alias-kind="${esc(kind)}"><option value="">Load into…</option>${(S.info?.kind_fields?.[kind] || []).map(f => `<option>${esc(f)}</option>`).join('')}</select>
+      <button class="btn small primary" data-save-alias="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')}</div>`;
+  if (g.notfound.length) html += `<div class="card"><h3>Register rows whose client was not found</h3><p class="muted small">Fix the client reference in the M2 export (or in the review file), or exclude the key.</p>
+    ${g.notfound.map(e => `<div class="decide"><div><span class="lv review">review</span> ${esc(e.message)}${e.alternatives?.length ? `<div class="small">Close: ${e.alternatives.map(esc).join(' · ')}</div>` : ''}</div>
+      <div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}</div></div>`).join('')}</div>`;
+  if (g.legal.size) html += `<div class="card"><h3>Legal forms not known</h3>${[...g.legal].map(([lf, keys]) => `<div class="decide"><div><b class="mono">${esc(lf)}</b> on ${keys.map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}</div>
+    <div class="ctl muted small">Entity Type left empty: fill it in the import file</div></div>`).join('')}</div>`;
+  if (g.func.length) { const funcs = new Map(); g.func.forEach(e => { const k = e.value || '?'; if (!funcs.has(k)) funcs.set(k, []); funcs.get(k).push(e); });
+    html += `<div class="card"><h3>M2 types / officer functions not known</h3><p class="muted small">M2 Detail addr. rows carry a Type code (e.g. DIR, BO, CP). Say which register sheet each code fills.</p>
+    ${[...funcs].map(([fn, evs]) => `<div class="decide"><div><b class="mono">${esc(fn)}</b> · ${evs.length} row(s) ${[...new Set(evs.map(e => e.key).filter(Boolean))].slice(0, 10).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}
+      <div class="small muted">${esc(evs[0].file || '')}</div></div>
+      <div class="ctl">${fn !== '?' ? `<select data-otype="${esc(fn)}"><option value="">Load as…</option>${OFFICER_SHEETS.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select>
+      <button class="btn small primary" data-save-otype="${esc(fn)}">Save</button>` : ''}</div></div>`).join('')}</div>`; }
+  if (g.other.length) html += `<div class="card"><h3>Other errors and checks</h3>${g.other.map(e => `<div class="decide"><div><span class="lv ${e.level}">${e.level}</span> <span class="mono small">${e.code}</span> ${esc(e.message)}
+    ${e.fix ? `<div class="small" style="color:var(--ok)">Fix: ${esc(e.fix)}</div>` : ''}</div><div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}
+    ${e.key && e.code === 'DUPLICATE_REF' ? '' : ''}</div></div>`).join('')}</div>`;
+  el.innerHTML = html;
+  const save = async (body, msg) => { try { const r = await api('/api/decide', body); S.info.config = r.config; toast(msg); } catch (e) { toast(e.message); } };
+  el.querySelectorAll('[data-save-company]').forEach(b => b.onclick = () => { const h = b.dataset.saveCompany;
+    const v = el.querySelector(`[data-holder="${CSS.escape(h)}"]`).value.trim(); if (!v) return toast('Type the company name.');
+    save({type: 'company', key: h, value: v}, `${h} → ${v} saved`); });
+  el.querySelectorAll('[data-save-emp]').forEach(b => b.onclick = () => { const a = b.dataset.saveEmp;
+    const v = el.querySelector(`[data-emp="${CSS.escape(a)}"]`).value.trim(); if (!v) return toast('Type the employee name.');
+    save({type: 'employee', key: a, value: v}, `${a} → ${v} saved`); });
+  el.querySelectorAll('[data-save-kind]').forEach(b => b.onclick = () => { const f = b.dataset.saveKind;
+    const v = el.querySelector(`[data-kind-file="${CSS.escape(f)}"]`).value; if (!v) return toast('Choose the kind.');
+    save({type: 'file_kind', key: f, value: v}, `${f} → ${v} saved`); });
+  el.querySelectorAll('[data-save-otype]').forEach(b => b.onclick = () => { const f = b.dataset.saveOtype;
+    const v = el.querySelector(`[data-otype="${CSS.escape(f)}"]`).value; if (!v) return toast('Choose the sheet.');
+    save({type: 'officer_type', key: f, value: v}, `${f} → ${v} saved`); });
+  el.querySelectorAll('[data-save-alias]').forEach(b => b.onclick = () => { const c = b.dataset.saveAlias;
+    const v = el.querySelector(`[data-alias-col="${CSS.escape(c)}"]`).value; if (!v) return toast('Choose the field.');
+    save({type: 'alias', key: c, kind: b.dataset.kind, field: v}, `'${c}' → ${v} saved`); });
+  $('#rerun').onclick = startRun;
+  bindKeys(el);
+}
+
+// ---------- journal ----------
+function filtered() {
+  const f = S.filter; const q = f.q.toLowerCase();
+  return S.events.filter(e => f.levels.has(e.level) && (!f.stage || e.stage === f.stage) && (!f.code || e.code === f.code) &&
+    (!f.file || e.file === f.file) && (!q || JSON.stringify(e).toLowerCase().includes(q)));
+}
+function renderJournal() {
+  const el = $('[data-tab=journal]'); const c = counts(); const f = S.filter;
+  const codes = [...new Set(S.events.map(e => e.code))].sort(); const files = [...new Set(S.events.map(e => e.file).filter(Boolean))].sort();
+  if (!el.dataset.built) {
+    el.innerHTML = `<div class="chips" id="jchips"></div><div class="toolbar"><input type="search" id="jq" placeholder="Search messages, keys, values…">
+      <select id="jstage"><option value="">All stages</option>${['start', ...STAGES.map(s => s[0])].map(s => `<option>${s}</option>`).join('')}</select>
+      <select id="jcode"></select><select id="jfile"></select>
+      <label class="tog small"><input type="checkbox" id="jfollow"> follow live</label><span class="muted small" id="jcount"></span></div>
+      <div class="tablewrap" id="jwrap"><table><thead><tr><th class="num">#</th><th class="num">s</th><th>Level</th><th>Stage</th><th>Rule</th><th>M2 key</th><th>Message</th></tr></thead><tbody id="jbody"></tbody></table></div>
+      <div class="toolbar" style="margin-top:8px"><button class="btn small" id="jmore">Show more</button><a class="btn small" id="jdl">⬇ journal.jsonl</a></div>`;
+    el.dataset.built = 1;
+    $('#jq').oninput = ev => { f.q = ev.target.value; renderJournal(); };
+    $('#jstage').onchange = ev => { f.stage = ev.target.value; renderJournal(); };
+    $('#jcode').onchange = ev => { f.code = ev.target.value; renderJournal(); };
+    $('#jfile').onchange = ev => { f.file = ev.target.value; renderJournal(); };
+    $('#jfollow').onchange = ev => { f.follow = ev.target.checked; };
+    $('#jmore').onclick = () => { f.limit += 2000; renderJournal(); };
+  }
+  $('#jchips').innerHTML = LEVELS.map(l => `<span class="chip ${f.levels.has(l) ? 'on' : ''}" data-l="${l}">${LEVEL_LABEL[l]} ${fmt(c[l])}</span>`).join('') +
+    `<span class="chip" data-l="*">all</span><span class="chip" data-l="!">problems only</span>`;
+  $('#jchips').querySelectorAll('.chip').forEach(ch => ch.onclick = () => { const l = ch.dataset.l;
+    if (l === '*') f.levels = new Set(LEVELS); else if (l === '!') f.levels = new Set(['error', 'review', 'warning']);
+    else if (f.levels.has(l)) f.levels.delete(l); else f.levels.add(l); renderJournal(); });
+  $('#jq').value = f.q; $('#jstage').value = f.stage; $('#jfollow').checked = f.follow;
+  $('#jcode').innerHTML = `<option value="">All rules</option>` + codes.map(x => `<option ${x === f.code ? 'selected' : ''}>${x}</option>`).join('');
+  $('#jfile').innerHTML = `<option value="">All files</option>` + files.map(x => `<option ${x === f.file ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const rows = filtered(); const shown = rows.slice(-f.limit);
+  $('#jcount').textContent = `${fmt(rows.length)} of ${fmt(S.events.length)} events` + (rows.length > shown.length ? ` · last ${fmt(shown.length)} shown` : '');
+  $('#jmore').style.display = rows.length > shown.length ? '' : 'none';
+  $('#jdl').href = S.run ? `/api/download?run=${S.run}&file=journal.jsonl&token=${TOKEN}` : '#';
+  $('#jbody').innerHTML = shown.map(e => `<tr class="click" data-seq="${e.seq}"><td class="num muted small">${e.seq}</td><td class="num muted small">${e.t.toFixed(2)}</td>
+    <td><span class="lv ${e.level}">${e.level.replace('_', ' ')}</span></td><td class="small muted">${e.stage}</td><td class="mono small">${e.code}</td>
+    <td>${e.key ? `<span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span>` : ''}</td><td>${esc(e.message)}${e.fix ? `<div class="small" style="color:var(--ok)">Fix: ${esc(e.fix)}</div>` : ''}</td></tr>`).join('') ||
+    `<tr><td colspan="7" class="empty">${S.run ? 'No event matches the filters.' : 'Run the migration first.'}</td></tr>`;
+  $('#jbody').querySelectorAll('tr[data-seq]').forEach(tr => tr.onclick = ev => { if (ev.target.classList.contains('key')) return; showEvent(+tr.dataset.seq); });
+  bindKeys($('#jbody'));
+  if (f.follow && S.state === 'running') { const w = $('#jwrap'); w.scrollTop = w.scrollHeight; }
+}
+function showEvent(seq) {
+  const e = S.events.find(x => x.seq === seq); if (!e) return;
+  const skip = new Set(['seq', 't', 'level', 'code', 'stage', 'message', 'fix', 'key', 'trace']);
+  $('#dtitle').innerHTML = `<span class="lv ${e.level}">${e.level}</span> <span class="mono">${e.code}</span> · event ${e.seq}`;
+  $('#dbody').innerHTML = `<p>${esc(e.message)}</p>${e.fix ? `<div class="fix"><b>How to fix:</b> ${esc(e.fix)}</div>` : ''}
+    <dl class="kv"><dt>Stage</dt><dd>${e.stage}</dd><dt>Time</dt><dd>${e.t.toFixed(3)} s into the run</dd>
+    ${e.key ? `<dt>M2 key</dt><dd><span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span> (click for its whole trail)</dd>` : ''}
+    ${Object.entries(e).filter(([k]) => !skip.has(k)).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${typeof v === 'object' ? `<pre>${esc(JSON.stringify(v, null, 1))}</pre>` : esc(v)}</dd>`).join('')}</dl>
+    ${e.trace ? `<h4>Traceback</h4><pre>${esc(e.trace)}</pre>` : ''}`;
+  bindKeys($('#dbody')); $('#drawer').classList.add('on');
+}
+
+// ---------- records ----------
+function renderRecords() {
+  const el = $('[data-tab=records]'); const m = byKey();
+  const keys = [...m.keys()].filter(k => !S.recQ || k.toLowerCase().includes(S.recQ.toLowerCase()) ||
+    (m.get(k).find(e => e.code === 'CLIENT')?.message || '').toLowerCase().includes(S.recQ.toLowerCase()));
+  const sev = k => { const ev = m.get(k); return ev.some(e => e.level === 'error') ? 'error' : ev.some(e => e.level === 'review') ? 'review' :
+    ev.some(e => e.level === 'warning') ? 'warning' : 'decision'; };
+  const order = {error: 0, review: 1, warning: 2, decision: 3};
+  keys.sort((a, b) => order[sev(a)] - order[sev(b)] || a.localeCompare(b, undefined, {numeric: true}));
+  if (!S.record && keys.length) S.record = keys[0];
+  const ev = m.get(S.record) || [];
+  const client = (S.summary?.clients || []).find(c => c.m2_reference === S.record);
+  const reviews = Object.entries(S.summary?.review || {}).flatMap(([sh, rows]) => rows.filter(r => r.key === S.record).map(r => ({...r, sheet: sh})));
+  el.innerHTML = `<div class="grid2"><div><div class="toolbar"><input type="search" id="rq" placeholder="Mandate number or name" value="${esc(S.recQ)}"></div>
+    <div class="list">${keys.map(k => { const n = m.get(k); const name = (n.find(e => e.code === 'CLIENT')?.message.match(/'(.*)'/) || [])[1] || '';
+      return `<div data-k="${esc(k)}" class="${k === S.record ? 'on' : ''}"><span class="lv ${sev(k)}">${sev(k).slice(0, 3)}</span><span class="mono">${esc(k)}</span><span class="grow muted small">${esc(name)}</span><span class="small muted">${n.length}</span></div>`; }).join('') || '<div class="muted">No records yet.</div>'}</div></div>
+    <div>${S.record ? `<div class="card"><h3>Decision trail of <span class="mono">${esc(S.record)}</span></h3>
+      <p class="small muted">Every event that touched this M2 record, in the order the migration took it: where it was read, how it was linked, what was changed, and why it was loaded or left out.</p>
+      ${client ? `<div class="banner ok"><b>Loaded as client:</b> ${esc(client.name)} · ${esc(client.type)} · company ${esc(client.company || '—')}</div>` : ''}
+      ${reviews.map(r => `<div class="banner err"><b>In review (${esc(S.summary.sheets[r.sheet].title)}):</b> ${esc(r.reason)} <div class="small">Fix: ${esc(r.fix || '')} · ${esc(r.where)}</div></div>`).join('')}
+      <ul class="trail">${ev.map(e => `<li class="${e.level}" data-seq="${e.seq}" style="cursor:pointer"><span class="lv ${e.level}">${e.level.replace('_', ' ')}</span> <span class="mono small muted">${e.code}</span>
+        <div>${esc(e.message)}</div>${e.fix ? `<div class="small" style="color:var(--ok)">Fix: ${esc(e.fix)}</div>` : ''}</li>`).join('')}</ul></div>
+      ${client ? `<div class="card"><h3>Row in the import file (Clients)</h3><dl class="kv">${Object.entries(client).filter(([, v]) => v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}` :
+      '<div class="empty">Choose a record.</div>'}</div></div>`;
+  $('#rq').oninput = ev2 => { S.recQ = ev2.target.value; const pos = ev2.target.selectionStart; renderRecords(); const i = $('#rq'); i.focus(); i.setSelectionRange(pos, pos); };
+  el.querySelectorAll('.list [data-k]').forEach(d => d.onclick = () => { S.record = d.dataset.k; renderRecords(); });
+  el.querySelectorAll('.trail li').forEach(li => li.onclick = () => showEvent(+li.dataset.seq));
+}
+function bindKeys(root) { root.querySelectorAll('.key[data-key]').forEach(k => k.onclick = ev => { ev.stopPropagation(); S.record = k.dataset.key; S.recQ = '';
+  $('#drawer').classList.remove('on'); go('records'); }); }
+
+// ---------- files ----------
+function renderFiles() {
+  const el = $('[data-tab=files]'); const files = S.summary?.files;
+  const fileEvents = S.events.filter(e => ['FILE_UNREADABLE', 'KIND_UNKNOWN', 'FILE_SKIPPED', 'FILE_IGNORED', 'SHEET_EMPTY', 'HEADER_ROW', 'ROW_TOTAL', 'KIND_OVERRIDE'].includes(e.code));
+  let html = '';
+  if (fileEvents.length) html += `<div class="card"><h3>File events</h3><table>${fileEvents.map(e => `<tr><td><span class="lv ${e.level}">${e.level}</span></td><td class="mono small">${e.code}</td><td>${esc(e.message)}</td></tr>`).join('')}</table></div>`;
+  if (!files) { el.innerHTML = html || `<div class="empty">${S.state === 'running' ? 'Reading…' : 'Run the migration first.'}</div>`; return; }
+  html += files.map(f => { const max = Math.max(...Object.values(f.scores), 1);
+    return `<div class="card"><h3>${esc(f.file)} <span class="muted small">→ ${esc(S.info?.kinds?.[f.kind] || f.kind)} · ${fmt(f.rows)} rows · ${esc(f.note)}</span></h3>
+    <div class="small muted" style="margin-bottom:8px">Why this kind — score per candidate (header names matched, key columns ×3, words in the file name +4):</div>
+    <div style="display:grid;grid-template-columns:160px 1fr 40px;gap:4px 10px;align-items:center;max-width:560px;margin-bottom:12px">
+    ${Object.entries(f.scores).map(([k, s]) => `<span class="small ${k === f.kind ? '' : 'muted'}">${esc(S.info?.kinds?.[k] || k)}</span><div class="bar"><i style="width:${100 * s / max}%;${k === f.kind ? '' : 'background:var(--border-strong)'}"></i></div><span class="small num">${s}</span>`).join('')}</div>
+    <div class="tablewrap" style="max-height:340px"><table><tr><th>M2 column</th><th>Read as</th><th>Sample values</th></tr>
+    ${Object.entries(f.mapping).map(([field, col]) => `<tr><td>${esc(col)}</td><td class="mono small">${esc(field)}</td><td></td></tr>`).join('')}
+    ${f.unused.map(u => `<tr><td>${esc(u.column)}</td><td><span class="lv not_loaded">not loaded</span></td><td class="small muted">${(u.samples || []).map(esc).join(' · ') || 'empty column'}</td></tr>`).join('')}
+    </table></div></div>`; }).join('');
+  el.innerHTML = html;
+}
+
+// ---------- review ----------
+function renderReview() {
+  const el = $('[data-tab=review]'); const sm = S.summary;
+  if (!sm) { el.innerHTML = `<div class="empty">${S.state === 'running' ? 'Available when the run is finished.' : 'Run the migration first.'}</div>`; return; }
+  const sheets = Object.entries(sm.review).filter(([, r]) => r.length);
+  let html = `<div class="card"><p class="small">These rows are <b>not</b> in the import file. Each one says why and how to fix it. The same rows are in
+    <a href="/api/download?run=${S.run}&file=CSP_Import_M2_Review.xlsx&token=${TOKEN}">CSP_Import_M2_Review.xlsx</a> with the template columns ready to paste.</p></div>`;
+  if (!sheets.length) html += '<div class="banner ok">No row waits for review.</div>';
+  html += sheets.map(([k, rows]) => { const cols = [...new Set(rows.flatMap(r => Object.keys(r.row).filter(c => rows.some(x => x.row[c] !== null && x.row[c] !== ''))))];
+    return `<div class="card"><h3>${esc(sm.sheets[k].title)} <span class="muted small">${rows.length} row(s)</span></h3><div class="tablewrap"><table>
+    <tr><th>Source</th><th>M2 key</th><th>Reason</th><th>Fix</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+    ${rows.map(r => `<tr><td class="small">${esc(r.where)}</td><td>${r.key ? `<span class="key" data-key="${esc(r.key)}">${esc(r.key)}</span>` : ''}</td><td>${esc(r.reason)}</td>
+      <td class="small" style="color:var(--ok)">${esc(r.fix || '')}</td>${cols.map(c => `<td class="small">${esc(r.row[c] ?? '')}</td>`).join('')}</tr>`).join('')}</table></div></div>`; }).join('');
+  if (sm.closed?.length) html += `<div class="card"><h3>Closed mandates (not loaded)</h3><table><tr><th>Source</th><th>M2 key</th><th>Name</th><th>Why</th></tr>
+    ${sm.closed.map(c => `<tr><td class="small">${esc(c.where)}</td><td><span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span></td><td>${esc(c.name)}</td><td>${esc(c.why)}</td></tr>`).join('')}</table></div>`;
+  el.innerHTML = html; bindKeys(el);
+}
+
+// ---------- values ----------
+function renderValues() {
+  const el = $('[data-tab=values]'); const mode = S.valuesMode;
+  const codes = mode === 'change' ? ['VALUE_CHANGED'] : ['VALUE_NOT_LOADED', 'COLUMN_UNUSED'];
+  const rows = S.events.filter(e => codes.includes(e.code));
+  const by = {}; rows.forEach(e => { const c = e.column || '?'; by[c] = (by[c] || 0) + 1; });
+  el.innerHTML = `<div class="chips"><span class="chip ${mode === 'change' ? 'on' : ''}" data-m="change">Values changed ${S.events.filter(e => e.code === 'VALUE_CHANGED').length}</span>
+    <span class="chip ${mode === 'nl' ? 'on' : ''}" data-m="nl">Not loaded ${S.events.filter(e => ['VALUE_NOT_LOADED', 'COLUMN_UNUSED'].includes(e.code)).length}</span></div>
+    <div class="card"><h3>By column</h3><div class="chips">${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<span class="chip" data-col="${esc(c)}">${esc(c)} ${n}</span>`).join('') || '<span class="muted">none</span>'}</div></div>
+    <div class="tablewrap"><table><tr><th>M2 key</th><th>Column</th>${mode === 'change' ? '<th>M2 value</th><th>Import value</th>' : '<th>Value</th>'}<th>Why</th></tr>
+    ${rows.map(e => `<tr class="click" data-seq="${e.seq}" data-c="${esc(e.column || '')}"><td>${e.key ? `<span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span>` : ''}</td><td>${esc(e.column)}</td>
+      ${mode === 'change' ? `<td class="mono small">${esc(e.old)}</td><td class="mono small">${esc(e.new)}</td>` : `<td class="mono small">${esc(e.value ?? (e.samples || []).join(' · '))}</td>`}
+      <td class="small">${esc(e.message.replace(/^.*?(not loaded\.|'\.) ?/, ''))}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Nothing.</td></tr>'}</table></div>`;
+  el.querySelectorAll('[data-m]').forEach(c => c.onclick = () => { S.valuesMode = c.dataset.m; renderValues(); });
+  el.querySelectorAll('[data-col]').forEach(c => c.onclick = () => { el.querySelectorAll('tr[data-c]').forEach(tr => tr.style.display = tr.dataset.c === c.dataset.col ? '' : 'none'); });
+  el.querySelectorAll('tr[data-seq]').forEach(tr => tr.onclick = ev => { if (!ev.target.classList.contains('key')) showEvent(+tr.dataset.seq); });
+  bindKeys(el);
+}
+
+// ---------- finance ----------
+function renderFinance() {
+  const el = $('[data-tab=finance]'); const sm = S.summary;
+  if (!sm) { el.innerHTML = '<div class="empty">Available when the run is finished.</div>'; return; }
+  const rec = Object.entries(sm.receivables || {});
+  el.innerHTML = `<div class="card"><h3>M2 open receivables per operating company</h3><p class="small muted">The reconciliation figure: after the opening items are posted in Odoo, each company's open receivables must match. "(not assigned)" = items of a client still in review.</p>
+    ${rec.length ? `<table><tr><th>Operating company</th><th>Currency</th><th class="num">Open amount</th></tr>${rec.flatMap(([c, v]) => Object.entries(v).map(([cur, a]) =>
+      `<tr><td>${esc(c)}</td><td>${esc(cur)}</td><td class="num">${a.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>`)).join('')}</table>` : '<p class="muted">No open-items export in this run.</p>'}</div>
+    <div class="card"><h3>Fees (Annual Basic Fee, Flat Fee, LEI…)</h3><p class="small muted">Not part of the client template: kept for the recurring invoices / subscriptions. The LEI fee's due date fills the client's LEI Renewal Date; a fee with a past finish date is listed as ended.</p>
+    ${sm.fees?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Fee</th><th class="num">Amount</th><th>Currency</th><th>Period</th><th>Next due</th><th>Text</th><th>Billed by</th><th>Status</th><th>Client</th></tr>${sm.fees.map(f =>
+      `<tr><td>${f.key ? `<span class="key" data-key="${esc(f.key)}">${esc(f.key)}</span>` : ''}</td><td>${esc(f.fee)}</td><td class="num">${esc(f.amount ?? '')}</td><td>${esc(f.currency ?? '')}</td><td>${esc(f.period)}</td><td>${esc(f.next_due ?? '')}</td><td>${esc(f.text)}</td><td>${esc(f.billed_by ?? '')}</td><td>${f.status === 'ended' ? '<span class="muted">ended</span>' : 'active'}</td><td>${f.client_found ? 'found' : '<span class="lv review">not found</span>'}</td></tr>`).join('')}</table></div>` : '<p class="muted">No fees export in this run.</p>'}</div>
+    <div class="card"><h3>Compliance (M2 ML-related, risk category, lock)</h3><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
+    ${sm.compliance?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>ML-related</th><th>Risk category</th><th>Country of max. risk</th><th>Lock</th><th>Note</th></tr>${sm.compliance.map(c =>
+      `<tr><td>${c.key ? `<span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span>` : ''}</td><td>${esc(c.client_state)}</td><td>${esc(c.ml_related)}</td><td>${esc(c.risk_category)}</td><td>${esc(c.risk_country)}</td><td>${c.lock === 'Yes' ? `<span class="lv warning">locked</span> ${esc(c.lock_text)}` : esc(c.lock)}</td><td>${esc(c.note)}</td></tr>`).join('')}</table></div>` : '<p class="muted">No compliance export in this run.</p>'}</div>
+    <div class="card"><h3>Documents (to attach in Odoo)</h3><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
+    ${sm.documents?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>Folder</th><th>File</th><th>Description</th><th>Created</th><th>Maturity</th><th>On disk</th></tr>${sm.documents.map(d =>
+      `<tr><td>${d.key ? `<span class="key" data-key="${esc(d.key)}">${esc(d.key)}</span>` : ''}</td><td>${esc(d.client_state)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.description)}</td><td>${esc(d.created ?? '')}</td><td>${esc(d.maturity ?? '')}</td><td class="small mono">${d.on_disk ? esc(d.on_disk) : '<span class="lv warning">not copied</span>'}</td></tr>`).join('')}</table></div>` : '<p class="muted">No document export or document folders in this run.</p>'}</div>`;
+  bindKeys(el);
+}
+
+// ---------- settings ----------
+function renderSettings() {
+  const el = $('[data-tab=settings]'); const cfg = S.info?.config || {};
+  const map = (name, label, ph) => { const m = Object.entries(cfg[name] || {}).filter(([k]) => !k.startsWith('_'));
+    return `<div class="card"><h3>${label}</h3><p class="small muted">${esc(cfg[name]?._help || '')}</p><div data-map="${name}">${m.map(([k, v]) => kvRow(k, v, ph)).join('')}</div>
+      <button class="btn small" data-add="${name}">+ Add</button></div>`; };
+  el.innerHTML = `<div class="card"><h3>Rules</h3>
+    <label class="tog"><input type="checkbox" data-set="require_company" ${cfg.require_company !== false ? 'checked' : ''}> A mandate without a known operating company goes to review (never a default company)</label>
+    <label class="tog"><input type="checkbox" data-set="include_closed_mandates" ${cfg.include_closed_mandates ? 'checked' : ''}> Load closed mandates too (status closed, or ended)</label>
+    <label class="tog"><input type="checkbox" data-set="notes_from_unmapped" ${cfg.notes_from_unmapped !== false ? 'checked' : ''}> Keep the M2 values with no CSP column in the client's Notes</label>
+    <label class="tog"><input type="checkbox" data-set="ubo_from_mandate" ${cfg.ubo_from_mandate !== false ? 'checked' : ''}> Create a UBO from the beneficial owner named on a mandate</label>
+    <label class="tog"><input type="checkbox" data-set="tag_m2" ${cfg.tag_m2 !== false ? 'checked' : ''}> Tag the loaded clients "M2"</label>
+    <label class="tog">Dates like 03/04/2020 are <select data-set="date_order"><option value="DMY">day/month (DMY)</option><option value="MDY">month/day (MDY)</option></select></label>
+    <label class="tog">Addresses without a mandate <select data-set="addresses_without_mandate"><option value="skip">are not clients</option><option value="client">become clients when there is no mandate export</option></select></label></div>
+    ${map('company_map', 'Company map (mandate holder → Odoo operating company)', 'Odoo company name')}
+    ${map('employee_map', 'Employee map (M2 abbreviation → Odoo employee)', 'Employee name')}
+    ${map('officer_types', 'Officer types (M2 Detail addr. Type code → register sheet)', 'directors, ubos, contacts…')}
+    ${map('file_kinds', 'File kinds (file name → export kind)', 'mandates, addresses, officers…')}
+    <div class="card"><h3>All settings (JSON)</h3><p class="small muted">Extra header aliases, excluded keys and everything above. Saved to <span class="mono">m2_config.json</span>.</p>
+    <textarea id="rawcfg" rows="16">${esc(JSON.stringify(cfg, null, 2))}</textarea><div class="toolbar" style="margin-top:8px"><button class="btn primary" id="savecfg">Save settings</button>
+    <span class="muted small">Template read from <span class="mono">${esc(S.info?.spec)}</span></span></div></div>`;
+  el.querySelector('[data-set=date_order]').value = cfg.date_order || 'DMY';
+  el.querySelector('[data-set=addresses_without_mandate]').value = cfg.addresses_without_mandate || 'skip';
+  el.querySelectorAll('[data-set]').forEach(i => i.onchange = async () => {
+    const v = i.type === 'checkbox' ? i.checked : i.value;
+    try { const r = await api('/api/decide', {type: 'setting', key: i.dataset.set, value: v}); S.info.config = r.config; $('#rawcfg').value = JSON.stringify(r.config, null, 2); toast('Saved'); } catch (e) { toast(e.message); } });
+  el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { b.previousElementSibling.insertAdjacentHTML('beforeend', kvRow('', '', '')); bindKv(el); });
+  bindKv(el);
+  $('#savecfg').onclick = async () => { let cfg2; try { cfg2 = JSON.parse($('#rawcfg').value); } catch (e) { return toast('Not valid JSON: ' + e.message, 5000); }
+    try { await api('/api/config', {config: cfg2}); S.info.config = cfg2; toast('Settings saved'); renderSettings(); } catch (e) { toast(e.message); } };
+}
+function kvRow(k, v, ph) { return `<div class="kvedit"><input value="${esc(k)}" placeholder="M2 value" data-k><input value="${esc(v)}" placeholder="${esc(ph)}" data-v><button class="btn small" data-del>✕</button></div>`; }
+function bindKv(el) {
+  el.querySelectorAll('[data-map]').forEach(box => {
+    const save = async () => { const cfg = S.info.config; const name = box.dataset.map; const keep = Object.fromEntries(Object.entries(cfg[name] || {}).filter(([k]) => k.startsWith('_')));
+      box.querySelectorAll('.kvedit').forEach(r => { const k = r.querySelector('[data-k]').value.trim(); const v = r.querySelector('[data-v]').value.trim(); if (k) keep[k] = v; });
+      cfg[name] = keep; try { await api('/api/config', {config: cfg}); $('#rawcfg').value = JSON.stringify(cfg, null, 2); toast('Saved'); } catch (e) { toast(e.message); } };
+    box.querySelectorAll('input').forEach(i => i.onchange = save);
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { b.parentElement.remove(); save(); });
+  });
+}
+
+const RENDER = {overview: renderOverview, decide: renderDecide, journal: renderJournal, records: renderRecords, files: renderFiles,
+  review: renderReview, values: renderValues, finance: renderFinance, settings: renderSettings};
+function go(tab) { S.tab = tab; try { localStorage.setItem('m2tab', tab); } catch (e) { /* private mode */ } render(); window.scrollTo(0, 0); }
+
+// ---------- runs and polling ----------
+async function loadRuns(select) {
+  const r = await api('/api/runs');
+  $('#runs').innerHTML = `<option value="">Earlier runs…</option>` + r.runs.map(x => `<option value="${x.id}">${x.id} · ${x.state}${x.totals ? ` · ${x.totals.import} in / ${x.totals.review} review` : ''}</option>`).join('');
+  if (select) $('#runs').value = select;
+  return r.runs;
+}
+async function openRun(id) {
+  clearTimeout(S.timer); Object.assign(S, {run: id, events: [], next: 0, summary: null, state: 'running', record: null, trace: null});
+  $('[data-tab=journal]').dataset.built = ''; await poll();
+}
+async function poll() {
+  if (!S.run) return;
+  try {
+    let more = true;
+    while (more) { const r = await api(`/api/events?run=${S.run}&since=${S.next}`); S.events.push(...r.events); S.next = r.next; S.state = r.state;
+      S.summary = r.summary; S.trace = r.trace; more = r.events.length >= 5000; }
+  } catch (e) { toast(e.message); S.state = 'failed'; }
+  render();
+  if (S.state === 'running') S.timer = setTimeout(poll, 400);
+  else { loadRuns(S.run); S.info = await api('/api/state'); }
+}
+async function startRun() {
+  const source = $('#source').value.trim();
+  try { const r = await api('/api/run', {source}); await loadRuns(r.run); S.tab = 'journal'; S.filter.follow = true; await openRun(r.run); }
+  catch (e) { toast(e.message, 4000); }
+}
+
+// ---------- folder picker ----------
+async function browse(path) {
+  try { const r = await api('/api/browse?path=' + encodeURIComponent(path || $('#source').value || '')); S.browsePath = r.path; $('#ppath').textContent = r.path;
+    $('#plist').innerHTML = `<div class="row" data-p="${esc(r.parent)}">⬆ ..</div>` + r.entries.map(x => x.dir ? `<div class="row" data-p="${esc(r.path + '/' + x.name)}">📁 ${esc(x.name)}</div>` :
+      `<div class="row muted small" style="cursor:default">📄 ${esc(x.name)}</div>`).join('');
+    $('#plist').querySelectorAll('[data-p]').forEach(d => d.onclick = () => browse(d.dataset.p)); $('#picker').classList.add('on'); }
+  catch (e) { toast(e.message); }
+}
+
+// ---------- init ----------
+document.addEventListener('click', ev => { const t = ev.target.closest('.tab'); if (t) go(t.dataset.k); });
+$('#dclose').onclick = () => $('#drawer').classList.remove('on');
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { $('#drawer').classList.remove('on'); $('#picker').classList.remove('on'); } });
+$('#run').onclick = startRun;
+$('#source').onkeydown = ev => { if (ev.key === 'Enter') startRun(); };
+$('#runs').onchange = ev => { if (ev.target.value) openRun(ev.target.value); };
+$('#browse').onclick = () => browse();
+$('#pclose').onclick = () => $('#picker').classList.remove('on');
+$('#puse').onclick = () => { $('#source').value = S.browsePath; $('#picker').classList.remove('on'); };
+$('#sample-en').onclick = async () => { try { const r = await api('/api/sample', {english: true}); $('#source').value = r.source; toast('Sample M2 exports (English) written: press Run migration'); } catch (e) { toast(e.message); } };
+$('#sample').onclick = async () => { try { const r = await api('/api/sample', {}); $('#source').value = r.source; toast('Sample M2 exports written: press Run migration'); } catch (e) { toast(e.message); } };
+(async () => {
+  try { S.tab = localStorage.getItem('m2tab') || 'overview'; } catch (e) { /* private mode */ }
+  if (!RENDER[S.tab]) S.tab = 'overview';
+  S.info = await api('/api/state');
+  $('#source').value = S.info.settings.source || '';
+  const runs = await loadRuns();
+  const last = S.info.running || runs[0]?.id;
+  if (last) { $('#runs').value = last; await openRun(last); } else { S.state = 'idle'; render(); }
+})();
+</script>
+</body>
+</html>

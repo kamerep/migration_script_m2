@@ -1,0 +1,39 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – Running and the UI</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
+h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#eef1f4}code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}
+.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – Running and the UI</h1><p>The migration turns the M2 Mandat exports into the CSP client import workbook and records every decision it takes.
+Nothing is written to Odoo.</p>
+<h2>1. Export from M2</h2><p>From each M2 function (Addresses, Mandates, officers, beneficial owners, share register, bank details,
+signatories, contact persons, Fees, open items) export the list to Excel or CSV into one folder. Keep the column headers;
+report titles above them are fine.</p>
+<p>With the English M2 interface (<i>Infosystem › Mandate info</i>) the grid titles are read as they are: Mandate overview,
+Address, Detail addr., Bank / Account / Authorized to sign, Fees, Invoice, Compliance, Document. A grid exported for one
+mandate has no mandate column: name the file after the mandate, e.g. <code>AP-482-ACC Detail addr.xlsx</code>. Copy M2's document
+folders (named after the mandate number) next to the exports to have the files indexed per client.</p>
+<h2>2. Start the tool</h2><p><code>.venv/bin/python m2_ui.py</code> opens <code>http://127.0.0.1:8796</code> (the next free port when it is taken).
+Choose the folder with <b>Browse…</b>, or press <b>Sample data</b> (German headers) or <b>Sample (English M2)</b> to try it with fictitious exports, then <b>Run migration</b>.</p>
+<h2>3. Watch the run</h2><p>The strip under the toolbar shows the stages (read &amp; classify files, build clients, link registers,
+fees &amp; open items, compliance, documents, template checks, write files) and live counts per level. The <b>Journal</b> follows the events as they are written.</p>
+<table><tr><th>Level</th><th>Meaning</th></tr>
+<tr><td>Error</td><td>Data that cannot be used as it is (unreadable file, duplicate mandate number, crash).</td></tr>
+<tr><td>To review</td><td>A row left out of the import file, with its reason and fix.</td></tr>
+<tr><td>Warning</td><td>Loaded, but worth checking (IBAN check digits, amount without currency, close call on a file kind).</td></tr>
+<tr><td>Decision</td><td>A choice the migration made and why (address linked by debtor number, function routed to Directors, rows merged).</td></tr>
+<tr><td>Change</td><td>A value converted or cleaned (country name to ISO code, Swiss amount, date format).</td></tr>
+<tr><td>Not loaded</td><td>An M2 value with no CSP column, kept in the review file and the client's Notes.</td></tr></table>
+<h2>4. Decide</h2><p><b>Needs decision</b> lists what blocks rows: the operating company of each mandate holder (never a default company),
+employee abbreviations, the M2 Detail addr. type codes (which register sheet each fills), unrecognised files, unmapped columns and register rows whose client was not found. Each answer is saved to
+<code>m2_config.json</code>; <b>Run again with these decisions</b> starts the next run.</p>
+<h2>5. Trace a record</h2><p>Click any M2 key (for example <code>M-0001</code>) to open <b>Records</b>: every event of that mandate across all files,
+in order, with the row it finally has in the import file or the reason it waits in review.</p>
+<h2>6. Load into Odoo</h2><p>Download <code>CSP_Import_M2.xlsx</code> from the Overview and load it in Contacts › Configuration › Client Import
+(Check, then Import). Fix the rows of <code>CSP_Import_M2_Review.xlsx</code>, paste them into the import file and load again: the M2 Reference makes
+every load an update.</p>
+<h2>Files of a run</h2><p>Each run is kept in <code>runs/&lt;stamp&gt;/</code>: the two workbooks, <code>journal.jsonl</code>, <code>summary.json</code>,
+<code>run.log</code> and the <code>config.json</code> it ran with. Earlier runs open from the run selector.</p>
+<h2>Terminal</h2><p><code>.venv/bin/python migration_script_m2_odoo.py &lt;folder&gt; [&lt;output&gt;] [--config m2_config.json] [--quiet]</code>
+prints the same journal; the exit code is 1 when there are errors.</p><h2>Portwatch: deploy and monitoring</h2><p>The UI is watched by Portwatch as <b>M2 → CSP Migration</b> (port 8796, group Tools):
+a health check on <code>/health</code>, the server log <code>logs/m2_ui.log</code> (UI start, every run start and result, failed requests), Start / Stop / Restart,
+and the actions <b>Deploy</b> (unit tests, then restart on the new code, then health check; it stops at the first failure), Run tests, Status,
+Last run summary, Migrate last folder and Sample run. The same commands work by hand: <code>bin/m2ctl.sh start|stop|restart|status|test|deploy|sample|migrate|last</code>.</p></body></html>

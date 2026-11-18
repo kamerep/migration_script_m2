@@ -1,0 +1,45 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – Rules and Decisions</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
+h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#eef1f4}code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}
+.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – Rules and Decisions</h1><p>The rules the migration applies, with the rule code shown in the journal.</p>
+<h2>Reading the files</h2><table><tr><th>Rule</th><th>What happens</th></tr>
+<tr><td><code>KIND</code>, <code>KIND_UNKNOWN</code>, <code>KIND_OVERRIDE</code></td><td>A file is scored against every export kind: each header matched +1, key columns +2 more, words of the file name +4. Below 4 it is not read; a lead of 1 or less is a warning. Settings › file kinds forces a kind.</td></tr>
+<tr><td><code>HEADER_ROW</code>, <code>ROW_TOTAL</code></td><td>Report titles above the header and total lines are skipped.</td></tr>
+<tr><td><code>COLUMN</code>, <code>COLUMN_UNUSED</code></td><td>Each header is matched to a field by its German or English names (exact first, then partial), including the English grid titles of M2 Professional (Mandate desig. 1, CDB / SSB, Mad.Company, Firma / Name, Adrno., Date from / till, H.Type, OP No., Open amount foreign…). Unused columns keep their values in Not Loaded; Settings › extra aliases maps them.</td></tr>
+<tr><td><code>REF_FROM_FILE</code>, <code>NO_CLIENT_COLUMN</code></td><td>A grid exported for one mandate (Detail addr., Bank, Fees) has no mandate column: the mandate number is read from the file name (<code>AP-482-ACC Bank.xlsx</code>) or the report title, and every row belongs to it. There, <code>Adrno.</code> is the person's or bank's own address, not the client's. Neither found: warning, the rows cannot be linked.</td></tr></table>
+<h2>Clients (mandates)</h2><table><tr><th>Rule</th><th>What happens</th></tr>
+<tr><td><code>CLIENT</code>, <code>REF_FALLBACK</code></td><td>One client per mandate; the M2 Reference is the mandate number (else debtor, else address number). M2 numbers are compared without their zero padding: <code>AP-00482-ACC</code> = <code>AP-482-ACC</code>.</td></tr>
+<tr><td><code>DUPLICATE_REF</code></td><td>A mandate number twice: the second row goes to review.</td></tr>
+<tr><td><code>ADDRESS_LINK</code>, <code>VALUE_CONFLICT</code></td><td>The address is found by address number, debtor number, the debtor number as the address <i>Number</i> (in M2 the debtor is an address), then exact name; a value that differs between mandate and address keeps the mandate's. <code>Postcode, City</code> printed together (<code>MH 96960 Majuro</code>) is split into country code, postcode and town; Founded and Business activity come from the address.</td></tr>
+<tr><td><code>TYPE</code></td><td>KLI (client / person) → Individual; GES → Company.</td></tr>
+<tr><td><code>ENTITY_TYPE</code></td><td>AG, GMBH, LLP, LTD, FZCO… → company; STI / Stiftung → foundation; TRU, VTR → trust. Anstalt is flagged to check.</td></tr>
+<tr><td><code>COMPANY</code>, <code>COMPANY_UNKNOWN</code></td><td>The mandate holder is mapped to an operating company. Unknown holder: review, never a default company.</td></tr>
+<tr><td><code>EMPLOYEE_UNKNOWN</code></td><td>Advisor / deputy abbreviations through the employee map; unknown ones are left empty and listed.</td></tr>
+<tr><td><code>MANDATE_CLOSED</code></td><td>Closed status, <code>Active = N</code> or past end date: not loaded (switchable); its register rows follow.</td></tr>
+<tr><td><code>UBO_FROM_MANDATE</code></td><td>The beneficial owner named on a mandate becomes a UBO entry, merged with the UBO export.</td></tr></table>
+<h2>Registers</h2><table><tr><th>Rule</th><th>What happens</th></tr>
+<tr><td><code>OFFICER_ROUTE</code>, <code>OFFICER_IGNORED</code></td><td>A combined officers list (M2 Detail addr.) is split first by its Type code through Settings › officer types (e.g. DIR → Directors, BO → UBOs, CP → Contact persons, or ignore), then by the wording of the function: Verwaltungsrat, director, Geschäftsführer, Stiftungsrat → Directors; secretary → Secretaries; agent → Agents. Unknown → review, with a one-click choice in Needs decision. <code>collective</code> J/N → jointly / singly; Remark 2 and 3 join the Remark.</td></tr>
+<tr><td><code>BANK_RELATION</code>, <code>BANK_AMBIGUOUS</code></td><td>A Banks-grid row with a bank but no account number is the client's bank relationship: its bank name, clearing number (BCN) and BIC go to the client's accounts when it has one bank; with several the bank is left empty (warning). An account with no currency column takes the ISO code in its type or remark (<code>Current account USD</code>).</td></tr>
+<tr><td><code>LINK</code>, <code>CLIENT_NOT_FOUND</code></td><td>Client found by mandate no → debtor no → address no → exact unique name. Close names are suggested, never chosen.</td></tr>
+<tr><td><code>CLIENT_IN_REVIEW</code>, <code>CLIENT_CLOSED</code></td><td>A row follows its client into review or out with a closed mandate.</td></tr>
+<tr><td><code>ROW_INVALID</code></td><td>No name, the client's own name as the person, end before start, bank account without number or currency.</td></tr>
+<tr><td><code>MERGED</code></td><td>Rows of one person at one client become one entry; other periods go into the Remark.</td></tr>
+<tr><td><code>IBAN_CHECK</code>, <code>SWIFT_FORMAT</code></td><td>IBAN check digits and BIC format are verified (warning).</td></tr></table>
+<h2>Values</h2><table><tr><th>Value</th><th>Conversion</th></tr>
+<tr><td>Dates</td><td>DD.MM.YYYY, YYYY-MM-DD, DD/MM/YYYY (or MDY in Settings), Excel day numbers, 2-digit years; impossible dates are not loaded. Day-month only (financial year end) gets the current year.</td></tr>
+<tr><td>Amounts</td><td>1'000.00, 1.000,00, 1,000.00 and a currency in the text (CHF 100'000).</td></tr>
+<tr><td>Countries</td><td>ISO2, ISO3 and German, French and English names (Schweiz, VAE, Hongkong, BVI…).</td></tr>
+<tr><td>Names</td><td>"Surname, Given name" → "Given Surname"; given name + surname columns joined.</td></tr>
+<tr><td>Signing</td><td>Einzel… → singly; Kollektiv… / zu zweien → jointly.</td></tr>
+<tr><td>Ownership</td><td>A fraction 0–1 becomes a percentage; 0 % is read as not known.</td></tr></table>
+<h2>Finance</h2><p><code>FEE</code> rows (ABF, FLF, LEI) and <code>OPEN_ITEM</code> rows are not client-template data. They are listed in the review file;
+open items are totalled per operating company and currency for the reconciliation after the opening items are posted.</p>
+<table><tr><th>Rule</th><th>What happens</th></tr>
+<tr><td><code>FEE_ENDED</code></td><td>A fee with a past finish date is listed as ended, not for the subscriptions.</td></tr>
+<tr><td>LEI fee</td><td>The due date of the LEI fee fills the client's <i>LEI Renewal Date</i> (<code>LEI_RENEWAL_CONFLICT</code> when another fee says otherwise).</td></tr>
+<tr><td><code>OPEN_ITEM_PAID</code>, <code>OPEN_ITEMS_PAID</code></td><td>M2's invoice list also holds paid invoices: those with nothing open are left out of the receivables. The open amount in the invoice currency (<i>Open amount foreign</i>) is used; a paid flag with an amount still open is a warning.</td></tr></table>
+<h2>Compliance and documents</h2><table><tr><th>Rule</th><th>What happens</th></tr>
+<tr><td><code>COMPLIANCE</code>, <code>COMPLIANCE_LOCK</code></td><td>ML-related, risk category, country of max. risk, lock and note have no template column: they go unchanged into the client's Notes and the Compliance sheet. A lock is a warning to clear with compliance. The tool never decides a risk rating.</td></tr>
+<tr><td><code>DOCUMENT</code>, <code>DOCUMENTS_FOLDER</code>, <code>FOLDER_NOT_CLIENT</code>, <code>DOCUMENTS_MISSING</code></td><td>The M2 document export and the sub-folders named after a mandate number (M2's document store) are indexed per client in the Documents sheet, with the path of each file to attach in Odoo.</td></tr></table>
+<div class='note'>Every rule writes its event with the source file and row, the M2 key, the values before and after, and how to fix it.</div></body></html>

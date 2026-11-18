@@ -1,0 +1,8 @@
+.venv/
+runs/
+__pycache__/
+.m2_ui.json
+logs/
+sample_m2/
+sample_m2_en/
+m2_db/

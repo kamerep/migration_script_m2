@@ -1,0 +1,24 @@
+{
+  "_help": "Settings of the M2 -> CSP migration. Edit here or in the UI (Settings). Every key is optional.",
+  "company_map": {
+    "_help": "M2 mandate holder (trust mandate code, e.g. IT) -> name of the Odoo operating company. A mandate whose holder is not listed goes to review: never a default company."
+  },
+  "employee_map": {
+    "_help": "M2 employee abbreviation (Kuerzel) -> employee name in Odoo. Empty map: the M2 value is passed through and the import checks it."
+  },
+  "officer_types": {
+    "_help": "M2 Detail addr. Type code (e.g. DIR, BO, CP) -> register sheet: directors, ubos, shareholders, secretaries, agents, contacts, signatories or ignore. Codes not listed are read by their wording (Director, Secretary...); unknown ones go to review."
+  },
+  "require_company": true,
+  "include_closed_mandates": false,
+  "addresses_without_mandate": "skip",
+  "notes_from_unmapped": true,
+  "date_order": "DMY",
+  "file_kinds": {
+    "_help": "File name (or start of it) -> source kind, when the automatic classification picks the wrong one. Kinds: mandates, addresses, contacts, officers, directors, ubos, shareholders, secretaries, agents, bank_accounts, signatories, fees, open_items, compliance, documents, ignore."
+  },
+  "extra_aliases": {
+    "_help": "Source kind -> {field: [extra column headers]} added to the built-in header names."
+  },
+  "excluded_keys": []
+}
