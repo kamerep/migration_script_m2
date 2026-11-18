@@ -131,6 +131,20 @@ class AI:
         self.calls = []
         self.log = log or (lambda msg: None)
         self._clients = {}
+        self.on_progress = None         # callback(fraction 0..1 of the current task, detail text)
+        self.span = (0.0, 1.0)          # share of the current task the next classify() fills
+
+    # -- progress --------------------------------------------------------------------------------------------
+    def part(self, index, count):
+        """The next classify() fills part `index` of `count` equal parts of the current task."""
+        self.span = (index / count, (index + 1) / count)
+        self.report(0, 1)
+
+    def report(self, done, total, detail=''):
+        """Tell the caller how far the current task is: `done` of `total` steps of the current part."""
+        if self.on_progress:
+            lo, hi = self.span
+            self.on_progress(lo + (hi - lo) * done / max(1, total), detail)
 
     # -- providers -------------------------------------------------------------------------------------------
     def _client(self, provider):
@@ -258,8 +272,10 @@ class AI:
         """items: [{'id':..., ...}] -> {id: {'value', 'confidence', 'reason', 'provider'}} (values in `allowed`)."""
         results = {}
         size = max(1, int(self.s['batch']))
+        steps = -(-len(items) // size)
         for i in range(0, len(items), size):
             chunk = items[i:i + size]
+            self.report(i // size, steps, f"{task}: batch {i // size + 1} of {steps}")
             answer = self.ask(task, system, {'allowed': sorted(allowed), 'items': chunk})
             for row in _rows(answer):
                 key, value = str(row.get('id')), row.get('value')
@@ -280,6 +296,7 @@ class AI:
                 weak = [x for x in weak if results.get(str(x['id']), {}).get('provider') != 'claude']
                 for i in range(0, len(weak), size):
                     chunk = weak[i:i + size]
+                    self.report(i // size, -(-len(weak) // size), f"{task}: checking weak answers with Claude")
                     answer = self.ask(cloud_task, system, {'allowed': sorted(allowed), 'items': chunk},
                                       provider='claude')
                     for row in _rows(answer):
@@ -288,6 +305,7 @@ class AI:
                             results[key] = {'value': value, 'confidence': _conf(row.get('confidence')),
                                             'reason': str(row.get('reason') or '')[:300], 'provider': 'claude',
                                             'model': self.s['claude_model']}
+        self.report(1, 1)
         return results
 
 
@@ -396,7 +414,9 @@ def suggest(run_dir, ai=None, config=None):
             cols.append({'id': f"c{len(cols)}", 'kind': kind, 'column': u['column'], 'file': f['file'],
                          'free': sorted(set(fields[kind]) - mapped),
                          'samples': [str(x)[:40] for x in (u.get('samples') or [])[:3]]})
-    for kind in sorted({c['kind'] for c in cols}):
+    kinds = sorted({c['kind'] for c in cols})
+    for n, kind in enumerate(kinds):
+        ai.span = (n / len(kinds) / 5, (n + 1) / len(kinds) / 5)
         group = [c for c in cols if c['kind'] == kind]
         allowed = set(group[0]['free']) | {'none'}
         system = ("You map column headers of exports of M2 Mandat (Swiss fiduciary software, German or English) to "
@@ -416,6 +436,7 @@ def suggest(run_dir, ai=None, config=None):
                                 'file': c['file'], **r})
 
     # 2. files not recognised -> kind
+    ai.part(1, 5)
     files = [e for e in events if e.get('code') == 'KIND_UNKNOWN']
     if files:
         allowed = set(titles) | {'ignore'}
@@ -432,6 +453,7 @@ def suggest(run_dir, ai=None, config=None):
                             **{k: v for k, v in res[x['id']].items() if k != 'value'}})
 
     # 3. M2 Detail addr. type codes / functions -> register
+    ai.part(2, 5)
     codes = sorted({str(e.get('value')) for e in events if e.get('code') == 'OFFICER_FUNCTION_UNKNOWN'
                     and e.get('value')})
     if codes:
@@ -447,6 +469,7 @@ def suggest(run_dir, ai=None, config=None):
                 out.append({'type': 'officer_type', 'key': x['code'], **res[x['id']]})
 
     # 4. mandate holder codes -> operating company (only when the companies are known)
+    ai.part(3, 5)
     companies = [c for c in (ai.s.get('companies') or []) if c] or sorted(
         {v for k, v in ((config or {}).get('company_map') or {}).items() if not k.startswith('_') and v})
     holders = sorted({str(e.get('value')) for e in events if e.get('code') == 'COMPANY_UNKNOWN' and e.get('value')})
@@ -461,6 +484,7 @@ def suggest(run_dir, ai=None, config=None):
                 out.append({'type': 'company', 'key': x['holder'], **res[x['id']]})
 
     # 5. legal forms not known -> entity type (shown as a hint: the import column is filled by hand)
+    ai.part(4, 5)
     forms = sorted({m.group(1) for e in events if e.get('code') == 'ENTITY_TYPE_UNKNOWN'
                     for m in [re.search(r"legal form '([^']*)'", e.get('message', ''))] if m})
     if forms:

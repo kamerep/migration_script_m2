@@ -872,7 +872,7 @@ function renderDecide() {
     ['employee', 'Employees', g.employee.size], ['legal', 'Legal forms', g.legal.size], ['column', 'Columns', g.column.length], ['other', 'Other checks', g.other.length]].filter(x => x[2]);
   el.innerHTML = `<div class="card"><div class="toolbar"><div class="grow"><b>${p.open ? `${p.done} of ${p.open} decisions saved` : 'No decisions to save in this run'}</b>
       <div class="small muted">Saved to the settings (m2_config.json); they apply on the next run.${p.other ? ` ${fmt(p.other)} item(s) below are fixed at the source: in M2 or in the review file, then run again.` : ''}</div></div>
-    <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? 'AI is thinking…' : 'Ask AI'}</button>
+    <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? `AI is thinking… ${Math.round(S.ai.job.percent || 0)}%` : 'Ask AI'}</button>
     <button class="btn primary" id="rerun">${ic('refresh')}Run again${p.done ? ` with ${p.done} decision(s)` : ''}</button></div>
     <div class="bar tall" role="progressbar" aria-label="Decisions saved" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
     <div class="toolbar" style="margin:12px 0 0"><input type="search" id="decq" aria-label="Filter the decisions" placeholder="Filter by code, column, file or mandate…" value="${esc(S.decQ)}" style="max-width:340px">
@@ -1113,9 +1113,11 @@ function bindAI(el) {
     busy(btn, () => decide(body, `${d.key} → ${d.value} saved (AI suggestion)`, {target: d.type, key: d.key, kind: d.kind, field: d.value})); });
 }
 function aiProgress() { const j = S.ai?.job; if (j?.state !== 'running') return '';
-  const n = (j.tasks || []).length || 1; const d = (j.done || []).length; const el = j.started ? Math.max(0, (Date.now() - Date.parse(j.started)) / 1000) : 0;
+  const n = (j.tasks || []).length || 1, d = (j.done || []).length, el = j.started ? Math.max(0, (Date.now() - Date.parse(j.started)) / 1000) : 0;
+  const pct = Math.max(0, Math.min(100, Math.round(j.percent ?? 100 * d / n)));
   return `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${(j.tasks || []).map(t => `<span class="chip static ${(j.done || []).includes(t) ? 'on' : ''}">${(j.done || []).includes(t) ? ic('check') : ''} ${AI_TASK[t] || t}</span>`).join(' ')}</span>
-    <div class="bar tall ${d ? '' : 'indet'}"><i style="width:${100 * d / n}%;background:var(--violet)"></i></div><span class="small muted">${d} of ${n}, ${secs(el)}, local model</span></div>`; }
+    <div class="bar tall" role="progressbar" aria-label="Assistant progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%;background:var(--violet)"></i></div>
+    <b class="num" style="min-width:4ch;text-align:right">${pct}%</b><span class="small muted">${j.step ? esc(j.step) + ', ' : ''}${d} of ${n} task(s), ${secs(el)}</span></div>`; }
 async function loadAI() {
   if (!S.run) return; const run = S.run; const was = S.ai?.job?.state;
   try { const r = await api(`/api/ai?run=${run}`, undefined, {quiet: true}); if (run !== S.run) return; S.ai = r; } catch (e) { S.ai = null; }

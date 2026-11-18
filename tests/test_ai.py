@@ -89,6 +89,17 @@ class TestGuardrails(unittest.TestCase):
         self.assertEqual(res['o0']['confidence'], 0.85)
         self.assertNotIn('o1', res)
 
+    def test_progress_by_batch_within_a_part(self):
+        ai = FakeAI({'officer_types': []}, batch=2)
+        seen = []
+        ai.on_progress = lambda frac, detail='': seen.append((round(frac, 3), detail))
+        ai.part(1, 2)
+        ai.classify('officer_types', 's', [{'id': f"o{i}"} for i in range(5)], set(m2_ai.REGISTERS))
+        fracs = [f for f, _ in seen]
+        self.assertEqual(fracs, sorted(fracs))
+        self.assertEqual((fracs[0], fracs[-1]), (0.5, 1.0))
+        self.assertIn('batch 3 of 3', seen[-2][1])
+
     def test_alias_samples_must_fit(self):
         base = {'confidence': 0.8, 'provider': 'ollama', 'reason': ''}
         self.assertIsNone(m2_ai.check_alias({**base, 'value': 'email'}, 'Remark', ['call back']))

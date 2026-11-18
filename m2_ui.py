@@ -409,18 +409,27 @@ def api_ai_run(params):
     settings = m2_ai.load_settings(config)
     if not settings.get('enabled', True):
         raise Error("AI assistance is off (Settings > AI).")
-    job = AI_JOBS[run_id] = {'state': 'running', 'tasks': tasks, 'done': [], 'error': None,
-                             'started': datetime.datetime.now().isoformat(timespec='seconds')}
+    job = AI_JOBS[run_id] = {'state': 'running', 'tasks': tasks, 'done': [], 'error': None, 'percent': 0,
+                             'step': '', 'started': datetime.datetime.now().isoformat(timespec='seconds')}
     server_log('INFO', f"ai {run_id}: {', '.join(tasks)} with {settings['provider']}")
 
     def work():
         ai = m2_ai.AI(settings, log=lambda m: server_log('WARN', f"ai {run_id}: {m}"))
+
+        def progress(fraction, detail=''):
+            share = (len(job['done']) + min(1.0, max(0.0, fraction))) / max(1, len(tasks))
+            job['percent'] = max(job['percent'], min(99, int(100 * share)))   # never goes back, 100 when done
+            if detail:
+                job['step'] = detail
+        ai.on_progress = progress
         try:
             for task in tasks:
+                ai.span, job['step'] = (0.0, 1.0), ''
                 {'suggest': m2_ai.suggest, 'documents': m2_ai.classify_documents,
                  'summary': m2_ai.summarize}[task](path, ai, config)
                 job['done'].append(task)
-            job['state'] = 'done'
+                progress(0)
+            job.update(state='done', percent=100, step='')
         except Exception as exc:  # noqa: BLE001
             job.update(state='failed', error=f"{type(exc).__name__}: {exc}")
             server_log('ERROR', f"ai {run_id} failed: {exc}")
