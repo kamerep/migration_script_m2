@@ -22,6 +22,7 @@ import json
 import mimetypes
 import html
 import os
+import time
 import re
 import secrets
 import shutil
@@ -63,7 +64,7 @@ def api_token():
 
 
 API_TOKEN = api_token()
-AI_JOBS = {}                    # run id -> {'state': running|done|failed, 'tasks': [...], 'error': ...}
+AI_JOBS = {}                    # run id -> {'state': running|done|stopped|failed, 'tasks': [...], 'error': ...}
 LOCK = threading.Lock()
 JOBS = {}                       # run id -> {'events': [...], 'state': running|done|failed, 'summary': {...}}
 
@@ -364,7 +365,7 @@ def api_open(params):
 # -- AI assistance (m2_ai): suggestions for the open decisions, document types, run summary -------------------
 AI_KEYS = {'enabled': bool, 'provider': str, 'ollama_url': str, 'ollama_model': str, 'embed_model': str,
            'claude_model': str, 'claude_effort': str, 'allow_cloud': bool, 'escalate_below': float,
-           'min_confidence': float, 'batch': int, 'timeout': int, 'companies': list,
+           'min_confidence': float, 'batch': int, 'doc_model_limit': int, 'timeout': int, 'companies': list,
            'after_run': bool}
 
 
@@ -410,32 +411,54 @@ def api_ai_run(params):
     if not settings.get('enabled', True):
         raise Error("AI assistance is off (Settings > AI).")
     job = AI_JOBS[run_id] = {'state': 'running', 'tasks': tasks, 'done': [], 'error': None, 'percent': 0,
-                             'step': '', 'started': datetime.datetime.now().isoformat(timespec='seconds')}
+                             'step': '', 'eta': None, 'started': datetime.datetime.now().isoformat(timespec='seconds')}
     server_log('INFO', f"ai {run_id}: {', '.join(tasks)} with {settings['provider']}")
 
     def work():
         ai = m2_ai.AI(settings, log=lambda m: server_log('WARN', f"ai {run_id}: {m}"))
 
+        clock = {'task': time.time()}
+
         def progress(fraction, detail=''):
-            share = (len(job['done']) + min(1.0, max(0.0, fraction))) / max(1, len(tasks))
-            job['percent'] = max(job['percent'], min(99, int(100 * share)))   # never goes back, 100 when done
+            fraction = min(1.0, max(0.0, fraction))
+            share = (len(job['done']) + fraction) / max(1, len(tasks))
+            job['percent'] = max(job['percent'], min(99.9, round(100 * share, 1)))  # never back, 100 when done
+            spent = time.time() - clock['task']
+            job['eta'] = round(spent * (1 - fraction) / fraction) if fraction >= 0.01 and spent > 5 else None
             if detail:
                 job['step'] = detail
         ai.on_progress = progress
+        job['ai'] = ai
         try:
             for task in tasks:
-                ai.span, job['step'] = (0.0, 1.0), ''
+                ai.span, job['step'], job['eta'], clock['task'] = (0.0, 1.0), '', None, time.time()
                 {'suggest': m2_ai.suggest, 'documents': m2_ai.classify_documents,
                  'summary': m2_ai.summarize}[task](path, ai, config)
                 job['done'].append(task)
                 progress(0)
-            job.update(state='done', percent=100, step='')
+            job.update(state='done', percent=100, step='', eta=None)
+        except m2_ai.Cancelled:
+            job.update(state='stopped', step='', eta=None)
+            server_log('INFO', f"ai {run_id}: stopped by the person")
         except Exception as exc:  # noqa: BLE001
             job.update(state='failed', error=f"{type(exc).__name__}: {exc}")
             server_log('ERROR', f"ai {run_id} failed: {exc}")
+        finally:
+            job.pop('ai', None)
 
     threading.Thread(target=work, daemon=True).start()
     return {'run': run_id, 'state': 'running', 'tasks': tasks}
+
+
+def api_ai_stop(params):
+    """Stop the assistant on a run at its next batch; tasks already finished keep their results."""
+    run_id = params.get('run')
+    job = AI_JOBS.get(run_id) or {}
+    if job.get('state') != 'running' or not job.get('ai'):
+        raise Error("The assistant is not working on this run.")
+    job['ai'].cancelled = True
+    job['step'] = 'stopping after the current batch'
+    return {'run': run_id, 'state': 'stopping'}
 
 
 def api_ai(params):
@@ -443,7 +466,7 @@ def api_ai(params):
     run_id = params.get('run')
     path = run_dir(run_id)
     data = read_json(path / m2_ai.SUGGESTIONS_FILE, {}) or {}
-    job = AI_JOBS.get(run_id) or {'state': 'done' if data else 'none'}
+    job = {k: v for k, v in (AI_JOBS.get(run_id) or {'state': 'done' if data else 'none'}).items() if k != 'ai'}
     return {'run': run_id, 'job': job, **data}
 
 
@@ -666,7 +689,7 @@ ROUTES = {
     ('POST', '/api/run'): start_run, ('POST', '/api/config'): api_config, ('POST', '/api/decide'): api_decide,
     ('POST', '/api/sample'): api_sample, ('POST', '/api/open'): api_open,
     ('GET', '/api/ai/status'): api_ai_status, ('GET', '/api/ai'): api_ai, ('GET', '/api/summary'): api_summary,
-    ('POST', '/api/ai/run'): api_ai_run, ('POST', '/api/ai/settings'): api_ai_settings,
+    ('POST', '/api/ai/run'): api_ai_run, ('POST', '/api/ai/stop'): api_ai_stop, ('POST', '/api/ai/settings'): api_ai_settings,
     ('GET', '/api/docs'): api_docs, ('GET', '/api/routes'): api_routes,
 }
 ASSET_TYPES = {'.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',

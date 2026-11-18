@@ -872,7 +872,7 @@ function renderDecide() {
     ['employee', 'Employees', g.employee.size], ['legal', 'Legal forms', g.legal.size], ['column', 'Columns', g.column.length], ['other', 'Other checks', g.other.length]].filter(x => x[2]);
   el.innerHTML = `<div class="card"><div class="toolbar"><div class="grow"><b>${p.open ? `${p.done} of ${p.open} decisions saved` : 'No decisions to save in this run'}</b>
       <div class="small muted">Saved to the settings (m2_config.json); they apply on the next run.${p.other ? ` ${fmt(p.other)} item(s) below are fixed at the source: in M2 or in the review file, then run again.` : ''}</div></div>
-    <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? `AI is thinking… ${Math.round(S.ai.job.percent || 0)}%` : 'Ask AI'}</button>
+    <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? `AI is thinking… ${(S.ai.job.percent || 0).toFixed(1)}%` : 'Ask AI'}</button>
     <button class="btn primary" id="rerun">${ic('refresh')}Run again${p.done ? ` with ${p.done} decision(s)` : ''}</button></div>
     <div class="bar tall" role="progressbar" aria-label="Decisions saved" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
     <div class="toolbar" style="margin:12px 0 0"><input type="search" id="decq" aria-label="Filter the decisions" placeholder="Filter by code, column, file or mandate…" value="${esc(S.decQ)}" style="max-width:340px">
@@ -1114,10 +1114,11 @@ function bindAI(el) {
 }
 function aiProgress() { const j = S.ai?.job; if (j?.state !== 'running') return '';
   const n = (j.tasks || []).length || 1, d = (j.done || []).length, el = j.started ? Math.max(0, (Date.now() - Date.parse(j.started)) / 1000) : 0;
-  const pct = Math.max(0, Math.min(100, Math.round(j.percent ?? 100 * d / n)));
+  const pct = Math.max(0, Math.min(100, j.percent ?? 100 * d / n)), eta = j.eta ? `about ${secs(j.eta)} left in this step, ` : '';
   return `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${(j.tasks || []).map(t => `<span class="chip static ${(j.done || []).includes(t) ? 'on' : ''}">${(j.done || []).includes(t) ? ic('check') : ''} ${AI_TASK[t] || t}</span>`).join(' ')}</span>
-    <div class="bar tall" role="progressbar" aria-label="Assistant progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%;background:var(--violet)"></i></div>
-    <b class="num" style="min-width:4ch;text-align:right">${pct}%</b><span class="small muted">${j.step ? esc(j.step) + ', ' : ''}${d} of ${n} task(s), ${secs(el)}</span></div>`; }
+    <div class="bar tall" role="progressbar" aria-label="Assistant progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-valuetext="${pct.toFixed(1)}%"><i style="width:${pct}%;background:var(--violet)"></i></div>
+    <b class="num" style="min-width:6ch;text-align:right">${pct.toFixed(1)}%</b><span class="small muted">${j.step ? esc(j.step) + ', ' : ''}${eta}${d} of ${n} task(s), ${secs(el)} so far</span>
+    <button class="btn small" id="aistop" title="Stop after the current batch; finished tasks keep their results">${ic('x')}Stop</button></div>`; }
 async function loadAI() {
   if (!S.run) return; const run = S.run; const was = S.ai?.job?.state;
   try { const r = await api(`/api/ai?run=${run}`, undefined, {quiet: true}); if (run !== S.run) return; S.ai = r; } catch (e) { S.ai = null; }
@@ -1129,9 +1130,12 @@ async function loadAI() {
   else if (was === 'running' && now === 'done') toast('The assistant is done', {type: 'success', detail: `${(S.ai.suggestions || []).length} suggestion(s), ${(S.ai.documents || []).length} document(s) typed.`,
     action: S.tab === 'ai' ? null : {label: 'Open', fn: () => go('ai')}});
   if (was === 'running' && now === 'failed') toast('The assistant stopped: ' + (S.ai.job.error || ''), {type: 'error'});
-  if (now === 'running' && was === 'running') { const p = $('#aiprog'); if (p) { p.innerHTML = aiProgress(); return; } }
+  if (was === 'running' && now === 'stopped') toast('The assistant stopped', {detail: `Finished: ${(S.ai.job.done || []).map(t => AI_TASK[t] || t).join(', ') || 'nothing yet'}.`});
+  if (now === 'running' && was === 'running') { const p = $('#aiprog'); if (p) { p.innerHTML = aiProgress(); bindAIStop(); return; } }
   if (['ai', 'decide', 'overview'].includes(S.tab)) softRender(); else renderShell();
 }
+function bindAIStop() { const b = $('#aistop'); if (!b) return;
+  b.onclick = async () => { b.disabled = true; try { await api('/api/ai/stop', {run: S.run}); toast('Stopping after the current batch…'); } catch (e) { toast(e.message, {type: 'error'}); b.disabled = false; } }; }
 async function runAI(tasks) {
   if (!S.run || S.state === 'running') return toast('Wait for the run to finish.', {type: 'warn'});
   try { await api('/api/ai/run', {run: S.run, tasks}); S.ai = {...(S.ai || {}), job: {state: 'running', tasks, done: [], started: new Date().toISOString()}};
@@ -1175,6 +1179,7 @@ async function renderAI() {
   if ((a.calls || []).length) html += `<details class="card"><summary>${ic('chev')}Model calls <span class="muted">${a.calls.length}</span></summary><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
     ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? '<span class="lv ok">ok</span>' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></details>`;
   el.innerHTML = html + aiSettingsCard(cfg);
+  bindAIStop();
   $$('[data-ai-run]', el).forEach(b => b.onclick = () => runAI(b.dataset.aiRun.split(',')));
   $('#airecheck').onclick = () => { S.aiStatus = null; renderAI(); };
   bindAI(el); bindAISettings(el); bindKeys(el);
@@ -1188,6 +1193,7 @@ function aiSettingsCard(cfg) {
     <label class="tog">Embedding model <input data-ai-set="embed_model" value="${esc(cfg.embed_model)}"></label>
     <label class="tog">Claude model <input data-ai-set="claude_model" value="${esc(cfg.claude_model)}"></label>
     <label class="tog">Ask Claude below confidence <input type="number" step="0.05" min="0" max="1" data-ai-set="escalate_below" value="${esc(cfg.escalate_below)}"></label>
+    <label class="tog">Most document names for the model per run <input type="number" step="100" min="0" data-ai-set="doc_model_limit" value="${esc(cfg.doc_model_limit)}"></label>
     <label class="tog">Hide suggestions below <input type="number" step="0.05" min="0" max="1" data-ai-set="min_confidence" value="${esc(cfg.min_confidence)}"></label>
     <label class="tog">Odoo operating companies (one per line, for holder suggestions)</label><textarea rows="3" data-ai-set="companies" aria-label="Odoo operating companies, one per line">${esc((cfg.companies || []).join('\n'))}</textarea>
     <p class="small muted">Claude needs <span class="mono">ANTHROPIC_API_KEY</span> in the environment of the UI (bin/m2ctl.sh reads <span class="mono">.env</span>).</p></details>`;

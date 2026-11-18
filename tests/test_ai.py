@@ -131,6 +131,25 @@ class TestDocuments(unittest.TestCase):
             self.assertTrue(all(prov == 'ollama' for _t, prov, _p in ai.asked))
 
 
+    def test_same_name_pattern_asked_once_and_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            names = ['Schreiben 2021.pdf', 'Schreiben 2022.pdf', 'Schreiben 2023.pdf', 'Notiz Kunde.pdf']
+            Path(tmp, 'summary.json').write_text(json.dumps({'documents': [
+                {'key': 'KP-1-CON', 'folder': 'Post', 'file': f} for f in names]}))
+            ai = FakeAI({'documents': lambda p: [{'id': x['id'], 'value': 'contract', 'confidence': 0.5}
+                                                 for x in p['items']]}, doc_model_limit=1)
+            data = m2_ai.classify_documents(tmp, ai)
+            self.assertEqual(len(ai.asked[0][2]['items']), 1)          # the most common pattern only
+            self.assertEqual([d['doc_type'] for d in data['documents']], ['contract'] * 3 + ['other'])
+            self.assertIn('over the limit', data['documents'][3]['reason'])
+
+    def test_stop_at_next_batch(self):
+        ai = FakeAI({'officer_types': []}, batch=1)
+        ai.on_progress = lambda frac, detail='': setattr(ai, 'cancelled', frac > 0)
+        with self.assertRaises(m2_ai.Cancelled):
+            ai.classify('officer_types', 's', [{'id': 'o0'}, {'id': 'o1'}, {'id': 'o2'}], set(m2_ai.REGISTERS))
+        self.assertEqual(len(ai.asked), 1)
+
 class TestDocumentRules(unittest.TestCase):
 
     def run_docs(self, docs):

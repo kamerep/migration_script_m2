@@ -50,6 +50,7 @@ DEFAULTS = {
     'escalate_below': 0.6,
     'timeout': 120,
     'batch': 25,
+    'doc_model_limit': 1000,                 # most distinct document names the local model types per run
     'companies': [],                         # Odoo operating companies the holder codes may map to
     'after_run': False,                      # run the assistant by itself after each migration run (UI)
 }
@@ -123,6 +124,10 @@ def parse_json(text):
     raise ValueError(f"no JSON in the answer: {text[:200]!r}")
 
 
+class Cancelled(Exception):
+    """The person stopped the assistant."""
+
+
 class AI:
     """One object per run of the assistant: the two clients, the call log and the privacy gate."""
 
@@ -133,6 +138,7 @@ class AI:
         self._clients = {}
         self.on_progress = None         # callback(fraction 0..1 of the current task, detail text)
         self.span = (0.0, 1.0)          # share of the current task the next classify() fills
+        self.cancelled = False          # set from another thread to stop at the next batch
 
     # -- progress --------------------------------------------------------------------------------------------
     def part(self, index, count):
@@ -145,6 +151,8 @@ class AI:
         if self.on_progress:
             lo, hi = self.span
             self.on_progress(lo + (hi - lo) * done / max(1, total), detail)
+        if self.cancelled:
+            raise Cancelled
 
     # -- providers -------------------------------------------------------------------------------------------
     def _client(self, provider):
@@ -202,6 +210,8 @@ class AI:
 
     def ask(self, task, system, payload, provider=None, max_tokens=4000):
         """One JSON question; returns the parsed answer (or None) and records the call."""
+        if self.cancelled:
+            raise Cancelled
         provider = provider or self.route(task)
         if provider == 'claude' and task not in CLOUD_SAFE:
             raise PermissionError(f"task {task} may not leave this machine")
@@ -242,6 +252,8 @@ class AI:
                           tokens_out=getattr(resp.usage, 'output_tokens', None))
             self.calls.append(record)
             return parsed
+        except Cancelled:
+            raise
         except Exception as exc:  # noqa: BLE001 - one failed call must not stop the others
             record.update(ok=False, error=f"{type(exc).__name__}: {exc}"[:300], seconds=round(time.time() - started, 2))
             self.calls.append(record)
@@ -529,9 +541,25 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
             todo.append({'id': doc_id, 'folder': d.get('folder') or '', 'file': d.get('file') or '',
                          'description': d.get('description') or ''})
     if todo and use_model:
+        # One question per name pattern (same folder, same file name once digits are masked), the most common
+        # first, and at most doc_model_limit of them: archive copies repeat names, the long tail waits.
+        groups = {}
+        for t in todo:
+            key = (t['folder'].lower(), re.sub(r'\d+', '#', t['file'].lower()), t['description'].lower())
+            groups.setdefault(key, []).append(t)
+        ranked = sorted(groups.values(), key=len, reverse=True)
+        limit = max(0, int(ai.s.get('doc_model_limit') or 0))
+        asked = [dict(g[0], id=f"p{n}") for n, g in enumerate(ranked[:limit])]
         system = ("You classify documents of a fiduciary / corporate-services client file by folder and file name "
                   "(German or English). Types: " + ', '.join(DOC_TYPES) + ", other. " + ANSWER)
-        types.update(ai.classify('documents', system, todo, set(DOC_TYPES) | {'other'}))
+        answers = ai.classify('documents', system, asked, set(DOC_TYPES) | {'other'}) if asked else {}
+        for n, group in enumerate(ranked):
+            answer = answers.get(f"p{n}") if n < limit else {
+                'value': 'other', 'confidence': 0.0, 'provider': '',
+                'reason': f"not classified: over the limit of {limit} names per run (Settings > AI)"}
+            for t in group:
+                if answer:
+                    types[t['id']] = answer
     rows = []
     for i, d in enumerate(docs):
         t = types.get(f"d{i}") or {'value': 'other', 'confidence': 0.0, 'reason': 'not classified', 'provider': ''}

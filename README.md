@@ -133,7 +133,9 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
   set (in `.env`, read by `bin/m2ctl.sh`; never committed).
 * UI: tab **AI assistant** (models, Run all / Suggest / Classify / Summary, suggestions with Accept, document types,
   every model call), AI hints with Accept in **Needs decision**, AI summary on **Overview**, AI settings.
-* While the assistant works, a bar shows its progress from 0 to 100%, batch by batch, with the step it is on.
+* While the assistant works, a bar shows its progress from 0 to 100%, batch by batch, with the step it is on and
+  the time left; **Stop** ends it after the current batch (`POST /api/ai/stop`). Classify documents asks once per
+  name pattern, most common first, up to `doc_model_limit` names per run (default 1,000).
 * Terminal: `bin/m2ctl.sh ai status|suggest|documents|summary|all [runs/<stamp>]`. Output: `runs/<stamp>/ai_suggestions.json`.
 
 ## Claude Code (MCP server)
