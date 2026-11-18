@@ -56,10 +56,10 @@
   --k1: #6b6062; --k1t: #ffffff; --k2: #9a968c; --k2t: #1c1a17; --k3: #cdd0b0; --k3t: #1f1f14; --k4: #e0d7de; --k4t: #2a1f27; }
 :root[data-palette="mauve"][data-theme="dark"] { --accent: #cdd0b0; --accent-hover: #dde0c4; --accent-contrast: #23241a; --link: #d4d7b8; --side-bg: #2b2228; --side-text: #f2ecef; }
 [data-palette="forest"] { --accent: #457a4c; --accent-hover: #36613c; --accent-contrast: #ffffff; --link: #36703f; --side-bg: #ecfff6; --side-text: #10231a;
-  --k1: #cbfbc8; --k1t: #12301a; --k2: #93e3b0; --k2t: #0f2c1c; --k3: #558659; --k3t: #ffffff; --k4: #464d46; --k4t: #ffffff; }
+  --k1: #cbfbc8; --k1t: #12301a; --k2: #93e3b0; --k2t: #0f2c1c; --k3: #507f54; --k3t: #ffffff; --k4: #464d46; --k4t: #ffffff; }
 :root[data-palette="forest"][data-theme="dark"] { --accent: #93e3b0; --accent-hover: #b3f0c8; --accent-contrast: #0f2c1c; --link: #93e3b0; --side-bg: #14211a; --side-text: #e3f5ea; }
 [data-palette="lime"] { --accent: #525174; --accent-hover: #403f5e; --accent-contrast: #ffffff; --link: #2a7590; --side-bg: #bce784; --side-text: #1a2410;
-  --k1: #5dd39e; --k1t: #0c2a1d; --k2: #348aa7; --k2t: #ffffff; --k3: #525174; --k3t: #ffffff; --k4: #513b56; --k4t: #ffffff; }
+  --k1: #5dd39e; --k1t: #0c2a1d; --k2: #2f7e99; --k2t: #ffffff; --k3: #525174; --k3t: #ffffff; --k4: #513b56; --k4t: #ffffff; }
 :root[data-palette="lime"][data-theme="dark"] { --accent: #5dd39e; --accent-hover: #7fe0b4; --accent-contrast: #0c2a1d; --link: #6cc3de; --side-bg: #1d2a14; --side-text: #e6f5d2; }
 [data-palette="rose"] { --accent: #cf2944; --accent-hover: #8c1322; --accent-contrast: #ffffff; --link: #b81f38; --side-bg: #c9ecf2; --side-text: #0f2a30;
   --k1: #8c1322; --k1t: #ffffff; --k2: #dc2f4a; --k2t: #ffffff; --k3: #f26b8a; --k3t: #3a0a14; --k4: #f49cba; --k4t: #3a0a14; }
@@ -70,7 +70,7 @@
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/20px var(--font); }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--link); }
-h3, h4 { text-wrap: balance; }
+h1, h2, h3 { text-wrap: balance; }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
 ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 .ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
@@ -205,8 +205,8 @@ main { padding: 16px; max-width: 1560px; width: 100%; margin: 0 auto; flex: 1; }
 /* ---------- surfaces ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px;
   box-shadow: var(--shadow-sm); }
-.card h3 { margin: 0 0 10px; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.card h3 .muted { font-weight: 400; }
+.card h2 { margin: 0 0 10px; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.card h2 .muted { font-weight: 400; }
 .card > p:last-child { margin-bottom: 0; }
 details.card > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 15px; font-weight: 600; }
 details.card > summary::-webkit-details-marker { display: none; }
@@ -214,6 +214,7 @@ details.card > summary > .ic:first-child { transition: transform .15s; color: va
 details.card[open] > summary > .ic:first-child { transform: rotate(90deg); }
 details.card[open] > summary { margin-bottom: 10px; }
 details.card > summary .muted { font-weight: 400; }
+.ptitle { font-size: 20px; font-weight: 700; margin: 0 0 12px; letter-spacing: -.2px; }
 .pagehead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .pagehead h2 { margin: 0; font-size: 18px; flex: 1; min-width: 200px; }
 .pagehead p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); font-weight: 400; }
@@ -227,20 +228,20 @@ details.card > summary .muted { font-weight: 400; }
 .kpi:active { transform: scale(.97); }
 .kpi b { display: block; font-size: 28px; line-height: 34px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
-.kpi.zero b { opacity: .55; }
+.kpi.zero b { font-weight: 400; }   /* a zero is shown lighter in weight, not in contrast */
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
 .swatch { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 12.5px; text-align: left; }
 .swatch.on { border-color: var(--link); font-weight: 600; } .swatch:hover { border-color: var(--border-strong); }
 .swatch i { display: flex; width: 132px; height: 30px; border-radius: 6px; overflow: hidden; } .swatch i u { flex: 1; }
 .hero { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
 .hero .badge { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, var(--surface)); color: var(--c); }
-.hero h3 { margin: 0; font-size: 16px; } .hero p { margin: 2px 0 0; }
+.hero h2 { margin: 0; font-size: 16px; } .hero p { margin: 2px 0 0; }
 @media (max-width: 700px) { .hero { grid-template-columns: auto 1fr; } .hero .acts { grid-column: 1 / -1; } }
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; counter-reset: step; }
 .step { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface); counter-increment: step; }
 .step::before { content: counter(step); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent);
   color: var(--accent-contrast); font-weight: 700; margin-bottom: 8px; }
-.step h4 { margin: 0 0 4px; font-size: 14px; } .step p { margin: 0 0 10px; color: var(--text-muted); font-size: 13px; }
+.step h3 { margin: 0 0 4px; font-size: 14px; } .step p { margin: 0 0 10px; color: var(--text-muted); font-size: 13px; }
 /* ---------- tables ---------- */
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -314,7 +315,7 @@ td.wide { min-width: 260px; } td.mid { min-width: 200px; }
   box-shadow: var(--shadow); z-index: 40; transform: translateX(105%); transition: transform .18s; display: flex; flex-direction: column; visibility: hidden; }
 .drawer.on { transform: none; visibility: visible; }
 .drawer header { display: flex; align-items: center; gap: 6px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
-.drawer header h3 { margin: 0; font-size: 15px; flex: 1; min-width: 0; }
+.drawer header h2 { margin: 0; font-size: 15px; flex: 1; min-width: 0; }
 .drawer .body { overflow: auto; padding: 14px 16px; }
 dl.kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
 dl.kv dt { color: var(--text-muted); font-size: 12.5px; } dl.kv dd { margin: 0; word-break: break-word; }
@@ -381,7 +382,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 @media (max-width: 900px) { .docs { grid-template-columns: minmax(0, 1fr); } }
 .doc pre, .doc table { max-width: 100%; overflow-x: auto; } .doc table { display: block; }
 .doclist { position: sticky; top: calc(var(--head-h) + 60px); }
-.doclist h6 { margin: 14px 4px 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.doclist h2.grp { margin: 14px 4px 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .doclist button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px;
   border-radius: var(--radius-sm); cursor: pointer; color: var(--text-muted); }
 .doclist button:hover { background: var(--surface-2); color: var(--text); }
@@ -419,7 +420,28 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   details > summary { display: flex; align-items: center; } .btn.icon { min-width: 44px; justify-content: center; }
   .chip { display: inline-flex; align-items: center; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; } }
+/* reduced motion: movement stops (loops run once), short colour and opacity changes stay; the top loading bar
+   becomes a still bar */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  .topprog i { animation: none !important; left: 0; width: 100%; opacity: .6; }
+  .bar.indet i { animation: none !important; width: 100% !important; opacity: .45; }
+}
+/* Windows high contrast: meaning must not rest on background colours */
+@media (forced-colors: active) {
+  .lv, .chip, .stage, .pill, .tab .n, .kpi, .btn, .card, .toast { border: 1px solid CanvasText; }
+  .tab.on, .chip.on, .doclist button.on { outline: 2px solid Highlight; }
+  .bar i, .runline i, .topprog i { background: Highlight; forced-color-adjust: none; }
+}
+/* "more contrast" asked by the system: stronger borders and muted text */
+@media (prefers-contrast: more) {
+  :root { --border: var(--border-strong); --text-muted: color-mix(in srgb, var(--text-muted) 55%, var(--text)); }
+}
+@media (max-width: 900px), (pointer: coarse) { .foot a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; } }
+@supports (height: 100dvh) {
+  .app { min-height: 100dvh; } .list { max-height: calc(100dvh - 210px); }
+  @media (min-width: 901px) { .side { height: 100dvh; } }
+}
 @media print { .side, .head, .toasts, .foot { display: none !important; } .app { display: block; } .tablewrap { max-height: none; } }
 </style>
 </head>
@@ -496,6 +518,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
       <div class="runbar" id="runbar"></div>
     </div>
     <main id="main" tabindex="-1">
+      <h1 class="ptitle" id="ptitle">Overview</h1>
       <div id="banner"></div>
       <section class="panel" data-tab="overview"></section>
       <section class="panel" data-tab="decide"></section>
@@ -512,7 +535,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
     <div class="foot" id="foot"></div>
   </div>
 </div>
-<aside class="drawer" id="drawer" aria-label="Event details"><header><h3 id="dtitle"></h3>
+<aside class="drawer" id="drawer" aria-label="Event details"><header><h2 id="dtitle"></h2>
   <button class="btn ghost icon small" id="dprev" title="Previous event (↑)"><svg class="ic" aria-hidden="true" style="transform:rotate(0)"><use href="#i-up"/></svg></button>
   <button class="btn ghost icon small" id="dnext" title="Next event (↓)"><svg class="ic" aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-up"/></svg></button>
   <button class="btn small" id="dcopy" title="Copy the event as JSON"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>JSON</button>
@@ -523,10 +546,10 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   <div style="padding:8px 14px;border-bottom:1px solid var(--border)" class="crumbs" id="ppath"></div>
   <div class="body" id="plist"></div><footer id="pfoot"></footer></div></div>
 <div class="modal" id="palette" role="dialog" aria-label="Search and commands"><div class="box"><header><svg class="ic muted" aria-hidden="true"><use href="#i-search"/></svg>
-  <input id="palq" placeholder="Go to a section, a mandate, a rule, a guide… or run a command" spellcheck="false" autocomplete="off"><kbd>Esc</kbd></header>
+  <input id="palq" aria-label="Search and commands" placeholder="Go to a section, a mandate, a rule, a guide… or run a command" spellcheck="false" autocomplete="off"><kbd>Esc</kbd></header>
   <div class="body" id="pallist"></div><footer><kbd>↑</kbd><kbd>↓</kbd> move <kbd>Enter</kbd> open</footer></div></div>
 <div class="modal" id="keys" role="dialog" aria-label="Keyboard shortcuts"><div class="box" style="width:min(480px,94vw)"><header><b class="grow">Keyboard shortcuts</b>
-  <button class="btn ghost icon small" data-close="keys"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></header><div class="body"><div class="keys" id="keylist"></div></div></div></div>
+  <button class="btn ghost icon small" data-close="keys" aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></header><div class="body"><div class="keys" id="keylist"></div></div></div></div>
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 <script>
 'use strict';
@@ -590,14 +613,15 @@ function toast(msg, opt = {}) {
   const type = opt.type || 'info'; const box = $('#toasts');
   const t = document.createElement('div'); let timer;
   const close = () => { clearTimeout(timer); t.classList.add('out'); setTimeout(() => t.remove(), 200); };
-  const paint = (m, o) => { const ty = o.type || 'info'; const ms = o.ms ?? (ty === 'error' ? 9000 : ty === 'busy' ? 0 : o.action ? 7000 : 3600);
+  const paint = (m, o) => { const ty = o.type || 'info'; const ms = o.ms ?? (ty === 'error' ? 8000 : ty === 'busy' ? 0 : o.action ? 7000 : 4000);
     t.className = 'toast ' + ty; t.setAttribute('role', ty === 'error' ? 'alert' : 'status');
     t.innerHTML = `${ty === 'busy' ? '<span class="spin"></span>' : ic(TOAST_ICON[ty] || 'info')}<div class="msg">${esc(m)}${o.detail ? `<small>${esc(o.detail)}</small>` : ''}</div>
       ${o.action ? `<button class="btn small" data-act>${esc(o.action.label)}</button>` : ''}<button class="btn ghost icon small" data-x title="Dismiss">${ic('x')}</button>
       ${ms ? `<i class="life" style="animation-duration:${ms}ms"></i>` : ''}`;
     $('[data-x]', t).onclick = close; const a = $('[data-act]', t); if (a) a.onclick = () => { close(); o.action.fn(); };
-    clearTimeout(timer); if (ms) { timer = setTimeout(close, ms); t.onmouseenter = () => clearTimeout(timer); t.onmouseleave = () => { timer = setTimeout(close, 1500); }; } };
+    clearTimeout(timer); if (ms) { timer = setTimeout(close, ms); t.onmouseenter = t.onfocusin = () => clearTimeout(timer); t.onmouseleave = t.onfocusout = () => { timer = setTimeout(close, 1500); }; } };
   paint(msg, {...opt, type}); box.append(t);
+  [...box.children].slice(0, -3).filter(x => !x.classList.contains('busy')).forEach(x => x.querySelector('[data-x]')?.click());   // three at most: older ones close
   while (box.children.length > 5) box.firstElementChild.remove();
   return {close, update: (m, o = {}) => paint(m, o)};
 }
@@ -681,7 +705,7 @@ function renderShell() {
       return `<span class="stage ${cls}">${cls === 'on' ? '<span class="spin" style="width:10px;height:10px"></span>' : cls === 'past' ? ic('check') : cls === 'bad' ? ic('x') : `${i + 1}.`} ${l}</span>`; }).join('')) +
     `<span class="runmeta">${running ? `stage ${Math.max(idx + 1, 1)} of ${STAGES.length}, ${fmt(S.events.length)} events, ${secs(t)}` : S.events.length ? `${fmt(S.events.length)} events in ${secs(t)}` : ''}</span>
     <span class="counts">${LEVELS.filter(l => l !== 'info').map(l => `<span class="lv ${l}" data-lv="${l}" title="Show in the journal">${LEVEL_LABEL[l]} ${fmt(c[l])}</span>`).join('')}</span>
-    <div class="runline ${S.state}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
+    <div class="runline ${S.state}" role="progressbar" aria-label="Run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
   $$('#runbar [data-lv]').forEach(x => x.onclick = () => { S.filter.levels = new Set([x.dataset.lv]); S.filter.code = ''; go('journal'); });
   const st = $('#status'); const label = S.offline ? 'offline' : S.state;
   st.className = 'pill ' + label; st.textContent = running && !S.offline ? `running ${pct}%` : label;
@@ -700,12 +724,19 @@ function renderShell() {
   const crash = S.events.find(e => e.code === 'CRASH');
   $('#banner').innerHTML = (S.offline ? `<div class="banner warn">${ic('warn')}<div><b>Connection to the tool lost.</b> Retrying… Start it again with <span class="mono">bin/m2ctl.sh start</span> if it stopped.</div></div>` : '') +
     (crash ? `<div class="banner err">${ic('alert')}<div><b>The run stopped:</b> ${esc(crash.message)}<details><summary>Traceback</summary><pre>${esc(crash.trace || S.trace || '')}</pre></details></div></div>` : '');
-  document.title = (running ? `${pct}% – ` : dn ? `(${dn}) ` : '') + 'M2 Migration';
+  const tabLabel = TABS.find(t => t[0] === S.tab)?.[1] || 'Overview'; $('#ptitle').textContent = tabLabel;
+  document.title = (running ? `${pct}% – ` : dn ? `(${dn}) ` : '') + `${tabLabel} – M2 Migration`;
   $('#foot').innerHTML = S.info ? `<span>M2 → CSP Migration ${esc(S.info.version || '')}</span><span>Nothing is written to Odoo: runs produce files.</span>
     <span class="mono">${esc(S.info.home || '')}</span><a href="#docs">Docs</a><a href="#docs/ref-api">API</a>` : '';
   $('#ver').textContent = S.info?.version ? 'v' + S.info.version : '';
 }
-function render() { renderShell(); (RENDER[S.tab] || (() => {}))(); }
+function render() { renderShell(); (RENDER[S.tab] || (() => {}))(); labelScrollers(); }
+/* a box that scrolls on its own must be reachable and named for keyboard and screen-reader users */
+function labelScrollers() {
+  $$('main .tablewrap, main .list, main #jwrap, main .free').forEach(el => { if (el.hasAttribute('tabindex')) return;
+    const h = el.closest('.card, section')?.querySelector('h2, h3, summary');
+    el.tabIndex = 0; el.setAttribute('role', 'region');
+    el.setAttribute('aria-label', (h?.textContent.trim().replace(/\s+/g, ' ').slice(0, 60)) || 'Table'); }); }
 /* a re-render must not wipe a field somebody is typing in */
 function softRender() { const a = document.activeElement;
   if (S.tab !== 'journal' && a && a.closest('main') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== 'checkbox') { S.dirty = true; renderShell(); return; }
@@ -718,11 +749,11 @@ function renderOverview() {
   if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
   if (!S.run) { el.innerHTML = `<div class="pagehead"><h2>Turn M2 exports into the CSP client import<p>Nothing is written to Odoo: a run produces
     <span class="mono">CSP_Import_M2.xlsx</span> for the Client Import and <span class="mono">CSP_Import_M2_Review.xlsx</span> with everything left out, and records every decision it made.</p></h2></div>
-    <div class="steps"><div class="step"><h4>Choose the folder with the M2 exports</h4><p>Addresses, mandates, officers, beneficial owners, shareholders, bank accounts, signatories, contact persons, fees, open items:
+    <div class="steps"><div class="step"><h3>Choose the folder with the M2 exports</h3><p>Addresses, mandates, officers, beneficial owners, shareholders, bank accounts, signatories, contact persons, fees, open items:
       Excel or CSV, German or English headers.</p><button class="btn" data-do="browse">${ic('folder')}Browse…</button> <button class="btn ghost" data-do="sample">Use sample data</button></div>
-    <div class="step"><h4>Run the migration</h4><p>Watch the eight stages and every decision live in the Journal. A run takes seconds and can be repeated as often as needed.</p>
+    <div class="step"><h3>Run the migration</h3><p>Watch the eight stages and every decision live in the Journal. A run takes seconds and can be repeated as often as needed.</p>
       <button class="btn primary" data-do="run">${ic('play')}Run migration</button></div>
-    <div class="step"><h4>Decide, run again, load</h4><p>Answer what blocks rows in Needs decision, run again, then load the import file in Contacts › Configuration › Client Import.</p>
+    <div class="step"><h3>Decide, run again, load</h3><p>Answer what blocks rows in Needs decision, run again, then load the import file in Contacts › Configuration › Client Import.</p>
       <a class="btn ghost" href="#docs">${ic('book')}Read the guide</a></div></div>
     <p class="muted small" style="margin-top:14px">Template: <span class="mono">${esc(S.info?.spec)}</span></p>`;
     $$('[data-do]', el).forEach(b => b.onclick = () => ({browse: () => browse(), sample: () => sample(true), run: startRun})[b.dataset.do]());
@@ -739,25 +770,25 @@ function renderOverview() {
     `<a class="btn primary" href="${dl('CSP_Import_M2.xlsx')}">${ic('download')}CSP_Import_M2.xlsx</a>`];
   else hero = ['warning', ic('clipboard', 'lg'), `${fmt(sm?.totals.import)} row(s) ready, ${fmt(sm?.totals.review)} wait in review`, 'Each review row says why and how to fix it.',
     `<button class="btn primary" data-go="review">${ic('clipboard')}Open Review rows</button>`];
-  let html = `<div class="card hero" style="--c:${LEVEL_COLOR[hero[0]] || 'var(--info)'}"><div class="badge">${hero[1]}</div><div><h3>${hero[2]}</h3><p class="muted">${hero[3]}</p>
+  let html = `<div class="card hero" style="--c:${LEVEL_COLOR[hero[0]] || 'var(--info)'}"><div class="badge">${hero[1]}</div><div><h2>${hero[2]}</h2><p class="muted">${hero[3]}</p>
     ${running ? `<div class="bar tall" style="margin-top:8px;max-width:520px"><i style="width:${pct}%;background:var(--info)"></i></div>` : ''}</div><div class="acts">${hero[4]}</div></div>`;
   const kp = [['To import', sm?.totals.import, 'ok', 'review'], ['To review', sm?.totals.review, 'review', 'review'], ['Errors', c.error, 'error'],
     ['Warnings', c.warning, 'warning'], ['Tool decisions', c.decision, 'decision'], ['Values changed', c.change, 'change'],
     ['Not loaded', c.not_loaded, 'not_loaded'], ['Closed mandates', sm?.totals.closed, 'decision', 'review']];
   html += `<div class="kpis">${kp.map(([l, v, lv, tab]) => `<button class="kpi ${v ? '' : 'zero'}" data-lv="${lv}" data-tab-go="${tab || ''}"><span>${l}</span><b>${v === undefined ? '…' : fmt(v)}</b></button>`).join('')}</div>`;
-  if (S.ai?.summary) html += `<div class="card"><h3><span class="dot ${esc(S.ai.summary.status)}"></span>AI summary: ${esc(S.ai.summary.headline)} <span class="tag">local model</span></h3>${(S.ai.summary.actions || []).length ? `<ol class="small" style="margin:0;padding-left:20px">${S.ai.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}</div>`;
+  if (S.ai?.summary) html += `<div class="card"><h2><span class="dot ${esc(S.ai.summary.status)}"></span>AI summary: ${esc(S.ai.summary.headline)} <span class="tag">local model</span></h2>${(S.ai.summary.actions || []).length ? `<ol class="small" style="margin:0;padding-left:20px">${S.ai.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}</div>`;
   if (sm) {
-    html += `<div class="card"><h3>Result per template sheet</h3><div class="tablewrap free"><table><tr><th>Sheet</th><th class="num">To import</th><th class="num">To review</th><th style="width:40%">Share loadable</th></tr>
+    html += `<div class="card"><h2>Result per template sheet</h2><div class="tablewrap free"><table><tr><th>Sheet</th><th class="num">To import</th><th class="num">To review</th><th style="width:40%">Share loadable</th></tr>
       ${Object.entries(sm.sheets).map(([k, s]) => { const t = s.import + s.review; return `<tr class="click" data-sheet="${k}"><td class="sheetname">${esc(s.title)}</td><td class="num">${fmt(s.import)}</td><td class="num">${s.review ? `<span class="lv review">${fmt(s.review)}</span>` : '0'}</td>
       <td>${t ? `<div class="meter"><div class="bar" style="flex:1" title="${s.import} to import, ${s.review} to review"><i style="width:${100 * s.import / t}%"></i><i class="rev" style="width:${100 * s.review / t}%"></i></div><span class="small muted">${Math.round(100 * s.import / t)}%</span></div>` : '<span class="muted small">no rows</span>'}</td></tr>`; }).join('')}</table></div>
       <p class="small muted" style="margin:8px 0 0"><span class="dot" style="background:var(--accent)"></span> to import &nbsp; <span class="dot" style="background:var(--orange)"></span> to review</p></div>
-      <div class="card"><h3>Files of this run</h3><div class="toolbar">${sm.outputs.map((f, i) => `<a class="btn ${i ? '' : 'primary'}" href="${dl(f)}">${ic('download')}${esc(f)}</a>`).join('')}
+      <div class="card"><h2>Files of this run</h2><div class="toolbar">${sm.outputs.map((f, i) => `<a class="btn ${i ? '' : 'primary'}" href="${dl(f)}">${ic('download')}${esc(f)}</a>`).join('')}
       <a class="btn" href="${dl('run.log')}">${ic('download')}run.log</a><button class="btn ghost" id="openfolder">${ic('open')}Open folder</button></div>
       <p class="muted small" style="margin:0">Source <span class="mono">${esc(sm.source)}</span>, finished ${esc(sm.finished)}, run folder <span class="mono">runs/${esc(S.run)}</span></p></div>`;
   } else if (running) html += '<div class="sk block"></div>';
   const codes = {}; S.events.forEach(e => { if (e.level !== 'info') codes[e.code + '|' + e.level] = (codes[e.code + '|' + e.level] || 0) + 1; });
   const top = Object.entries(codes).sort((a, b) => b[1] - a[1]).slice(0, 25);
-  if (top.length) html += `<div class="card"><h3>Rules that fired</h3><p class="muted small">Each rule is one kind of decision. Click one to see all its events in the journal.</p>
+  if (top.length) html += `<div class="card"><h2>Rules that fired</h2><p class="muted small">Each rule is one kind of decision. Click one to see all its events in the journal.</p>
     <div class="tablewrap free"><table><tr><th>Rule</th><th>Level</th><th class="num">Events</th><th>Example</th></tr>
     ${top.map(([k, n]) => { const [code, lv] = k.split('|'); const ex = S.events.find(e => e.code === code && e.level === lv);
       return `<tr class="click" data-code="${code}"><td class="mono">${code}</td><td><span class="lv ${lv}">${lv.replace('_', ' ')}</span></td><td class="num">${n}</td><td class="small">${esc(ex.message)}</td></tr>`; }).join('')}
@@ -833,8 +864,8 @@ function renderDecide() {
       <div class="small muted">Saved to the settings (m2_config.json); they apply on the next run.${p.other ? ` ${fmt(p.other)} item(s) below are fixed at the source: in M2 or in the review file, then run again.` : ''}</div></div>
     <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? 'AI is thinking…' : 'Ask AI'}</button>
     <button class="btn primary" id="rerun">${ic('refresh')}Run again${p.done ? ` with ${p.done} decision(s)` : ''}</button></div>
-    <div class="bar tall" role="progressbar" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
-    <div class="toolbar" style="margin:12px 0 0"><input type="search" id="decq" placeholder="Filter by code, column, file or mandate…" value="${esc(S.decQ)}" style="max-width:340px">
+    <div class="bar tall" role="progressbar" aria-label="Decisions saved" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
+    <div class="toolbar" style="margin:12px 0 0"><input type="search" id="decq" aria-label="Filter the decisions" placeholder="Filter by code, column, file or mandate…" value="${esc(S.decQ)}" style="max-width:340px">
     ${navs.map(([id, l, n]) => `<a class="chip" href="#decide" data-jump="dec-${id}">${l} ${n}</a>`).join('')}</div></div>${sections.join('')}`;
   bindAI(el);
   const val = (type, key, kind) => $$(`[data-in="${type}"]`, el).find(i => i.dataset.key === key && (i.dataset.kind || '') === (kind || ''))?.value.trim();
@@ -864,7 +895,7 @@ function renderJournal() {
   if (S.state === 'loading') { el.innerHTML = skeleton(); el.dataset.built = ''; return; }
   const codes = [...new Set(S.events.map(e => e.code))].sort(); const files = [...new Set(S.events.map(e => e.file).filter(Boolean))].sort();
   if (!el.dataset.built) {
-    el.innerHTML = `<div class="chips" id="jchips"></div><div class="toolbar"><input type="search" id="jq" placeholder="Search messages, keys, values…  ( / )">
+    el.innerHTML = `<div class="chips" id="jchips"></div><div class="toolbar"><input type="search" id="jq" aria-label="Search the journal" placeholder="Search messages, keys, values…  ( / )">
       <select id="jstage" aria-label="Stage"><option value="">All stages</option>${['start', ...STAGES.map(s => s[0])].map(s => `<option>${s}</option>`).join('')}</select>
       <select id="jcode" aria-label="Rule"></select><select id="jfile" aria-label="File" style="max-width:240px"></select>
       <button class="btn ghost small" id="jclear">${ic('x')}Clear filters</button>
@@ -912,7 +943,7 @@ function showEvent(seq, list) {
     ${e.key ? `<dt>M2 key</dt><dd><span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span> <span class="muted small">open its whole trail</span></dd>` : ''}
     ${Object.entries(e).filter(([k]) => !skip.has(k)).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${typeof v === 'object' ? `<pre>${esc(JSON.stringify(v, null, 1))}</pre>` : esc(v)}</dd>`).join('')}</dl>
     <p style="margin-bottom:0"><button class="btn small" data-rule="${e.code}">${ic('list')}All ${e.code} events</button></p>
-    ${e.trace ? `<h4>Traceback</h4><pre>${esc(e.trace)}</pre>` : ''}`;
+    ${e.trace ? `<h3>Traceback</h3><pre>${esc(e.trace)}</pre>` : ''}`;
   $('[data-rule]', $('#dbody')).onclick = () => { S.filter.code = e.code; S.filter.levels = new Set(LEVELS); closeOverlays(); go('journal'); };
   const i = (S.drawerList || []).indexOf(seq); $('#dprev').disabled = i <= 0; $('#dnext').disabled = i < 0 || i >= S.drawerList.length - 1;
   bindKeys($('#dbody')); $('#drawer').classList.add('on');
@@ -936,18 +967,18 @@ function renderRecords() {
   const client = (S.summary?.clients || []).find(c => c.m2_reference === S.record);
   const reviews = Object.entries(S.summary?.review || {}).flatMap(([sh, rows]) => rows.filter(r => r.key === S.record).map(r => ({...r, sheet: sh})));
   const lvCount = {}; ev.forEach(e => lvCount[e.level] = (lvCount[e.level] || 0) + 1);
-  el.innerHTML = `<div class="grid2"><div><div class="toolbar"><input type="search" id="rq" placeholder="Mandate number or name  ( / )" value="${esc(S.recQ)}"></div>
+  el.innerHTML = `<div class="grid2"><div><div class="toolbar"><input type="search" id="rq" aria-label="Find a record" placeholder="Mandate number or name  ( / )" value="${esc(S.recQ)}"></div>
     <div class="list">${keys.map(k => `<div data-k="${esc(k)}" class="${k === S.record ? 'on' : ''}"><span class="lv ${sev(k)}">${sev(k).slice(0, 3)}</span><span class="mono">${esc(k)}</span><span class="grow muted small">${esc(nameOf(k))}</span><span class="small muted">${m.get(k).length}</span></div>`).join('') || '<div class="muted" style="cursor:default">No record matches.</div>'}</div>
     <p class="small muted">${fmt(keys.length)} of ${fmt(m.size)} records, most serious first</p></div>
-    <div>${S.record ? `<div class="card"><h3>Decision trail of <span class="mono">${esc(S.record)}</span> <span class="muted">${esc(nameOf(S.record))}</span>
-        <span class="grow"></span><button class="btn ghost small" id="reclink" title="Copy a link to this record">${ic('copy')}Link</button></h3>
+    <div>${S.record ? `<div class="card"><h2>Decision trail of <span class="mono">${esc(S.record)}</span> <span class="muted">${esc(nameOf(S.record))}</span>
+        <span class="grow"></span><button class="btn ghost small" id="reclink" title="Copy a link to this record">${ic('copy')}Link</button></h2>
       <p class="small muted">Every event that touched this M2 record, in the order the migration took it: where it was read, how it was linked, what was changed, and why it was loaded or left out.</p>
       <div class="chips">${LEVELS.filter(l => lvCount[l]).map(l => `<span class="lv ${l}">${LEVEL_LABEL[l]} ${lvCount[l]}</span>`).join('')}</div>
       ${client ? `<div class="banner ok">${ic('check')}<div><b>Loaded as client:</b> ${esc(client.name)}, ${esc(client.type)}, company ${esc(client.company || '—')}</div></div>` : ''}
       ${reviews.map(r => `<div class="banner err">${ic('alert')}<div><b>In review (${esc(S.summary.sheets[r.sheet].title)}):</b> ${esc(r.reason)} <div class="small">Fix: ${esc(r.fix || '')}, ${esc(r.where)}</div></div></div>`).join('')}
       <ul class="trail">${ev.map(e => `<li class="${e.level}" data-seq="${e.seq}"><span class="lv ${e.level}">${e.level.replace('_', ' ')}</span> <span class="mono small muted">${e.code}</span>
         <div>${esc(e.message)}</div>${e.fix ? `<div class="fixtext">Fix: ${esc(e.fix)}</div>` : ''}</li>`).join('')}</ul></div>
-      ${client ? `<div class="card"><h3>Row in the import file (Clients)</h3><dl class="kv">${Object.entries(client).filter(([, v]) => v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}` :
+      ${client ? `<div class="card"><h2>Row in the import file (Clients)</h2><dl class="kv">${Object.entries(client).filter(([, v]) => v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}` :
       empty('card', 'Choose a record')}</div></div>`;
   $('#rq').oninput = ev2 => { S.recQ = ev2.target.value; const pos = ev2.target.selectionStart; renderRecords(); const i = $('#rq'); i.focus(); i.setSelectionRange(pos, pos); };
   $$('.list [data-k]', el).forEach(d => d.onclick = () => go('records', d.dataset.k));
@@ -964,11 +995,11 @@ function renderFiles() {
   if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
   const fileEvents = S.events.filter(e => ['FILE_UNREADABLE', 'KIND_UNKNOWN', 'FILE_SKIPPED', 'FILE_IGNORED', 'SHEET_EMPTY', 'HEADER_ROW', 'ROW_TOTAL', 'KIND_OVERRIDE'].includes(e.code));
   let html = '';
-  if (fileEvents.length) html += `<div class="card"><h3>File events</h3><table>${fileEvents.map(e => `<tr><td><span class="lv ${e.level}">${e.level}</span></td><td class="mono small">${e.code}</td><td>${esc(e.message)}</td></tr>`).join('')}</table></div>`;
+  if (fileEvents.length) html += `<div class="card"><h2>File events</h2><table>${fileEvents.map(e => `<tr><td><span class="lv ${e.level}">${e.level}</span></td><td class="mono small">${e.code}</td><td>${esc(e.message)}</td></tr>`).join('')}</table></div>`;
   if (!files) { el.innerHTML = html || (S.state === 'running' ? skeleton() : empty('columns', S.run ? 'No file was read' : 'No run yet', 'Every export file and how each of its columns was read shows here.')); return; }
   const q = S.filesQ.toLowerCase();
   const shown = files.filter(f => (!S.filesUnmapped || f.unused.length) && (!q || (f.file + ' ' + Object.values(f.mapping).join(' ') + ' ' + f.unused.map(u => u.column).join(' ')).toLowerCase().includes(q)));
-  html += `<div class="toolbar"><input type="search" id="fq" placeholder="File or column name…  ( / )" value="${esc(S.filesQ)}" style="max-width:340px">
+  html += `<div class="toolbar"><input type="search" id="fq" aria-label="Filter files and columns" placeholder="File or column name…  ( / )" value="${esc(S.filesQ)}" style="max-width:340px">
     <label class="tog small" style="padding:0"><input type="checkbox" class="sw" id="funm" ${S.filesUnmapped ? 'checked' : ''}> only files with columns not loaded</label>
     <span class="grow"></span><span class="muted small">${shown.length} of ${files.length} files</span><button class="btn ghost small" id="fall">Expand all</button><button class="btn ghost small" id="fnone">Collapse all</button></div>`;
   html += shown.map(f => { const max = Math.max(...Object.values(f.scores), 1); const nmap = Object.keys(f.mapping).length;
@@ -1019,7 +1050,7 @@ function renderValues() {
   const rows = all.filter(e => !S.valuesCol || (e.column || '?') === S.valuesCol);
   el.innerHTML = `<div class="chips"><button class="chip ${mode === 'change' ? 'on' : ''}" data-m="change">Values changed ${S.events.filter(e => e.code === 'VALUE_CHANGED').length}</button>
     <button class="chip ${mode === 'nl' ? 'on' : ''}" data-m="nl">Not loaded ${S.events.filter(e => ['VALUE_NOT_LOADED', 'COLUMN_UNUSED'].includes(e.code)).length}</button></div>
-    <div class="card"><h3>By column</h3><div class="chips" style="margin:0"><button class="chip ${S.valuesCol ? '' : 'on'}" data-col="">All ${all.length}</button>${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<button class="chip ${c === S.valuesCol ? 'on' : ''}" data-col="${esc(c)}">${esc(c)} ${n}</button>`).join('')}</div></div>
+    <div class="card"><h2>By column</h2><div class="chips" style="margin:0"><button class="chip ${S.valuesCol ? '' : 'on'}" data-col="">All ${all.length}</button>${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<button class="chip ${c === S.valuesCol ? 'on' : ''}" data-col="${esc(c)}">${esc(c)} ${n}</button>`).join('')}</div></div>
     <div class="tablewrap"><table><tr><th>M2 key</th><th>Column</th>${mode === 'change' ? '<th>M2 value</th><th></th><th>Import value</th>' : '<th>Value</th>'}<th>Why</th></tr>
     ${rows.map(e => `<tr class="click" data-seq="${e.seq}"><td>${e.key ? `<span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span>` : ''}</td><td>${esc(e.column)}</td>
       ${mode === 'change' ? `<td class="mono small">${esc(e.old) || '<span class="muted">(empty)</span>'}</td><td class="muted">→</td><td class="mono small"><b>${esc(e.new)}</b></td>` : `<td class="mono small">${e.value != null ? esc(e.value) : (e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ')}</td>`}
@@ -1038,16 +1069,16 @@ function renderFinance() {
   if (!sm) { el.innerHTML = empty('bank', 'No run yet', 'Receivables per company, fees, compliance data and documents show here.'); return; }
   const rec = Object.entries(sm.receivables || {});
   const none = t => `<p class="muted" style="margin:0">${t}</p>`;
-  el.innerHTML = `<div class="card"><h3>${ic('bank')}M2 open receivables per operating company</h3><p class="small muted">The reconciliation figure: after the opening items are posted in Odoo, each company's open receivables must match. "(not assigned)" = items of a client still in review.</p>
+  el.innerHTML = `<div class="card"><h2>${ic('bank')}M2 open receivables per operating company</h2><p class="small muted">The reconciliation figure: after the opening items are posted in Odoo, each company's open receivables must match. "(not assigned)" = items of a client still in review.</p>
     ${rec.length ? `<div class="tablewrap free"><table><tr><th>Operating company</th><th>Currency</th><th class="num">Open amount</th></tr>${rec.flatMap(([c, v]) => Object.entries(v).map(([cur, a]) =>
       `<tr><td>${c === '(not assigned)' ? `<span class="lv review">not assigned</span>` : esc(c)}</td><td>${esc(cur)}</td><td class="num"><b>${a.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></td></tr>`)).join('')}</table></div>` : none('No open-items export in this run.')}</div>
-    <div class="card"><h3>Fees <span class="muted small">Annual Basic Fee, Flat Fee, LEI… (${sm.fees?.length || 0})</span></h3><p class="small muted">Not part of the client template: kept for the recurring invoices / subscriptions. The LEI fee's due date fills the client's LEI Renewal Date; a fee with a past finish date is listed as ended.</p>
+    <div class="card"><h2>Fees <span class="muted small">Annual Basic Fee, Flat Fee, LEI… (${sm.fees?.length || 0})</span></h2><p class="small muted">Not part of the client template: kept for the recurring invoices / subscriptions. The LEI fee's due date fills the client's LEI Renewal Date; a fee with a past finish date is listed as ended.</p>
     ${sm.fees?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Fee</th><th class="num">Amount</th><th>Currency</th><th>Period</th><th>Next due</th><th>Text</th><th>Billed by</th><th>Status</th><th>Client</th></tr>${sm.fees.map(f =>
       `<tr><td>${f.key ? `<span class="key" data-key="${esc(f.key)}">${esc(f.key)}</span>` : ''}</td><td>${esc(f.fee)}</td><td class="num">${esc(f.amount ?? '')}</td><td>${esc(f.currency ?? '')}</td><td>${esc(f.period)}</td><td>${esc(f.next_due ?? '')}</td><td>${esc(f.text)}</td><td>${esc(f.billed_by ?? '')}</td><td>${f.status === 'ended' ? '<span class="lv not_loaded">ended</span>' : '<span class="lv ok">active</span>'}</td><td>${f.client_found ? 'found' : '<span class="lv review">not found</span>'}</td></tr>`).join('')}</table></div>` : none('No fees export in this run.')}</div>
-    <div class="card"><h3>Compliance <span class="muted small">M2 ML-related, risk category, lock (${sm.compliance?.length || 0})</span></h3><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
+    <div class="card"><h2>Compliance <span class="muted small">M2 ML-related, risk category, lock (${sm.compliance?.length || 0})</span></h2><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
     ${sm.compliance?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>ML-related</th><th>Risk category</th><th>Country of max. risk</th><th>Lock</th><th>Note</th></tr>${sm.compliance.map(c =>
       `<tr><td>${c.key ? `<span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span>` : ''}</td><td>${esc(c.client_state)}</td><td>${esc(c.ml_related)}</td><td>${esc(c.risk_category)}</td><td>${esc(c.risk_country)}</td><td>${c.lock === 'Yes' ? `<span class="lv warning">locked</span> ${esc(c.lock_text)}` : esc(c.lock)}</td><td>${esc(c.note)}</td></tr>`).join('')}</table></div>` : none('No compliance export in this run.')}</div>
-    <div class="card"><h3>Documents <span class="muted small">to attach in Odoo (${sm.documents?.length || 0})</span></h3><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
+    <div class="card"><h2>Documents <span class="muted small">to attach in Odoo (${sm.documents?.length || 0})</span></h2><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
     ${sm.documents?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>Folder</th><th>File</th><th>Description</th><th>Created</th><th>Maturity</th><th>On disk</th></tr>${sm.documents.map(d =>
       `<tr><td>${d.key ? `<span class="key" data-key="${esc(d.key)}">${esc(d.key)}</span>` : ''}</td><td>${esc(d.client_state)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.description)}</td><td style="white-space:nowrap">${esc(d.created ?? '')}</td><td style="white-space:nowrap">${esc(d.maturity ?? '')}</td><td class="small mono">${d.on_disk ? esc(d.on_disk) : '<span class="lv warning">not copied</span>'}</td></tr>`).join('')}</table></div>` : none('No document export or document folders in this run.')}</div>`;
   bindKeys(el);
@@ -1097,11 +1128,11 @@ async function runAI(tasks) {
 }
 async function renderAI() {
   const el = panel('ai');
-  if (!S.aiStatus) { el.innerHTML = `<div class="card"><h3><span class="spin"></span> Checking the models…</h3><div class="sk" style="width:55%"></div><div class="sk" style="width:35%"></div></div>`;
+  if (!S.aiStatus) { el.innerHTML = `<div class="card"><h2><span class="spin"></span> Checking the models…</h2><div class="sk" style="width:55%"></div><div class="sk" style="width:35%"></div></div>`;
     try { S.aiStatus = await api('/api/ai/status'); } catch (e) { S.aiStatus = {error: e.message}; } if (S.tab !== 'ai') return; }
   const st = S.aiStatus, cfg = st.settings || {}, a = S.ai || {}, busyNow = a.job?.state === 'running';
   const ol = st.ollama || {};
-  let html = `<div class="card"><h3>Models <span class="grow"></span><button class="btn ghost small" id="airecheck">${ic('refresh')}Check again</button></h3>
+  let html = `<div class="card"><h2>Models <span class="grow"></span><button class="btn ghost small" id="airecheck">${ic('refresh')}Check again</button></h2>
     ${st.error ? `<div class="banner err">${ic('alert')}<div>${esc(st.error)}</div></div>` : ''}
     <p><span class="dot ${ol.up ? (ol.model_present ? 'green' : 'amber') : 'red'}"></span> <b>Ollama</b> <span class="mono">${esc(ol.url)}</span>, ${esc(cfg.ollama_model)} ${ol.up ? (ol.model_present ? '<span class="lv ok">ready</span>' : '<span class="lv warning">model not pulled</span>') : `<span class="lv error">not answering</span> <span class="small muted">${esc(ol.error)}</span>`}
       , embeddings ${esc(cfg.embed_model)}</p>
@@ -1114,10 +1145,10 @@ async function renderAI() {
     <button class="btn" data-ai-run="documents" ${busyNow ? 'disabled' : ''}>Classify documents</button>
     <button class="btn" data-ai-run="summary" ${busyNow ? 'disabled' : ''}>Summary</button></div><div id="aiprog">${aiProgress()}</div>
     ${a.job?.state === 'failed' ? `<div class="banner err" style="margin:10px 0 0">${ic('alert')}<div>${esc(a.job.error)}</div></div>` : ''}</div>`;
-  if (a.summary) html += `<div class="card"><h3><span class="dot ${esc(a.summary.status)}"></span>${esc(a.summary.headline)}</h3>
+  if (a.summary) html += `<div class="card"><h2><span class="dot ${esc(a.summary.status)}"></span>${esc(a.summary.headline)}</h2>
     ${(a.summary.actions || []).length ? `<ol style="margin:0;padding-left:20px">${a.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}<p class="small muted">${esc(a.summary.notes)}</p></div>`;
   const sug = a.suggestions || [];
-  html += `<div class="card"><h3>Suggested decisions <span class="muted">${sug.length}</span></h3>
+  html += `<div class="card"><h2>Suggested decisions <span class="muted">${sug.length}</span></h2>
     ${sug.length ? `<p class="small muted">Accept writes the same decision as the Needs decision tab; it applies on the next run. Confidence blends the model's answer with header similarity and sample checks.</p>
     <div class="tablewrap"><table><tr><th>What</th><th>M2 value</th><th>Suggestion</th><th>Confidence</th><th>Why</th><th>By</th><th></th></tr>
     ${sug.map(x => { const v = x.field || x.value; const done = decided(x.type, x.key, x.kind) === v; return `<tr><td class="small">${esc(AI_LABEL[x.type] || x.type)}${x.kind ? ` <span class="muted">(${esc(x.kind)})</span>` : ''}</td><td class="mono">${esc(x.key)}</td><td><b>${esc(v)}</b></td>
@@ -1126,8 +1157,8 @@ async function renderAI() {
     busyNow ? '<div class="sk"></div><div class="sk" style="width:70%"></div>' : '<p class="muted" style="margin:0">No suggestion yet. Press <b>Suggest decisions</b>.</p>'}</div>`;
   const docs = a.documents || [];
   if (docs.length) { const by = {}; docs.forEach(d => by[d.doc_type] = (by[d.doc_type] || 0) + 1);
-    html += `<div class="card"><h3>Document types <span class="muted">${docs.length} file(s)</span></h3><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
-    ${(a.document_gaps || []).length ? `<h3 style="margin-top:12px">Mandates missing documents <span class="muted">${a.document_gaps.length}</span></h3><p class="muted">Checked over every mandate holder the mandate is filed under. ENT and ACC need company documents and people KYC; CON and DIR need person KYC; ADM (internal) is not checked. The full table is in Archive_KYC_coverage.xlsx.</p><div class="tablewrap free"><table><tr><th>M2 key</th><th>Type</th><th>Holders</th><th>Missing in every holder</th><th>Found in another holder</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${esc(g.type || '')}</td><td>${esc((g.holders || []).join(', '))}</td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td><td>${(g.covered_elsewhere || []).map(x => `<span class="lv ok">${esc(x.need)}</span> <span class="muted">in ${esc(x.found_in.join(', '))}</span>`).join('<br>')}</td></tr>`).join('')}</table></div>` : ''}
+    html += `<div class="card"><h2>Document types <span class="muted">${docs.length} file(s)</span></h2><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
+    ${(a.document_gaps || []).length ? `<h2 style="margin-top:12px">Mandates missing documents <span class="muted">${a.document_gaps.length}</span></h2><p class="muted">Checked over every mandate holder the mandate is filed under. ENT and ACC need company documents and people KYC; CON and DIR need person KYC; ADM (internal) is not checked. The full table is in Archive_KYC_coverage.xlsx.</p><div class="tablewrap free"><table><tr><th>M2 key</th><th>Type</th><th>Holders</th><th>Missing in every holder</th><th>Found in another holder</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${esc(g.type || '')}</td><td>${esc((g.holders || []).join(', '))}</td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td><td>${(g.covered_elsewhere || []).map(x => `<span class="lv ok">${esc(x.need)}</span> <span class="muted">in ${esc(x.found_in.join(', '))}</span>`).join('<br>')}</td></tr>`).join('')}</table></div>` : ''}
     <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th>Confidence</th><th>By</th></tr>${docs.map(d => `<tr><td class="mono small">${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td>${meter(d.confidence)}</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
   if ((a.calls || []).length) html += `<details class="card"><summary>${ic('chev')}Model calls <span class="muted">${a.calls.length}</span></summary><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
     ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? '<span class="lv ok">ok</span>' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></details>`;
@@ -1146,7 +1177,7 @@ function aiSettingsCard(cfg) {
     <label class="tog">Claude model <input data-ai-set="claude_model" value="${esc(cfg.claude_model)}"></label>
     <label class="tog">Ask Claude below confidence <input type="number" step="0.05" min="0" max="1" data-ai-set="escalate_below" value="${esc(cfg.escalate_below)}"></label>
     <label class="tog">Hide suggestions below <input type="number" step="0.05" min="0" max="1" data-ai-set="min_confidence" value="${esc(cfg.min_confidence)}"></label>
-    <label class="tog">Odoo operating companies (one per line, for holder suggestions)</label><textarea rows="3" data-ai-set="companies">${esc((cfg.companies || []).join('\n'))}</textarea>
+    <label class="tog">Odoo operating companies (one per line, for holder suggestions)</label><textarea rows="3" data-ai-set="companies" aria-label="Odoo operating companies, one per line">${esc((cfg.companies || []).join('\n'))}</textarea>
     <p class="small muted">Claude needs <span class="mono">ANTHROPIC_API_KEY</span> in the environment of the UI (bin/m2ctl.sh reads <span class="mono">.env</span>).</p></details>`;
 }
 function bindAISettings(el) {
@@ -1162,10 +1193,10 @@ function renderSettings() {
   const el = panel('settings'); const cfg = S.info?.config || {};
   if (!S.info) { el.innerHTML = skeleton(); return; }
   const map = (name, label, ph) => { const m = Object.entries(cfg[name] || {}).filter(([k]) => !k.startsWith('_'));
-    return `<div class="card"><h3>${label} <span class="muted">${m.length}</span></h3><p class="small muted">${esc(cfg[name]?._help || '')}</p><div data-map="${name}" data-ph="${esc(ph)}">${m.map(([k, v]) => kvRow(k, v, ph)).join('')}</div>
+    return `<div class="card"><h2>${label} <span class="muted">${m.length}</span></h2><p class="small muted">${esc(cfg[name]?._help || '')}</p><div data-map="${name}" data-ph="${esc(ph)}">${m.map(([k, v]) => kvRow(k, v, ph)).join('')}</div>
       <button class="btn small" data-add="${name}">${ic('plus')}Add</button></div>`; };
   const theme = store.get('m2theme', 'auto');
-  el.innerHTML = `<div class="card"><h3>Rules</h3>
+  el.innerHTML = `<div class="card"><h2>Rules</h2>
     <label class="tog"><input type="checkbox" class="sw" data-set="require_company" ${cfg.require_company !== false ? 'checked' : ''}> A mandate without a known operating company goes to review (never a default company)</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="include_closed_mandates" ${cfg.include_closed_mandates ? 'checked' : ''}> Load closed mandates too (status closed, or ended)</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="notes_from_unmapped" ${cfg.notes_from_unmapped !== false ? 'checked' : ''}> Keep the M2 values with no CSP column in the client's Notes</label>
@@ -1177,11 +1208,11 @@ function renderSettings() {
     ${map('employee_map', 'Employee map (M2 abbreviation → Odoo employee)', 'Employee name')}
     ${map('officer_types', 'Officer types (M2 Detail addr. Type code → register sheet)', 'directors, ubos, contacts…')}
     ${map('file_kinds', 'File kinds (file name → export kind)', 'mandates, addresses, officers…')}
-    <div class="card"><h3>All settings (JSON) <span class="grow"></span><span class="small" id="cfgstate"></span></h3><p class="small muted">Extra header aliases, excluded keys and everything above. Saved to <span class="mono">m2_config.json</span>.</p>
-    <textarea id="rawcfg" rows="16" spellcheck="false">${esc(JSON.stringify(cfg, null, 2))}</textarea><div class="toolbar" style="margin:8px 0 0"><button class="btn primary" id="savecfg">Save settings</button>
+    <div class="card"><h2>All settings (JSON) <span class="grow"></span><span class="small" id="cfgstate"></span></h2><p class="small muted">Extra header aliases, excluded keys and everything above. Saved to <span class="mono">m2_config.json</span>.</p>
+    <textarea id="rawcfg" rows="16" spellcheck="false" aria-label="All settings as JSON">${esc(JSON.stringify(cfg, null, 2))}</textarea><div class="toolbar" style="margin:8px 0 0"><button class="btn primary" id="savecfg">Save settings</button>
     <button class="btn" id="fmtcfg">Format</button><button class="btn ghost" id="copycfg">${ic('copy')}Copy</button>
     <span class="muted small">Template read from <span class="mono">${esc(S.info?.spec)}</span></span></div></div>
-    <div class="card"><h3>This browser</h3><p class="small muted" style="margin-top:0">Colour palette</p><div class="swatches">${Object.entries(PALETTES).map(([k, l]) => `<button class="swatch ${k === store.get('m2palette', 'aubergine') ? 'on' : ''}" data-pal="${k}"><i data-palette="${k}">${[1, 2, 3, 4].map(n => `<u style="background:var(--k${n})"></u>`).join('')}</i>${l}</button>`).join('')}</div>
+    <div class="card"><h2>This browser</h2><p class="small muted" style="margin-top:0">Colour palette</p><div class="swatches">${Object.entries(PALETTES).map(([k, l]) => `<button class="swatch ${k === store.get('m2palette', 'aubergine') ? 'on' : ''}" data-pal="${k}"><i data-palette="${k}">${[1, 2, 3, 4].map(n => `<u style="background:var(--k${n})"></u>`).join('')}</i>${l}</button>`).join('')}</div>
     <label class="tog" style="margin-top:10px">Theme <select id="themesel"><option value="auto">Follow the system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <p class="small muted">Kept in this browser only. Keyboard shortcuts: press <kbd>?</kbd>.</p></div>`;
   $('[data-set=date_order]', el).value = cfg.date_order || 'DMY';
@@ -1195,11 +1226,11 @@ function renderSettings() {
   bindKv(el);
   const raw = $('#rawcfg'); const check = () => { try { JSON.parse(raw.value); $('#cfgstate').innerHTML = `<span class="saved">${ic('check')}valid JSON</span>`; $('#savecfg').disabled = false; return true; }
     catch (e) { $('#cfgstate').innerHTML = `<span style="color:var(--danger-fg)">${esc(e.message)}</span>`; $('#savecfg').disabled = true; return false; } };
-  raw.oninput = check; check();
+  raw.oninput = () => { check(); S.cfgDirty = raw.value !== JSON.stringify(S.info.config, null, 2); }; check(); S.cfgDirty = false;
   $('#fmtcfg').onclick = () => { if (check()) raw.value = JSON.stringify(JSON.parse(raw.value), null, 2); };
   $('#copycfg').onclick = () => copy(raw.value, 'Settings copied');
   $('#savecfg').onclick = () => busy($('#savecfg'), async () => { let cfg2; try { cfg2 = JSON.parse(raw.value); } catch (e) { return toast('Not valid JSON: ' + e.message, {type: 'error'}); }
-    try { await api('/api/config', {config: cfg2}); S.info.config = cfg2; toast('Settings saved', {type: 'success', detail: 'Applies on the next run.'}); renderSettings(); } catch (e) { toast(e.message, {type: 'error'}); } });
+    try { await api('/api/config', {config: cfg2}); S.info.config = cfg2; S.cfgDirty = false; toast('Settings saved', {type: 'success', detail: 'Applies on the next run.'}); renderSettings(); } catch (e) { toast(e.message, {type: 'error'}); } });
 }
 function kvRow(k, v, ph) { return `<div class="kvedit"><input value="${esc(k)}" placeholder="M2 value" data-k><input value="${esc(v)}" placeholder="${esc(ph)}" data-v><button class="btn ghost icon small" data-del title="Remove">${ic('x')}</button></div>`; }
 function bindKv(el) {
@@ -1241,8 +1272,8 @@ async function renderDocs() {
   if (q && shown.length && !shown.some(d => d.id === S.doc)) S.doc = shown[0].id;
   const doc = S.docs.find(d => d.id === S.doc);
   const groups = [...new Set(S.docs.map(d => d.group))];
-  el.innerHTML = `<div class="docs"><div class="doclist"><input type="search" id="docq" placeholder="Search the guides…  ( / )" value="${esc(S.docQ)}" style="width:100%">
-    ${groups.map(gr => { const ds = shown.filter(d => d.group === gr); return ds.length ? `<h6>${gr}</h6>` + ds.map(d => `<button class="${d.id === S.doc ? 'on' : ''}" data-doc="${d.id}">${ic(gr === 'Guides' ? 'book' : 'file')}<span>${esc(d.title)}</span>${q ? `<span class="n muted">${hits(d)}</span>` : ''}</button>`).join('') : ''; }).join('')}
+  el.innerHTML = `<div class="docs"><div class="doclist"><input type="search" id="docq" aria-label="Search the guides" placeholder="Search the guides…  ( / )" value="${esc(S.docQ)}" style="width:100%">
+    ${groups.map(gr => { const ds = shown.filter(d => d.group === gr); return ds.length ? `<h2 class="grp">${gr}</h2>` + ds.map(d => `<button class="${d.id === S.doc ? 'on' : ''}" data-doc="${d.id}">${ic(gr === 'Guides' ? 'book' : 'file')}<span>${esc(d.title)}</span>${q ? `<span class="n muted">${hits(d)}</span>` : ''}</button>`).join('') : ''; }).join('')}
     ${shown.length ? '' : '<p class="muted small">No guide mentions that.</p>'}</div>
     <div class="card" style="margin:0">${doc ? `<div class="pagehead"><h2>${esc(doc.title)}<p>${esc(doc.group)}</p></h2>
       <button class="btn ghost small" id="doclink">${ic('copy')}Link</button>${doc.pdf ? `<a class="btn small" target="_blank" rel="noopener" href="/api/doc-file?name=${encodeURIComponent(doc.pdf)}&token=${TOKEN}">${ic('file')}PDF</a>` : ''}</div>
@@ -1266,6 +1297,10 @@ function applyArg(tab, arg) { if (!arg) return;
   else if (tab === 'journal') { S.filter.code = arg; S.filter.levels = new Set(LEVELS); } }
 function go(tab, arg) {
   if (!RENDER[tab]) tab = 'overview';
+  // unsaved settings are never dropped silently
+  if (S.cfgDirty && S.tab === 'settings' && tab !== 'settings') {
+    if (!confirm('The settings JSON has changes that are not saved. Leave Settings and lose them?')) return;
+    S.cfgDirty = false; }
   const changed = tab !== S.tab; S.tab = tab; applyArg(tab, arg); store.set('m2tab', tab);
   const hash = '#' + tab + (arg ? '/' + encodeURIComponent(arg) : tab === 'records' && S.record ? '/' + encodeURIComponent(S.record) : '');
   if (location.hash !== hash) history[changed ? 'pushState' : 'replaceState'](null, '', location.pathname + location.search + hash);
@@ -1274,6 +1309,7 @@ function go(tab, arg) {
 function fromHash() { const m = /^#([a-z]+)(?:\/(.+))?$/.exec(location.hash); if (!m || !RENDER[m[1]]) return false;
   S.tab = m[1]; applyArg(m[1], m[2] ? decodeURIComponent(m[2]) : ''); return true; }
 window.addEventListener('hashchange', () => { if (fromHash()) { closeOverlays(); render(); } });
+window.addEventListener('beforeunload', ev => { if (S.cfgDirty) { ev.preventDefault(); ev.returnValue = ''; } });
 window.addEventListener('popstate', () => { if (fromHash()) render(); });
 
 // ---------- runs and polling ----------
@@ -1425,6 +1461,7 @@ window.M2 = {S, go, api, toast, render};   // for the browser console and for ag
 // ---------- init ----------
 (async () => {
   setTheme(store.get('m2theme', 'auto')); setPalette(store.get('m2palette', 'aubergine')); if (store.get('m2rail', '')) $('#app').classList.add('rail');
+  new MutationObserver(labelScrollers).observe($('main'), {childList: true, subtree: true});   // also boxes drawn later
   if (!fromHash()) { S.tab = store.get('m2tab', 'overview'); if (!RENDER[S.tab]) S.tab = 'overview'; }
   render();
   try {

@@ -70,6 +70,14 @@ Keys: `Ctrl+K` search and commands (sections, mandates, rules, guides), `Ctrl+En
 `[` `]` and `1`–`0` change section, `?` the list. Every place has an address: `#decide`, `#records/KP-482-ACC`,
 `#journal/COMPANY_UNKNOWN`, `#docs/ref-api`, and `?run=<stamp>` for an earlier run.
 
+Accessibility and phones: every text keeps at least 4.5:1 contrast in every palette, light and dark; below 900 px
+the side bar becomes a top bar whose section button lists every section; 44 px targets on touch screens; a skip
+link, one page heading per section, labelled fields and keyboard-reachable tables; reduced motion, Windows high
+contrast and "more contrast" are honoured. The page runs under a strict Content-Security-Policy (its one script is
+allowed by hash, nothing may frame it). Unsaved changes to the settings JSON are never dropped silently.
+`bin/m2ctl.sh audit [run]` re-checks all of it against the running page (Interface Craft playbook audit: layout
+at 320–1440 px, structure, motion, axe-core when present, and contrast in all ten palette and theme combinations).
+
 Logo and icons are in `assets/` (`icon.svg`, `favicon.svg`, `logo.svg`, `logo-dark.svg` are the sources;
 `python3 tools/make_icons.py` rebuilds the PNG / ICO / web manifest). `tools/make_docs_pdf.sh` rebuilds the PDF of
 each guide from its HTML.
@@ -178,4 +186,4 @@ The UI is registered in `/data/portwatch/ports.toml` as **M2 → CSP Migration**
 * actions: **Deploy** (unit tests, then restart on the new code, then health check; stops at the first failure),
   Run tests, Status, Last run summary, Migrate last folder, Sample run
 
-`bin/m2ctl.sh start|stop|restart|status|test|deploy|sample|migrate [dir]|last` does the same by hand.
+`bin/m2ctl.sh start|stop|restart|status|test|deploy|sample|migrate [dir]|last|audit [run]` does the same by hand.

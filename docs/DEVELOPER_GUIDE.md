@@ -71,7 +71,7 @@ Not touched by the change: `migration_script_m2_odoo.py`, `m2_ai.py`, `m2_mcp.py
 
 ## 4. How the page is built
 
-One file, no build step, no external resource (the CSP is `default-src 'self'`). The server reads it from disk on
+One file, no build step, no external resource. The CSP is strict: `default-src 'self'`, the one inline `<script>` allowed by its SHA-256 (`page_csp()` in `m2_ui.py` hashes it per request, since the token is inside), `frame-ancestors 'none'`. So: no `onclick=` attributes, no second `<script>`, no `javascript:` links; bind events in the script. The server reads it from disk on
 every page load: edit, reload the browser. `m2_ui.py` needs a restart.
 
 Order inside `m2_ui.html`: `<style>` (tokens, palettes, base, controls, layout, surfaces, tables, states, toasts,
@@ -194,8 +194,14 @@ Edit the SVG or HTML source, run the script, commit source and output together.
 ## 9. Tests and acceptance
 
 ```bash
-bin/m2ctl.sh test               # 40 tests: migration 19, AI 7, UI 14
+bin/m2ctl.sh test               # 46 tests: migration 19, AI 13, UI 14
+bin/m2ctl.sh audit [run]        # UI audit of the running page (needs playwright-core and Chromium; axe-core optional)
 ```
+
+`audit` runs `tools/ui_audit.mjs` (Interface Craft playbook audit: overflow and 44 px targets at 320–1440 px,
+structure (lang, one h1, heading order, names, labels), motion under reduced motion, CSP violations, axe-core) in light
+and dark over the 11 sections, then `tools/ui_contrast.mjs` (every visible text in the 5 palettes × light/dark). Reports
+and screenshots go to `logs/ui-audit/`. Run it after any change to `m2_ui.html`; it must end with all clear.
 
 `tests/test_ui.py` checks: no external resource in the page; one `<script>` that parses (needs `node`, skipped
 without it); every icon used exists; `NAV`, panels and `RENDER` agree; the API refuses calls without a token;
@@ -225,6 +231,13 @@ Walk this once in the browser after a deploy:
 * The assistant's progress bar was exercised on its start and failure paths only (no Ollama in the build workspace).
 * The Journal renders the last 1,500 matching events with "Show more"; it is not virtualised.
 * On the Rose & sky palette the accent red sits close to the error red.
+* Rules kept from the playbook (v3) review: one `<h1 id="ptitle">` per view (the section name; card titles are `h2`);
+  every search field has an `aria-label`; boxes that scroll on their own get `tabindex`, `role="region"` and a name
+  (`labelScrollers()`, also for content drawn later); progress bars carry `aria-label`; toasts last 4–8 s, pause on
+  hover and focus, three at most; zero counts are lighter in weight, never in contrast.
+* The saved theme and palette are applied by the page script; with a choice opposite to the system theme the page
+  can show the system theme for a moment while it loads.
+* Lighthouse is not part of `audit` (it is not installed here); the audit covers layout, structure, motion, axe and contrast.
 * UI review against the Interface Craft Playbook (18 Nov 2026): contrast measured on every visible text in the 5 palettes × light/dark
   (0 failures), 11 sections at 360/390/768/1024/1440 px with no overflow and 44 px targets on touch, skip link, no section fade,
   hover lift and tracked capitals removed. Written waivers: the pulsing dot of the running status (live state, text says it, off

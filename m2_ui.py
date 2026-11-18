@@ -14,6 +14,8 @@ writes one line per run start, run end and failed request to logs/m2_ui.log.
 """
 import argparse
 import ast
+import base64
+import hashlib
 import datetime
 import errno
 import json
@@ -193,6 +195,15 @@ def api_events(params):
     return {'run': job['id'], 'state': job['state'], 'events': events, 'next': since + len(events),
             'total': len(job['events']), 'summary': job['summary'] if job['state'] != 'running' else None,
             'trace': job.get('trace'), 'source': job.get('source'), 'started': job.get('started')}
+
+
+def page_csp(page):
+    """Strict CSP for the page: its one inline script is allowed by hash (the token is in it, so the hash is taken
+    per page), never by 'unsafe-inline'. Inline styles stay allowed; nothing may frame the page."""
+    hashes = ' '.join("'sha256-%s'" % base64.b64encode(hashlib.sha256(code.encode()).digest()).decode()
+                      for code in re.findall(r'<script>(.*?)</script>', page, re.S))
+    return (f"default-src 'self'; script-src {hashes}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
 
 def run_brief(path):
@@ -578,6 +589,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(data)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
         for k, v in (headers or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -596,8 +608,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ('/', '/index.html'):
             page = PAGE.read_text(encoding='utf-8').replace('__TOKEN__', TOKEN)
             return self._send(200, page.encode(), 'text/html; charset=utf-8',
-                              {'Content-Security-Policy': "default-src 'self'; style-src 'unsafe-inline'; "
-                                                          "script-src 'unsafe-inline'; img-src 'self' data:"})
+                              {'Content-Security-Policy': page_csp(page)})
         if url.path == '/health':
             return self._send(200, api_health())
         if url.path == '/favicon.ico' or url.path.startswith('/assets/'):

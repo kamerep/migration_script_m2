@@ -10,6 +10,7 @@
 #   bin/m2ctl.sh ai status|suggest|documents|summary|all [run]   AI assistant (default run: the last one)
 #   bin/m2ctl.sh token           the stable API token for n8n / the MCP server
 #   bin/m2ctl.sh mcp             MCP server on stdio (for Claude Code)
+#   bin/m2ctl.sh audit [run]     UI audit of the running page: layout at 320-1440 px, structure, motion, axe, contrast in every palette
 set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 PY="$HERE/.venv/bin/python"
@@ -60,6 +61,31 @@ print("Journal:", ", ".join(f"{k} {v}" for k, v in s["levels"].items()))
 PYEOF
 }
 
+# UI audit (Interface Craft playbook I2): needs playwright-core and a Chromium; axe-core is used when found.
+audit() {
+  local core chrome axe run sections
+  core="${PW_CORE:-$(ls -d "$HOME"/.local/share/*/node_modules/playwright-core "$(npm root -g 2>/dev/null)"/playwright-core 2>/dev/null | head -1)}"
+  chrome="${CHROME_PATH:-$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux64/chrome 2>/dev/null | sort | tail -1)}"
+  [ -n "$chrome" ] || chrome="$(command -v chromium || command -v google-chrome || command -v brave-browser || true)"
+  axe="${AXE_PATH:-$(ls "$HOME"/.npm/_npx/*/node_modules/axe-core/axe.min.js 2>/dev/null | head -1)}"
+  [ -n "$core" ] && [ -n "$chrome" ] || { echo "Needs playwright-core (PW_CORE) and Chromium (CHROME_PATH): npm i -g playwright-core && npx playwright install chromium"; return 2; }
+  healthy || { echo "The UI is not running: bin/m2ctl.sh start"; return 2; }
+  run="${1:-$(ls -1d "$HERE"/runs/*/ 2>/dev/null | sort | tail -1 | xargs -r basename)}"
+  sections="overview decide ai journal records files review values finance settings docs"
+  local pages="" s; for s in $sections; do pages="$pages,/?run=$run#$s"; done
+  mkdir -p "$HERE/logs/ui-audit"
+  local rc=0
+  for scheme in light dark; do
+    echo "== layout, structure, motion, axe ($scheme)"
+    PW_CORE="$core" CHROME_PATH="$chrome" AXE_PATH="$axe" BASE_URL="$URL" PAGES="${pages#,}" COLOR_SCHEME="$scheme" \
+      OUT="$HERE/logs/ui-audit/$scheme" node "$HERE/tools/ui_audit.mjs" > "$HERE/logs/ui-audit/$scheme.txt" 2>&1 || rc=1
+    grep -v ' ok$' "$HERE/logs/ui-audit/$scheme.txt"
+  done
+  echo "== contrast, every palette, light and dark"
+  PW_CORE="$core" CHROME_PATH="$chrome" BASE_URL="$URL" RUN="$run" node "$HERE/tools/ui_contrast.mjs" || rc=1
+  return $rc
+}
+
 case "${1:-status}" in
   start) start ;;
   stop) stop ;;
@@ -83,5 +109,6 @@ case "${1:-status}" in
     if [ "$cmd" = status ]; then "$PY" "$HERE/m2_ai.py" status; else "$PY" "$HERE/m2_ai.py" "$cmd" "$run"; fi ;;
   token) "$PY" -c "import sys; sys.argv=['x']; import m2_ui; print(m2_ui.API_TOKEN)" ;;
   mcp) exec "$PY" "$HERE/m2_mcp.py" ;;
-  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last|ai <cmd> [run]|token|mcp"; exit 2 ;;
+  audit) audit "${2:-}" ;;
+  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last|ai <cmd> [run]|token|mcp|audit [run]"; exit 2 ;;
 esac

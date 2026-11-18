@@ -50,7 +50,9 @@ If the tool stops answering, a banner says so and the page reconnects by itself.
 <tr><td>Theme and colours</td><td>Light, dark or as the system, and five colour palettes (Aubergine &amp; lavender, Mauve &amp; sage, Forest green, Lime &amp; indigo, Rose &amp; sky): the buttons at the foot of the side bar, or Settings › This browser. The side bar, the count cards, the buttons and the tab icon follow the palette; the level colours (error, review, warning…) stay the same in all of them.</td></tr></table>
 <p>Keys: <code>/</code> focuses the search of the section, <code>[</code> and <code>]</code> move between sections, <code>1</code>–<code>0</code> jump to one,
 <code>↑</code> <code>↓</code> step through events while the details are open, <code>Esc</code> closes, <code>?</code> lists them all.
-The first <code>Tab</code> on the page offers <b>Skip to content</b>.</p>
+The first <code>Tab</code> on the page offers <b>Skip to content</b>.
+Unsaved changes in <b>Settings › All settings (JSON)</b> are never lost silently: leaving the section or closing the tab asks first.
+The page follows Windows high contrast and the system's “more contrast” setting.</p>
 <h2>Files of a run</h2><p>Each run is kept in <code>runs/&lt;stamp&gt;/</code>: the two workbooks, <code>journal.jsonl</code>, <code>summary.json</code>,
 <code>run.log</code> and the <code>config.json</code> it ran with, plus <code>brief.json</code> (totals and levels for the run selector, so the list opens at once even when a summary is tens of MB). Earlier runs open from the run selector.</p>
 <h2>Terminal</h2><p><code>.venv/bin/python migration_script_m2_odoo.py &lt;folder&gt; [&lt;output&gt;] [--config m2_config.json] [--quiet]</code>

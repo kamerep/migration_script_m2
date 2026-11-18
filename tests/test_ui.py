@@ -100,6 +100,13 @@ class TestServer(unittest.TestCase):
         self.assertIn('text/html', ctype)
         self.assertIn(m2_ui.TOKEN.encode(), body)
         self.assertNotIn(b'__TOKEN__', body)
+        with urllib.request.urlopen(self.url + '/', timeout=10) as r:      # strict CSP: the script by its hash
+            csp, ref = r.headers['Content-Security-Policy'], r.headers['Referrer-Policy']
+        script = csp.split('script-src ')[1].split(';')[0]
+        self.assertNotIn('unsafe-inline', script)
+        self.assertEqual(script, m2_ui.page_csp(body.decode()).split('script-src ')[1].split(';')[0])
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertEqual(ref, 'no-referrer')
 
     def test_health_is_public_and_api_is_not(self):
         self.assertEqual(self.get('/health', token=False)[0], 200)
