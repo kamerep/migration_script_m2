@@ -243,6 +243,20 @@ class TestEnglishRun(unittest.TestCase):
         book = openpyxl.load_workbook(self.out / m2.REVIEW_FILE, read_only=True)
         self.assertTrue({'Compliance', 'Documents'} <= set(book.sheetnames))
 
+    def test_archive_inventory(self):
+        kinds = {t['file']: t['kind'] for t in self.job.files}
+        self.assertEqual(kinds['Archive inventory.csv'], 'inventory')
+        docs = {d['file']: d for d in self.job.documents}
+        passport = docs['Passport A Example.pdf']
+        self.assertEqual((passport['key'], passport['folder']), ('KP-501-ACC', 'KYC'))  # zero padding ignored
+        self.assertEqual(passport['where'], 'archive NOVA-PH')
+        self.assertTrue(passport['on_disk'].startswith('archive: NOVA-PH'))
+        self.assertEqual(docs['Trust deed.pdf']['key'], 'KP-502-TRU')
+        self.assertEqual(docs['Register extract.pdf']['client_state'], 'not in the exports')
+        self.assertNotIn('Thumbs.db', docs)
+        for code in ('ARCHIVE_FOLDER', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE', 'ARCHIVE_NO_FOLDER'):
+            self.assertIn(code, self.codes)
+
 
 if __name__ == '__main__':
     unittest.main()

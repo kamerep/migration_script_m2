@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "m2-migration": {
+      "command": "bin/m2ctl.sh",
+      "args": ["mcp"]
+    }
+  }
+}

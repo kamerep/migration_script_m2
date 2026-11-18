@@ -209,6 +209,16 @@ def english(out):
                 'KP-00482-ACC/LEI/LEI application.pdf', 'Scans/unsorted.pdf'):
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / rel).write_bytes(b'%PDF-1.4\n%sample\n')
+    # File list of the M2 archive share (made with Get-ChildItem | Export-Csv on Windows, UTF-8, comma).
+    inventory = [('NOVA-PH\\KP-00501-ACC\\KYC\\Passport A Example.pdf', 182044, '2024-03-02 10:15'),
+                 ('NOVA-PH\\KP-00501-ACC\\KYC\\Utility bill 2025.pdf', 95211, '2025-01-20 08:40'),
+                 ('NOVA-PH\\KP-00501-ACC\\Corporate\\Certificate of Incorporation.pdf', 301122, '2019-05-11 14:02'),
+                 ('NOVA-PH\\KP-00501-ACC\\scan_0003.pdf', 40112, '2026-06-30 08:21'),
+                 ('NOVA-PH\\KP-00502-TRU\\Trust deed.pdf', 512000, '2018-02-01 09:00'),
+                 ('NOVA-PH\\KP-00777-ENT\\Register extract.pdf', 64000, '2024-10-24 03:39'),
+                 ('NOVA-PH\\Thumbs.db', 4096, '2024-10-24 03:39')]
+    lines = ['"Path","Length","Modified"'] + [f'"{a}","{b}","{c}"' for a, b, c in inventory]
+    (out / 'Archive inventory.csv').write_text('\r\n'.join(lines) + '\r\n', encoding='utf-8-sig')
     print(f"Sample M2 (English interface) exports written to {out}")
 
 

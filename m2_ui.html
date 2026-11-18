@@ -254,7 +254,8 @@ function decisionsNeeded() {
     else if (['DUPLICATE_REF', 'ROW_INVALID', 'FILE_UNREADABLE', 'NO_MANDATES', 'CRASH', 'ADDRESS_MISSING', 'AMOUNT_NO_CURRENCY',
               'IBAN_CHECK', 'TYPE_UNKNOWN', 'ENTITY_TYPE_CHECK', 'SWIFT_FORMAT', 'CLIENT_IN_REVIEW', 'BANK_AMBIGUOUS',
               'COMPLIANCE_LOCK', 'NO_CLIENT_COLUMN', 'FOLDER_NOT_CLIENT', 'DOCUMENTS_MISSING', 'LEI_RENEWAL_CONFLICT',
-              'OFFICER_TYPE_INVALID', 'OPEN_ITEM_PAID_BUT_OPEN'].includes(e.code)) g.other.push(e);
+              'OFFICER_TYPE_INVALID', 'OPEN_ITEM_PAID_BUT_OPEN', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE',
+              'ARCHIVE_NO_FOLDER'].includes(e.code)) g.other.push(e);
   }
   g.total = g.company.size + g.employee.size + g.kind.length + g.column.length + g.notfound.length + g.legal.size + g.func.length + g.other.length;
   return g;

@@ -15,7 +15,7 @@
   "notes_from_unmapped": true,
   "date_order": "DMY",
   "file_kinds": {
-    "_help": "File name (or start of it) -> source kind, when the automatic classification picks the wrong one. Kinds: mandates, addresses, contacts, officers, directors, ubos, shareholders, secretaries, agents, bank_accounts, signatories, fees, open_items, compliance, documents, ignore."
+    "_help": "File name (or start of it) -> source kind, when the automatic classification picks the wrong one. Kinds: mandates, addresses, contacts, officers, directors, ubos, shareholders, secretaries, agents, bank_accounts, signatories, fees, open_items, compliance, documents, inventory, ignore."
   },
   "extra_aliases": {
     "_help": "Source kind -> {field: [extra column headers]} added to the built-in header names."

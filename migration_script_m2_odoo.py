@@ -321,12 +321,24 @@ KINDS = {
                    'creator': ['Creator', 'Ersteller']},
         'key_fields': ['file_name'],
     },
+    # A file list of the M2 document archive (e.g. Z:\\ARVIS-PH\\AP-00031-ENT\\KYC\\pass.pdf), made on the Windows
+    # side with Get-ChildItem ... | Export-Csv, when the archive itself is not copied. The mandate is the first
+    # folder of the path named like a mandate number; the folder above it is the mandate holder's archive.
+    'inventory': {
+        'title': 'Archive inventory (file list)', 'words': ['inventory', 'inventar', 'dateiliste', 'filelist',
+                                                             'file list', 'archiv'],
+        'fields': {'path': ['Path', 'FullName', 'Full Name', 'Pfad', 'Relative Path', 'File path'],
+                   'size': ['Length', 'Size', 'Bytes', 'Grösse', 'Größe', 'MB'],
+                   'modified': ['Modified', 'LastWriteTime', 'Last Write Time', 'Date modified', 'Geändert',
+                                'Änderungsdatum']},
+        'key_fields': ['path'],
+    },
 }
 
 # M2 'Mad.Company' (the managing company of the record) on the register grids: kept apart so that it is never
 # read as the client's name.
 for _kind, _spec in KINDS.items():
-    if _kind != 'mandates':
+    if _kind not in ('mandates', 'inventory'):
         _spec['fields']['managing_company'] = ['Mad.Company', 'Mand.Company', 'Managing company']
 
 # Officer function (normalized) -> template sheet, for a combined officers export
@@ -887,7 +899,8 @@ class Migration:
         context_ref = None
         # (An address number alone does not name the client there: on those grids it is the person's or the
         # bank's own address.)
-        if kind not in ('mandates', 'addresses') and not any(f in index for f in ('mandate_no', 'debtor_no')):
+        if kind not in ('mandates', 'addresses', 'inventory') and not any(f in index for f in ('mandate_no',
+                                                                                               'debtor_no')):
             title = ' '.join(text(c) for r in rows[:h] for c in r if text(c))
             found = MANDATE_RE.search(f"{path.stem} {sheet}")
             source = 'file name'
@@ -1816,7 +1829,7 @@ class Migration:
     def build_documents(self):
         folders = [p for p in sorted(self.source.iterdir()) if p.is_dir() and not p.name.startswith('.')] \
             if self.source.is_dir() else []
-        if not self.tables['documents'] and not folders:
+        if not self.tables['documents'] and not folders and not self.tables['inventory']:
             return
         self.stage('documents', "Index of the M2 documents per client (to attach in Odoo)")
         for table in self.tables['documents']:
@@ -1862,10 +1875,78 @@ class Migration:
             self.ev('decision', 'DOCUMENTS_FOLDER', f"Folder '{folder.name}' -> client {entry['ref']} "
                     f"({entry['name']}): {len(files)} file(s) indexed for attaching in Odoo.", key=entry['ref'],
                     file=folder.name)
-        missing = [d for d in self.documents if not d['on_disk'] and not d['where'].startswith('folder')]
-        if missing and folders:
+        self.build_inventory(listed)
+        missing = [d for d in self.documents if not d['on_disk'] and not d['where'].startswith(('folder',
+                                                                                                'archive'))]
+        if missing and (folders or self.tables['inventory']):
             self.ev('warning', 'DOCUMENTS_MISSING', f"{len(missing)} document(s) of the document export are not in "
                     "the copied folders.", fix="Copy the M2 document store folders next to the exports.")
+
+    def build_inventory(self, listed):
+        """Files of the archive inventory, per mandate folder: indexed without copying the archive."""
+        if not self.tables['inventory']:
+            return
+        per_folder = collections.OrderedDict()
+        for table in self.tables['inventory']:
+            for row in table['rows']:
+                raw = text(row['v'].get('path'))
+                parts = [x for x in re.split(r'[\\/]+', raw) if x and not re.fullmatch(r'[A-Za-z]:', x)]
+                if not parts:
+                    continue
+                pos = next((i for i, x in enumerate(parts[:-1]) if MANDATE_RE.fullmatch(x)
+                            or any(self.lookup[b].get(rkey(x)) for b in ('mandate', 'debtor'))), None)
+                if pos is None:
+                    per_folder.setdefault(('', parts[0] if len(parts) > 1 else ''), []).append((table, row, parts,
+                                                                                                None))
+                    continue
+                holder = parts[pos - 1] if pos else ''
+                per_folder.setdefault((holder, parts[pos]), []).append((table, row, parts, pos))
+        clients = bool(self.lookup['mandate'])
+        seen = set()
+        for (holder, folder), files in per_folder.items():
+            if files[0][3] is None:
+                self.ev('warning', 'ARCHIVE_NOT_MANDATE', f"Archive folder '{folder or '(root)'}': {len(files)} "
+                        "file(s) not under a folder named like a mandate number: not indexed.", file=files[0][0]['file'],
+                        fix="Check the folder; mandate folders are named like AP-00031-ENT.")
+                continue
+            entry = None
+            for bucket in ('mandate', 'debtor', 'address'):
+                entry = entry or self.lookup[bucket].get(rkey(folder))
+            key = entry['ref'] if entry else folder
+            seen.add(rkey(key))
+            for table, row, parts, pos in files:
+                name, sub = parts[-1], '/'.join(parts[pos + 1:-1])
+                modified, _n = self.conv.date(row['v'].get('modified')) if text(row['v'].get('modified')) \
+                    else (None, None)
+                on_disk = 'archive: ' + '\\'.join(parts)
+                if (rkey(key), norm(name)) in listed:
+                    for d in self.documents:
+                        if rkey(d['key']) == rkey(key) and norm(d['file']) == norm(name) and not d['on_disk']:
+                            d['on_disk'], d['folder'] = on_disk, d['folder'] or sub
+                    continue
+                self.documents.append({
+                    'where': f"archive {holder}".strip(), 'key': key,
+                    'client_state': entry['state'] if entry else ('not in the exports' if clients else 'archive only'),
+                    'folder': sub, 'file': name, 'description': '', 'type': Path(name).suffix.lstrip('.').upper(),
+                    'created': modified, 'maturity': None, 'on_disk': on_disk})
+            if entry:
+                self.ev('decision', 'ARCHIVE_FOLDER', f"Archive folder '{holder + chr(92) if holder else ''}{folder}' "
+                        f"-> client {entry['ref']} ({entry['name']}): {len(files)} file(s) indexed.", key=entry['ref'],
+                        file=files[0][0]['file'])
+            else:
+                self.ev('warning' if clients else 'info', 'ARCHIVE_FOLDER_UNKNOWN', f"Archive folder "
+                        f"'{folder}'{' of ' + holder if holder else ''}: {len(files)} file(s); "
+                        + ("not a mandate of the exports (closed, or exported under another number)." if clients
+                           else "indexed under its folder name (archive only, no mandate export in this run)."),
+                        key=folder, file=files[0][0]['file'],
+                        fix="Add the mandate to the exports, or check the folder name." if clients else None)
+        if clients:
+            without = sorted({e['ref'] for e in self.lookup['mandate'].values()
+                              if rkey(e['ref']) not in seen and e.get('state') != 'closed'})
+            if without:
+                self.ev('warning', 'ARCHIVE_NO_FOLDER', f"{len(without)} mandate(s) of the exports have no folder in "
+                        f"the archive inventory: {', '.join(without[:20])}{' …' if len(without) > 20 else ''}.",
+                        fix="Check the archive path, or the mandate holder folder the inventory was made of.")
 
     # -- conversion with journaling --------------------------------------------------------------------------
 
