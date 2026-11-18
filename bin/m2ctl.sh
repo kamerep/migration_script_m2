@@ -7,6 +7,9 @@
 #   bin/m2ctl.sh sample          sample exports + a terminal run of the migration on them
 #   bin/m2ctl.sh migrate [dir]   terminal run on a folder (default: the last folder chosen in the UI)
 #   bin/m2ctl.sh last            totals of the last run
+#   bin/m2ctl.sh ai status|suggest|documents|summary|all [run]   AI assistant (default run: the last one)
+#   bin/m2ctl.sh token           the stable API token for n8n / the MCP server
+#   bin/m2ctl.sh mcp             MCP server on stdio (for Claude Code)
 set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 PY="$HERE/.venv/bin/python"
@@ -15,6 +18,8 @@ LOG="$HERE/logs/m2_ui.log"
 URL="http://127.0.0.1:$PORT"
 mkdir -p "$HERE/logs"
 cd "$HERE" || exit 1
+# Secrets (ANTHROPIC_API_KEY, M2_API_TOKEN) stay in .env, never in git.
+[ -f "$HERE/.env" ] && { set -a; . "$HERE/.env"; set +a; }
 
 pid() { pgrep -f "$HERE/m2_ui.py --port $PORT" | head -1; }
 healthy() { curl -fsS -m 3 "$URL/health" >/dev/null 2>&1; }
@@ -73,5 +78,10 @@ case "${1:-status}" in
     [ -n "$dir" ] || { echo "Give the folder: bin/m2ctl.sh migrate <folder>"; exit 1; }
     "$PY" "$HERE/migration_script_m2_odoo.py" "$dir" "$HERE/runs/cli-$(date +%Y%m%d-%H%M%S)" --quiet ;;
   last) last ;;
-  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last"; exit 2 ;;
+  ai)
+    cmd="${2:-status}"; run="${3:-$(ls -1d "$HERE"/runs/*/ 2>/dev/null | sort | tail -1)}"
+    if [ "$cmd" = status ]; then "$PY" "$HERE/m2_ai.py" status; else "$PY" "$HERE/m2_ai.py" "$cmd" "$run"; fi ;;
+  token) "$PY" -c "import sys; sys.argv=['x']; import m2_ui; print(m2_ui.API_TOKEN)" ;;
+  mcp) exec "$PY" "$HERE/m2_mcp.py" ;;
+  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last|ai <cmd> [run]|token|mcp"; exit 2 ;;
 esac

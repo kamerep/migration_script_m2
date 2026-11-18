@@ -55,6 +55,12 @@ textarea { width: 100%; font-family: var(--mono); font-size: 12.5px; }
 .btn.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
 .btn.primary:hover { background: var(--accent-hover); }
 .btn.small { padding: 2px 8px; font-size: 12.5px; }
+.aihint { display: inline-flex; gap: 6px; align-items: center; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
+  border: 1px dashed var(--violet); color: var(--violet); font-size: 12.5px; }
+.aihint b { color: var(--text); }
+.conf { font-variant-numeric: tabular-nums; opacity: .8; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.dot.green { background: var(--ok); } .dot.amber { background: var(--warn); } .dot.red { background: var(--danger); } .dot.grey { background: var(--border-strong); }
 .btn:disabled { opacity: .5; cursor: default; }
 .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
 .pill.running { color: var(--info); border-color: var(--info); }
@@ -184,6 +190,7 @@ label.tog { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
   <div id="banner"></div>
   <section class="panel" data-tab="overview"></section>
   <section class="panel" data-tab="decide"></section>
+  <section class="panel" data-tab="ai"></section>
   <section class="panel" data-tab="journal"></section>
   <section class="panel" data-tab="records"></section>
   <section class="panel" data-tab="files"></section>
@@ -207,13 +214,13 @@ const LEVEL_LABEL = {error: 'Errors', review: 'To review', warning: 'Warnings', 
 const STAGES = [['files', 'Read & classify files'], ['clients', 'Build clients'], ['registers', 'Link registers'],
   ['finance', 'Fees & open items'], ['compliance', 'Compliance'], ['documents', 'Documents'], ['checks', 'Template checks'],
   ['write', 'Write files']];
-const TABS = [['overview', 'Overview'], ['decide', 'Needs decision'], ['journal', 'Journal'], ['records', 'Records'],
+const TABS = [['overview', 'Overview'], ['decide', 'Needs decision'], ['ai', 'AI assistant'], ['journal', 'Journal'], ['records', 'Records'],
   ['files', 'Files & columns'], ['review', 'Review rows'], ['values', 'Changes & not loaded'], ['finance', 'Finance'],
   ['settings', 'Settings']];
 
 const S = {run: null, state: 'idle', events: [], next: 0, summary: null, trace: null, info: null, tab: 'overview',
   filter: {levels: new Set(['error', 'review', 'warning', 'decision', 'change', 'not_loaded']), q: '', stage: '', code: '',
-  file: '', follow: true, limit: 1500}, record: null, recQ: '', valuesMode: 'change', timer: null, browsePath: null};
+  file: '', follow: true, limit: 1500}, record: null, recQ: '', valuesMode: 'change', timer: null, browsePath: null, ai: null, aiStatus: null, aiTimer: null};
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -292,6 +299,7 @@ function renderOverview() {
   const dn = decisionsNeeded();
   if (S.state !== 'running' && dn.total) html += `<div class="banner err">${dn.total} item(s) need a decision before the next run: open <a href="#" data-go="decide">Needs decision</a>.</div>`;
   else if (S.state === 'done' && !c.error && !sm?.totals.review) html += `<div class="banner ok">Clean run: every row is in the import file.</div>`;
+  if (S.ai?.summary) html += `<div class="card"><h3><span class="dot ${esc(S.ai.summary.status)}"></span>AI summary: ${esc(S.ai.summary.headline)}</h3>${(S.ai.summary.actions || []).length ? `<ol class="small">${S.ai.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}</div>`;
   if (sm) {
     html += `<div class="card"><h3>Result per template sheet</h3><div class="tablewrap" style="max-height:none"><table><tr><th>Sheet</th><th class="num">To import</th><th class="num">To review</th><th style="width:40%">Share loadable</th></tr>
       ${Object.entries(sm.sheets).map(([k, s]) => { const t = s.import + s.review; return `<tr class="click" data-sheet="${k}"><td class="sheetname">${esc(s.title)}</td><td class="num">${fmt(s.import)}</td><td class="num">${fmt(s.review)}</td>
@@ -327,6 +335,7 @@ function renderDecide() {
   const companies = [...new Set(Object.values(S.info?.config?.company_map || {}).filter(v => typeof v === 'string'))];
   const kinds = Object.entries(S.info?.kinds || {});
   let html = `<div class="card"><div class="toolbar"><b style="flex:1">Your decisions are saved to the settings (m2_config.json) and apply on the next run.</b>
+    <button class="btn" id="askai" title="Local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${S.ai?.job?.state === 'running' ? 'AI is thinking…' : '✨ Ask AI'}</button>
     <button class="btn primary" id="rerun">Run again with these decisions</button></div></div>`;
   if (g.company.size) html += `<div class="card"><h3>Operating company of a mandate holder <span class="lv review">never a default</span></h3>
     <p class="muted small">Each M2 mandate holder (trust-mandate code) is one of our operating companies. Its mandates wait in review until you name it.</p>
@@ -334,7 +343,7 @@ function renderDecide() {
     ${[...g.company].map(([holder, d]) => `<div class="decide"><div><b class="mono">${esc(holder || '(no holder)')}</b> · ${d.keys.length} mandate(s):
       ${d.keys.slice(0, 12).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}${d.keys.length > 12 ? ' …' : ''}</div>
       <div class="ctl">${holder ? `<input list="companies" placeholder="Odoo company name" data-holder="${esc(holder)}"><button class="btn small primary" data-save-company="${esc(holder)}">Save</button>` :
-      '<span class="muted small">Fill the holder in M2 or Operating Company in the review file</span>'}</div></div>`).join('')}</div>`;
+      '<span class="muted small">Fill the holder in M2 or Operating Company in the review file</span>'}${aiHint('company', holder)}</div></div>`).join('')}</div>`;
   if (g.employee.size) html += `<div class="card"><h3>Employees not in the employee map</h3><p class="muted small">M2 stores the employee abbreviation; Odoo needs the employee's name.</p>
     ${[...g.employee].map(([abbr, keys]) => `<div class="decide"><div><b class="mono">${esc(abbr)}</b> · on ${keys.length} mandate(s) ${keys.slice(0, 10).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}</div>
       <div class="ctl"><input placeholder="Employee name in Odoo" data-emp="${esc(abbr)}"><button class="btn small primary" data-save-emp="${esc(abbr)}">Save</button></div></div>`).join('')}</div>`;
@@ -342,29 +351,30 @@ function renderDecide() {
     ${g.kind.map(e => `<div class="decide"><div><b>${esc(e.file)}</b> <span class="lv ${e.level}">${e.level}</span><div class="small muted">${esc(e.message)}</div>
       ${e.scores ? `<div class="small mono">${Object.entries(e.scores).map(([k, v]) => `${k} ${v}`).join(' · ')}</div>` : ''}</div>
       <div class="ctl"><select data-kind-file="${esc(e.file.replace(/ \[.*\]$/, ''))}"><option value="">Read as…</option>${kinds.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('')}<option value="ignore">Ignore this file</option></select>
-      <button class="btn small primary" data-save-kind="${esc(e.file.replace(/ \[.*\]$/, ''))}">Save</button></div></div>`).join('')}</div>`;
+      <button class="btn small primary" data-save-kind="${esc(e.file.replace(/ \[.*\]$/, ''))}">Save</button>${aiHint('file_kind', e.file.replace(/ \[.*\]$/, ''))}</div></div>`).join('')}</div>`;
   if (g.column.length) html += `<div class="card"><h3>Columns with no CSP field</h3><p class="muted small">Their values are kept in the review file and the client's Notes. If one is really a CSP field under another name, map it.</p>
     ${g.column.map(e => { const t = (S.summary?.files || []).find(f => f.file === e.file); const kind = t?.kind;
       return `<div class="decide"><div><b class="mono">${esc(e.column)}</b> in ${esc(e.file)} <span class="muted small">(${esc(S.info?.kinds?.[kind] || kind || '')})</span>
       <div class="small muted">e.g. ${(e.samples || []).map(esc).join(' · ')}</div></div>
       <div class="ctl">${kind ? `<select data-alias-col="${esc(e.column)}" data-alias-kind="${esc(kind)}"><option value="">Load into…</option>${(S.info?.kind_fields?.[kind] || []).map(f => `<option>${esc(f)}</option>`).join('')}</select>
-      <button class="btn small primary" data-save-alias="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')}</div>`;
+      <button class="btn small primary" data-save-alias="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>${aiHint('alias', e.column, kind)}` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')}</div>`;
   if (g.notfound.length) html += `<div class="card"><h3>Register rows whose client was not found</h3><p class="muted small">Fix the client reference in the M2 export (or in the review file), or exclude the key.</p>
     ${g.notfound.map(e => `<div class="decide"><div><span class="lv review">review</span> ${esc(e.message)}${e.alternatives?.length ? `<div class="small">Close: ${e.alternatives.map(esc).join(' · ')}</div>` : ''}</div>
       <div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}</div></div>`).join('')}</div>`;
   if (g.legal.size) html += `<div class="card"><h3>Legal forms not known</h3>${[...g.legal].map(([lf, keys]) => `<div class="decide"><div><b class="mono">${esc(lf)}</b> on ${keys.map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}</div>
-    <div class="ctl muted small">Entity Type left empty: fill it in the import file</div></div>`).join('')}</div>`;
+    <div class="ctl muted small">Entity Type left empty: fill it in the import file${aiHint('legal_form', lf)}</div></div>`).join('')}</div>`;
   if (g.func.length) { const funcs = new Map(); g.func.forEach(e => { const k = e.value || '?'; if (!funcs.has(k)) funcs.set(k, []); funcs.get(k).push(e); });
     html += `<div class="card"><h3>M2 types / officer functions not known</h3><p class="muted small">M2 Detail addr. rows carry a Type code (e.g. DIR, BO, CP). Say which register sheet each code fills.</p>
     ${[...funcs].map(([fn, evs]) => `<div class="decide"><div><b class="mono">${esc(fn)}</b> · ${evs.length} row(s) ${[...new Set(evs.map(e => e.key).filter(Boolean))].slice(0, 10).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ')}
       <div class="small muted">${esc(evs[0].file || '')}</div></div>
       <div class="ctl">${fn !== '?' ? `<select data-otype="${esc(fn)}"><option value="">Load as…</option>${OFFICER_SHEETS.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select>
-      <button class="btn small primary" data-save-otype="${esc(fn)}">Save</button>` : ''}</div></div>`).join('')}</div>`; }
+      <button class="btn small primary" data-save-otype="${esc(fn)}">Save</button>${aiHint('officer_type', fn)}` : ''}</div></div>`).join('')}</div>`; }
   if (g.other.length) html += `<div class="card"><h3>Other errors and checks</h3>${g.other.map(e => `<div class="decide"><div><span class="lv ${e.level}">${e.level}</span> <span class="mono small">${e.code}</span> ${esc(e.message)}
     ${e.fix ? `<div class="small" style="color:var(--ok)">Fix: ${esc(e.fix)}</div>` : ''}</div><div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}
     ${e.key && e.code === 'DUPLICATE_REF' ? '' : ''}</div></div>`).join('')}</div>`;
   el.innerHTML = html;
   const save = async (body, msg) => { try { const r = await api('/api/decide', body); S.info.config = r.config; toast(msg); } catch (e) { toast(e.message); } };
+  bindAI(el, save);
   el.querySelectorAll('[data-save-company]').forEach(b => b.onclick = () => { const h = b.dataset.saveCompany;
     const v = el.querySelector(`[data-holder="${CSS.escape(h)}"]`).value.trim(); if (!v) return toast('Type the company name.');
     save({type: 'company', key: h, value: v}, `${h} → ${v} saved`); });
@@ -547,6 +557,91 @@ function renderFinance() {
   bindKeys(el);
 }
 
+// ---------- AI assistant ----------
+const AI_LABEL = {alias: 'column → field', file_kind: 'file → kind', officer_type: 'type code → register', company: 'holder → company', legal_form: 'legal form → entity type'};
+function aiFind(type, key, kind) { return (S.ai?.suggestions || []).find(x => x.type === type && x.key === key && (!kind || x.kind === kind)); }
+function aiHint(type, key, kind) {
+  const x = aiFind(type, key, kind); if (!x) return '';
+  const val = x.field || x.value; const pct = Math.round(100 * x.confidence);
+  const accept = type === 'legal_form' ? '' : `<button class="btn small" data-ai-accept="${esc(JSON.stringify({type, key, kind: x.kind, value: val}))}">Accept</button>`;
+  return `<div class="aihint" title="${esc(x.reason)} · ${esc(x.provider)} ${esc(x.model || '')}">✨ <b>${esc(val)}</b> <span class="conf">${pct}%</span> ${accept}</div>`;
+}
+function bindAI(el, save) {
+  const b = el.querySelector('#askai'); if (b) b.onclick = () => runAI(['suggest']);
+  el.querySelectorAll('[data-ai-accept]').forEach(btn => btn.onclick = () => { const d = JSON.parse(btn.dataset.aiAccept);
+    const body = d.type === 'alias' ? {type: 'alias', key: d.key, kind: d.kind, field: d.value} : {type: d.type, key: d.key, value: d.value};
+    save(body, `${d.key} → ${d.value} saved (AI suggestion)`); btn.disabled = true; btn.textContent = 'Saved'; });
+}
+async function loadAI() {
+  if (!S.run) return;
+  try { S.ai = await api(`/api/ai?run=${S.run}`); } catch (e) { S.ai = null; }
+  if (S.ai?.job?.state === 'running') S.aiTimer = setTimeout(loadAI, 1500);
+  if (['ai', 'decide', 'overview'].includes(S.tab)) render();
+}
+async function runAI(tasks) {
+  if (!S.run || S.state === 'running') return toast('Wait for the run to finish.');
+  try { await api('/api/ai/run', {run: S.run, tasks}); toast('The assistant is working (local model)…'); loadAI(); } catch (e) { toast(e.message, 5000); }
+}
+async function renderAI() {
+  const el = $('[data-tab=ai]');
+  if (!S.aiStatus) { el.innerHTML = '<div class="empty">Checking the models…</div>'; try { S.aiStatus = await api('/api/ai/status'); } catch (e) { S.aiStatus = {error: e.message}; } }
+  const st = S.aiStatus, cfg = st.settings || {}, a = S.ai || {}, busy = a.job?.state === 'running';
+  const ol = st.ollama || {};
+  let html = `<div class="card"><h3>Models</h3>
+    <p><span class="dot ${ol.up ? (ol.model_present ? 'green' : 'amber') : 'red'}"></span><b>Ollama</b> ${esc(ol.url)} · ${esc(cfg.ollama_model)} ${ol.up ? (ol.model_present ? '' : '<span class="lv warning">model not pulled</span>') : `<span class="lv error">not answering</span> <span class="small muted">${esc(ol.error)}</span>`}
+      · embeddings ${esc(cfg.embed_model)}</p>
+    <p><span class="dot ${cfg.allow_cloud && st.claude?.key ? 'green' : 'grey'}"></span><b>Claude</b> ${esc(cfg.claude_model)} · ${cfg.allow_cloud ? 'cloud allowed for headers and codes' : 'cloud off'}${cfg.allow_cloud && !st.claude?.key ? ' <span class="lv warning">no ANTHROPIC_API_KEY</span>' : ''}</p>
+    <p class="small muted">Mode <b>${esc(cfg.provider)}</b>. The assistant reads a finished run and proposes decisions; it never changes a run or the settings by itself. Client names, file names, sample values and documents stay on this machine.</p></div>`;
+  if (!S.run) { el.innerHTML = html + '<div class="empty">Open or start a run first.</div>' + aiSettingsCard(cfg); bindAISettings(el); return; }
+  html += `<div class="card"><div class="toolbar"><b style="flex:1">Run <span class="mono">${esc(S.run)}</span> ${busy ? `· working: ${esc((a.job.tasks || []).filter(t => !(a.job.done || []).includes(t)).join(', '))}…` : a.updated ? `· last answer ${esc(a.updated)}` : ''}</b>
+    <button class="btn primary" data-ai-run="suggest,documents,summary" ${busy ? 'disabled' : ''}>Run all</button>
+    <button class="btn" data-ai-run="suggest" ${busy ? 'disabled' : ''}>Suggest decisions</button>
+    <button class="btn" data-ai-run="documents" ${busy ? 'disabled' : ''}>Classify documents</button>
+    <button class="btn" data-ai-run="summary" ${busy ? 'disabled' : ''}>Summary</button></div>
+    ${a.job?.state === 'failed' ? `<div class="banner err">${esc(a.job.error)}</div>` : ''}</div>`;
+  if (a.summary) html += `<div class="card"><h3><span class="dot ${esc(a.summary.status)}"></span>${esc(a.summary.headline)}</h3>
+    ${(a.summary.actions || []).length ? `<ol>${a.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}<p class="small muted">${esc(a.summary.notes)}</p></div>`;
+  const sug = a.suggestions || [];
+  html += `<div class="card"><h3>Suggested decisions <span class="muted small">${sug.length}</span></h3>
+    ${sug.length ? `<p class="small muted">Accept writes the same decision as the Needs decision tab; it applies on the next run. Confidence blends the model's answer with header similarity and sample checks.</p>
+    <div class="tablewrap"><table><tr><th>What</th><th>M2 value</th><th>Suggestion</th><th class="num">Conf.</th><th>Why</th><th>By</th><th></th></tr>
+    ${sug.map(x => { const v = x.field || x.value; return `<tr><td class="small">${esc(AI_LABEL[x.type] || x.type)}${x.kind ? ` <span class="muted">(${esc(x.kind)})</span>` : ''}</td><td class="mono">${esc(x.key)}</td><td><b>${esc(v)}</b></td>
+      <td class="num">${Math.round(100 * x.confidence)}%</td><td class="small">${esc(x.reason)}</td><td class="small">${esc(x.provider)}</td>
+      <td>${x.type === 'legal_form' ? '' : `<button class="btn small" data-ai-accept="${esc(JSON.stringify({type: x.type, key: x.key, kind: x.kind, value: v}))}">Accept</button>`}</td></tr>`; }).join('')}</table></div>` :
+    '<p class="muted">No suggestion yet. Press <b>Suggest decisions</b>.</p>'}</div>`;
+  const docs = a.documents || [];
+  if (docs.length) { const by = {}; docs.forEach(d => by[d.doc_type] = (by[d.doc_type] || 0) + 1);
+    html += `<div class="card"><h3>Document types <span class="muted small">${docs.length} file(s)</span></h3><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip">${esc(k)} ${n}</span>`).join('')}</div>
+    ${(a.document_gaps || []).length ? `<h3 style="margin-top:12px">Clients missing KYC documents <span class="muted small">${a.document_gaps.length}</span></h3><table><tr><th>M2 key</th><th>Missing</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${g.missing.map(esc).join(', ')}</td></tr>`).join('')}</table>` : ''}
+    <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th class="num">Conf.</th><th>By</th></tr>${docs.map(d => `<tr><td>${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td class="num">${Math.round(100 * d.confidence)}%</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
+  if ((a.calls || []).length) html += `<div class="card"><h3>Model calls <span class="muted small">${a.calls.length}</span></h3><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
+    ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? 'ok' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></div>`;
+  el.innerHTML = html + aiSettingsCard(cfg);
+  el.querySelectorAll('[data-ai-run]').forEach(b => b.onclick = () => runAI(b.dataset.aiRun.split(',')));
+  bindAI(el, async (body, msg) => { try { const r = await api('/api/decide', body); S.info.config = r.config; toast(msg); } catch (e) { toast(e.message); } });
+  bindAISettings(el); bindKeys(el);
+}
+function aiSettingsCard(cfg) {
+  return `<div class="card"><h3>AI settings</h3>
+    <label class="tog">Mode <select data-ai-set="provider"><option value="ollama">Ollama only (everything stays here)</option><option value="auto">Ollama first, Claude for weak answers</option><option value="claude">Claude for headers/codes, Ollama for the rest</option></select></label>
+    <label class="tog"><input type="checkbox" data-ai-set="after_run" ${cfg.after_run ? 'checked' : ''}> Run the assistant by itself after every migration run</label>
+    <label class="tog"><input type="checkbox" data-ai-set="allow_cloud" ${cfg.allow_cloud ? 'checked' : ''}> Company setting: allow column headers and M2 codes to go to Claude (never names, values or documents)</label>
+    <label class="tog">Ollama model <input data-ai-set="ollama_model" value="${esc(cfg.ollama_model)}"></label>
+    <label class="tog">Embedding model <input data-ai-set="embed_model" value="${esc(cfg.embed_model)}"></label>
+    <label class="tog">Claude model <input data-ai-set="claude_model" value="${esc(cfg.claude_model)}"></label>
+    <label class="tog">Ask Claude below confidence <input type="number" step="0.05" min="0" max="1" data-ai-set="escalate_below" value="${esc(cfg.escalate_below)}"></label>
+    <label class="tog">Hide suggestions below <input type="number" step="0.05" min="0" max="1" data-ai-set="min_confidence" value="${esc(cfg.min_confidence)}"></label>
+    <label class="tog">Odoo operating companies (one per line, for holder suggestions)</label><textarea rows="3" data-ai-set="companies">${esc((cfg.companies || []).join('\n'))}</textarea>
+    <p class="small muted">Claude needs <span class="mono">ANTHROPIC_API_KEY</span> in the environment of the UI (bin/m2ctl.sh reads <span class="mono">.env</span>).</p></div>`;
+}
+function bindAISettings(el) {
+  const sel = el.querySelector('[data-ai-set=provider]'); if (sel) sel.value = S.aiStatus?.settings?.provider || 'ollama';
+  el.querySelectorAll('[data-ai-set]').forEach(i => i.onchange = async () => {
+    const k = i.dataset.aiSet; let v = i.type === 'checkbox' ? i.checked : i.value;
+    if (k === 'companies') v = v.split('\n').map(x => x.trim()).filter(Boolean);
+    try { const r = await api('/api/ai/settings', {ai: {[k]: v}}); S.aiStatus.settings = r.settings; toast('AI settings saved'); } catch (e) { toast(e.message); } });
+}
+
 // ---------- settings ----------
 function renderSettings() {
   const el = $('[data-tab=settings]'); const cfg = S.info?.config || {};
@@ -589,7 +684,7 @@ function bindKv(el) {
   });
 }
 
-const RENDER = {overview: renderOverview, decide: renderDecide, journal: renderJournal, records: renderRecords, files: renderFiles,
+const RENDER = {overview: renderOverview, decide: renderDecide, ai: renderAI, journal: renderJournal, records: renderRecords, files: renderFiles,
   review: renderReview, values: renderValues, finance: renderFinance, settings: renderSettings};
 function go(tab) { S.tab = tab; try { localStorage.setItem('m2tab', tab); } catch (e) { /* private mode */ } render(); window.scrollTo(0, 0); }
 
@@ -601,7 +696,7 @@ async function loadRuns(select) {
   return r.runs;
 }
 async function openRun(id) {
-  clearTimeout(S.timer); Object.assign(S, {run: id, events: [], next: 0, summary: null, state: 'running', record: null, trace: null});
+  clearTimeout(S.timer); clearTimeout(S.aiTimer); Object.assign(S, {run: id, events: [], next: 0, summary: null, state: 'running', record: null, trace: null, ai: null});
   $('[data-tab=journal]').dataset.built = ''; await poll();
 }
 async function poll() {
@@ -613,7 +708,7 @@ async function poll() {
   } catch (e) { toast(e.message); S.state = 'failed'; }
   render();
   if (S.state === 'running') S.timer = setTimeout(poll, 400);
-  else { loadRuns(S.run); S.info = await api('/api/state'); }
+  else { loadRuns(S.run); S.info = await api('/api/state'); loadAI(); }
 }
 async function startRun() {
   const source = $('#source').value.trim();

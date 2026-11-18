@@ -17,6 +17,7 @@ import datetime
 import errno
 import json
 import mimetypes
+import os
 import secrets
 import shutil
 import socket
@@ -30,6 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+import m2_ai
 import migration_script_m2_odoo as m2
 
 HERE = Path(__file__).resolve().parent
@@ -38,7 +40,22 @@ RUNS = HERE / 'runs'
 CONFIG = HERE / 'm2_config.json'
 SETTINGS = HERE / '.m2_ui.json'
 SERVER_LOG = HERE / 'logs' / 'm2_ui.log'
-TOKEN = secrets.token_urlsafe(24)
+TOKEN = secrets.token_urlsafe(24)    # the page's token: new at every start
+API_TOKEN_FILE = HERE / '.m2_api_token'
+
+
+def api_token():
+    """Stable token for automation (n8n, the MCP server): M2_API_TOKEN, else .m2_api_token (made once, 0600)."""
+    if os.environ.get('M2_API_TOKEN'):
+        return os.environ['M2_API_TOKEN']
+    if not API_TOKEN_FILE.is_file():
+        API_TOKEN_FILE.write_text(secrets.token_urlsafe(32) + '\n', encoding='utf-8')
+        API_TOKEN_FILE.chmod(0o600)
+    return API_TOKEN_FILE.read_text(encoding='utf-8').strip()
+
+
+API_TOKEN = api_token()
+AI_JOBS = {}                    # run id -> {'state': running|done|failed, 'tasks': [...], 'error': ...}
 LOCK = threading.Lock()
 JOBS = {}                       # run id -> {'events': [...], 'state': running|done|failed, 'summary': {...}}
 
@@ -115,6 +132,11 @@ def start_run(params):
                                      journal_path=out / 'journal.jsonl')
             job['summary'] = migration.run()
             job['state'] = 'done'
+            if m2_ai.load_settings(config).get('after_run'):
+                try:
+                    api_ai_run({'run': run_id, 'tasks': ['suggest', 'documents', 'summary']})
+                except Error as exc:
+                    server_log('WARN', f"ai after run {run_id}: {exc}")
             t, lv = job['summary']['totals'], job['summary']['levels']
             server_log('ERROR' if lv.get('error') else 'INFO',
                        f"run {run_id} done: {t['import']} to import, {t['review']} to review, "
@@ -279,6 +301,98 @@ def api_open(params):
     return {'ok': True}
 
 
+# -- AI assistance (m2_ai): suggestions for the open decisions, document types, run summary -------------------
+AI_KEYS = {'enabled': bool, 'provider': str, 'ollama_url': str, 'ollama_model': str, 'embed_model': str,
+           'claude_model': str, 'claude_effort': str, 'allow_cloud': bool, 'escalate_below': float,
+           'min_confidence': float, 'batch': int, 'timeout': int, 'companies': list,
+           'after_run': bool}
+
+
+def api_ai_status(_params):
+    config = m2.load_config(CONFIG)
+    return {**m2_ai.AI(m2_ai.load_settings(config)).status(), 'settings': m2_ai.load_settings(config)}
+
+
+def api_ai_settings(params):
+    values = params.get('ai')
+    if not isinstance(values, dict):
+        raise Error("AI settings must be a JSON object.")
+    config = m2.load_config(CONFIG)
+    ai = config.setdefault('ai', {'_help': "AI assistance (m2_ai.py): provider ollama | auto | claude. allow_cloud "
+                                           "lets only headers and codes go to Claude; documents, names and sample "
+                                           "values stay on Ollama."})
+    for key, kind in AI_KEYS.items():
+        if key in values:
+            try:
+                ai[key] = kind(values[key]) if kind is not list else [str(v) for v in values[key] if str(v).strip()]
+            except (TypeError, ValueError) as exc:
+                raise Error(f"AI setting {key}: {exc}") from exc
+    if ai.get('provider', 'ollama') not in ('ollama', 'auto', 'claude'):
+        raise Error("Provider must be ollama, auto or claude.")
+    CONFIG.write_text(json.dumps(config, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    return {'ok': True, 'settings': m2_ai.load_settings(config)}
+
+
+def api_ai_run(params):
+    """Start the assistant on a finished run (background): tasks suggest, documents, summary."""
+    run_id = params.get('run')
+    path = run_dir(run_id)
+    if JOBS.get(run_id, {}).get('state') == 'running':
+        raise Error("The run is still going.")
+    if AI_JOBS.get(run_id, {}).get('state') == 'running':
+        raise Error("The assistant is already working on this run.")
+    tasks = [t for t in (params.get('tasks') or ['suggest', 'documents', 'summary'])
+             if t in ('suggest', 'documents', 'summary')]
+    config = m2.load_config(CONFIG)
+    settings = m2_ai.load_settings(config)
+    if not settings.get('enabled', True):
+        raise Error("AI assistance is off (Settings > AI).")
+    job = AI_JOBS[run_id] = {'state': 'running', 'tasks': tasks, 'done': [], 'error': None,
+                             'started': datetime.datetime.now().isoformat(timespec='seconds')}
+    server_log('INFO', f"ai {run_id}: {', '.join(tasks)} with {settings['provider']}")
+
+    def work():
+        ai = m2_ai.AI(settings, log=lambda m: server_log('WARN', f"ai {run_id}: {m}"))
+        try:
+            for task in tasks:
+                {'suggest': m2_ai.suggest, 'documents': m2_ai.classify_documents,
+                 'summary': m2_ai.summarize}[task](path, ai, config)
+                job['done'].append(task)
+            job['state'] = 'done'
+        except Exception as exc:  # noqa: BLE001
+            job.update(state='failed', error=f"{type(exc).__name__}: {exc}")
+            server_log('ERROR', f"ai {run_id} failed: {exc}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {'run': run_id, 'state': 'running', 'tasks': tasks}
+
+
+def api_ai(params):
+    run_id = params.get('run')
+    path = run_dir(run_id)
+    data = read_json(path / m2_ai.SUGGESTIONS_FILE, {}) or {}
+    job = AI_JOBS.get(run_id) or {'state': 'done' if data else 'none'}
+    return {'run': run_id, 'job': job, **data}
+
+
+def api_summary(params):
+    """Totals of a run in one call (for n8n): state, totals, levels, rule counts, AI summary if made."""
+    job = load_run(params.get('run') or latest_run())
+    ai = read_json(run_dir(job['id']) / m2_ai.SUGGESTIONS_FILE, {}) or {}
+    sm = job['summary'] or {}
+    return {'run': job['id'], 'state': job['state'], 'source': job.get('source'), 'totals': sm.get('totals'),
+            'levels': sm.get('levels'), 'codes': sm.get('codes'), 'outputs': sm.get('outputs'),
+            'ai_summary': ai.get('summary'), 'ai_suggestions': len(ai.get('suggestions') or []),
+            'document_gaps': len(ai.get('document_gaps') or [])}
+
+
+def latest_run():
+    runs = sorted((p.name for p in RUNS.iterdir() if p.is_dir()), reverse=True) if RUNS.is_dir() else []
+    if not runs:
+        raise Error("No run yet.")
+    return runs[0]
+
+
 def api_health():
     """No token, no data: whether a run goes and how the last one ended (for Portwatch)."""
     running = next((j['id'] for j in JOBS.values() if j['state'] == 'running'), None)
@@ -293,6 +407,8 @@ ROUTES = {
     ('GET', '/api/browse'): api_browse,
     ('POST', '/api/run'): start_run, ('POST', '/api/config'): api_config, ('POST', '/api/decide'): api_decide,
     ('POST', '/api/sample'): api_sample, ('POST', '/api/open'): api_open,
+    ('GET', '/api/ai/status'): api_ai_status, ('GET', '/api/ai'): api_ai, ('GET', '/api/summary'): api_summary,
+    ('POST', '/api/ai/run'): api_ai_run, ('POST', '/api/ai/settings'): api_ai_settings,
 }
 
 
@@ -315,7 +431,11 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _authorised(self, params):
-        return secrets.compare_digest(self.headers.get('X-Token', '') or params.get('token', ''), TOKEN)
+        given = self.headers.get('X-Token', '') or params.get('token', '')
+        auth = self.headers.get('Authorization', '')
+        if auth.lower().startswith('bearer '):
+            given = given or auth[7:].strip()
+        return bool(given) and (secrets.compare_digest(given, TOKEN) or secrets.compare_digest(given, API_TOKEN))
 
     def do_GET(self):  # noqa: N802
         url = urlparse(self.path)
