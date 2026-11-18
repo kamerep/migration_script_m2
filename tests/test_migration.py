@@ -257,6 +257,10 @@ class TestEnglishRun(unittest.TestCase):
         self.assertNotIn('Archive (L) - Verknüpfung.lnk', docs)                      # root shortcut skipped
         self.assertEqual(sum(d['file'] == 'Passport A Example.pdf' for d in self.job.documents), 1)  # copy once
         self.assertEqual(docs['Passport B Example.pdf']['where'], 'archive NOVA-PH 2')   # top folder = holder
+        missing = [e for e in self.job.journal.events if e['code'] == 'ARCHIVE_HOLDER_MISSING']
+        self.assertEqual(len(missing), 1)                     # NOVA-PH2 matches "NOVA-PH 2"; NOVA-DUBAI is absent
+        self.assertIn('1 of 3', missing[0]['message']); self.assertIn('NOVA-DUBAI', missing[0]['message'])
+        self.assertNotIn('archive_holders.txt', {t['file'] for t in self.job.files})
         for code in ('ARCHIVE_FOLDER', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE', 'ARCHIVE_NO_FOLDER',
                      'ARCHIVE_COPY'):
             self.assertIn(code, self.codes)

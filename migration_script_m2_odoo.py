@@ -822,7 +822,8 @@ class Migration:
                     "exports.")
             return
         paths = sorted(p for p in self.source.iterdir() if p.is_file() and not p.name.startswith(('~$', '.'))
-                       and p.suffix.lower() in ('.xlsx', '.xlsm', '.xls', '.csv', '.txt'))
+                       and p.suffix.lower() in ('.xlsx', '.xlsm', '.xls', '.csv', '.txt')
+                       and p.name.lower() != 'archive_holders.txt')        # the holder list, not an export
         skipped = sorted(p.name for p in self.source.iterdir() if p.is_file() and p not in paths)
         for name in skipped:
             self.ev('info', 'FILE_SKIPPED', f"{name}: not a spreadsheet export, not read.", file=name)
@@ -1887,12 +1888,14 @@ class Migration:
         if not self.tables['inventory']:
             return
         per_folder = collections.OrderedDict()
+        tops = set()                                  # top folders of the drive = mandate holders
         for table in self.tables['inventory']:
             for row in table['rows']:
                 raw = text(row['v'].get('path'))
                 parts = [x for x in re.split(r'[\\/]+', raw) if x and not re.fullmatch(r'[A-Za-z]:', x)]
                 if len(parts) < 2 or parts[-1].lower().endswith('.lnk'):   # loose root files, shortcuts
                     continue
+                tops.add(parts[0])
                 pos = next((i for i, x in enumerate(parts[:-1]) if MANDATE_RE.fullmatch(x)
                             or any(self.lookup[b].get(rkey(x)) for b in ('mandate', 'debtor'))), None)
                 if pos is None:
@@ -1945,6 +1948,7 @@ class Migration:
                            else "indexed under its folder name (archive only, no mandate export in this run)."),
                         key=folder, file=files[0][0]['file'],
                         fix="Add the mandate to the exports, or check the folder name." if clients else None)
+        self.check_holders(tops)
         for holder, count in copies.items():
             self.ev('info', 'ARCHIVE_COPY', f"Archive '{holder}': {count} file(s) identical to a file of the same "
                     "mandate already indexed (same sub-folder, name and size): indexed once.")
@@ -1955,6 +1959,28 @@ class Migration:
                 self.ev('warning', 'ARCHIVE_NO_FOLDER', f"{len(without)} mandate(s) of the exports have no folder in "
                         f"the archive inventory: {', '.join(without[:20])}{' …' if len(without) > 20 else ''}.",
                         fix="Check the archive path, or the mandate holder folder the inventory was made of.")
+
+    def check_holders(self, tops):
+        """Compare the inventory's holders with archive_holders.txt (one per line) in the source folder, when it
+        is there: an inventory still being written, or made of part of the drive, then shows at once."""
+        listed = self.source / 'archive_holders.txt'
+        if not listed.is_file():
+            return
+        squash = lambda x: re.sub(r'[\s_-]+', '', x).upper()      # ARVIS-PH2 = ARVIS-PH 2
+        want = [x.strip() for x in listed.read_text(encoding='utf-8-sig').splitlines()
+                if x.strip() and not x.lstrip().startswith('#')]
+        have = {squash(t) for t in tops}
+        missing = [w for w in want if squash(w) not in have]
+        extra = sorted(t for t in tops if squash(t) not in {squash(w) for w in want})
+        if missing:
+            self.ev('warning', 'ARCHIVE_HOLDER_MISSING', f"{len(missing)} of {len(want)} mandate holders of "
+                    f"archive_holders.txt are not in the archive inventory: {', '.join(missing)}.",
+                    fix="Wait until the inventory has finished, or list the whole drive (-Root 'Z:\\').")
+        else:
+            self.ev('info', 'ARCHIVE_HOLDERS', f"All {len(want)} mandate holders of archive_holders.txt are in the "
+                    "archive inventory.")
+        if extra:
+            self.ev('info', 'ARCHIVE_HOLDER_EXTRA', f"Archive folders not in archive_holders.txt: {', '.join(extra)}.")
 
     # -- conversion with journaling --------------------------------------------------------------------------
 

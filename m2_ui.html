@@ -658,7 +658,7 @@ function decisionsNeeded() {
               'IBAN_CHECK', 'TYPE_UNKNOWN', 'ENTITY_TYPE_CHECK', 'SWIFT_FORMAT', 'CLIENT_IN_REVIEW', 'BANK_AMBIGUOUS',
               'COMPLIANCE_LOCK', 'NO_CLIENT_COLUMN', 'FOLDER_NOT_CLIENT', 'DOCUMENTS_MISSING', 'LEI_RENEWAL_CONFLICT',
               'OFFICER_TYPE_INVALID', 'OPEN_ITEM_PAID_BUT_OPEN', 'ARCHIVE_FOLDER_UNKNOWN', 'ARCHIVE_NOT_MANDATE',
-              'ARCHIVE_NO_FOLDER'].includes(e.code)) g.other.push(e);
+              'ARCHIVE_NO_FOLDER', 'ARCHIVE_HOLDER_MISSING'].includes(e.code)) g.other.push(e);
   }
   g.funcs = new Map(); g.func.forEach(e => { const k = e.value || '?'; if (!g.funcs.has(k)) g.funcs.set(k, []); g.funcs.get(k).push(e); });
   g.total = g.company.size + g.employee.size + g.kind.length + g.column.length + g.notfound.length + g.legal.size + g.func.length + g.other.length;

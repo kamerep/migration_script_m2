@@ -223,6 +223,8 @@ def english(out):
                  ('Archive (L) - Verknüpfung.lnk', 1024, '2026-08-19 15:34')]
     lines = ['"Path","Length","Modified"'] + [f'"{a}","{b}","{c}"' for a, b, c in inventory]
     (out / 'Archive inventory.csv').write_text('\r\n'.join(lines) + '\r\n', encoding='utf-8-sig')
+    # the holders expected on the archive drive: NOVA-DUBAI is not in the inventory, so the run warns
+    (out / 'archive_holders.txt').write_text('# mandate holders, one per line\nNOVA-PH\nNOVA-PH2\nNOVA-DUBAI\n', encoding='utf-8')
     print(f"Sample M2 (English interface) exports written to {out}")
 
 
