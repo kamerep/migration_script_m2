@@ -42,4 +42,10 @@ open items are totalled per operating company and currency for the reconciliatio
 <h2>Compliance and documents</h2><table><tr><th>Rule</th><th>What happens</th></tr>
 <tr><td><code>COMPLIANCE</code>, <code>COMPLIANCE_LOCK</code></td><td>ML-related, risk category, country of max. risk, lock and note have no template column: they go unchanged into the client's Notes and the Compliance sheet. A lock is a warning to clear with compliance. The tool never decides a risk rating.</td></tr>
 <tr><td><code>DOCUMENT</code>, <code>DOCUMENTS_FOLDER</code>, <code>FOLDER_NOT_CLIENT</code>, <code>DOCUMENTS_MISSING</code></td><td>The M2 document export and the sub-folders named after a mandate number (M2's document store) are indexed per client in the Documents sheet, with the path of each file to attach in Odoo.</td></tr></table>
-<div class='note'>Every rule writes its event with the source file and row, the M2 key, the values before and after, and how to fix it.</div></body></html>
+<div class='note'>Every rule writes its event with the source file and row, the M2 key, the values before and after, and how to fix it.</div><h2>Archive inventory rules</h2><table><tr><th>Rule</th><th>Meaning</th></tr>
+<tr><td><code>ARCHIVE_FOLDER</code></td><td>An archive folder named after a mandate number (zero padding ignored) is linked to that client; its files are indexed.</td></tr>
+<tr><td><code>ARCHIVE_FOLDER_UNKNOWN</code></td><td>Folder named like a mandate but not in the exports: indexed under its folder name (warning; info in an archive-only run).</td></tr>
+<tr><td><code>ARCHIVE_NOT_MANDATE</code></td><td>Files outside mandate folders: not indexed.</td></tr>
+<tr><td><code>ARCHIVE_NO_FOLDER</code></td><td>Open mandates without an archive folder.</td></tr></table>
+<p>AI suggestions are not rules: they never change a run; an accepted suggestion is an ordinary decision in <code>m2_config.json</code>.</p>
+</body></html>

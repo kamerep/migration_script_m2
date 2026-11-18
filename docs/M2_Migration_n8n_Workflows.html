@@ -1,0 +1,41 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – n8n Workflows</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
+h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#eef1f4}code,pre{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}pre{padding:8px 10px;white-space:pre-wrap}
+.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – n8n Workflows</h1>
+
+<p>n8n runs on this machine and drives the migration UI through its API: a scheduled or webhook-triggered run, the local AI report, and a document classifier on Ollama.</p>
+<h2>1. Install and start</h2>
+<pre>n8n/m2-n8n.sh install    # once: npm install in ~/.local/share/n8n-app
+n8n/m2-n8n.sh import     # the workflows of n8n/workflows
+n8n/m2-n8n.sh start      # http://127.0.0.1:5678 (the next free port when taken)</pre>
+<p>Open n8n, create the owner account on the first visit, open each workflow and switch it <b>Active</b> for its schedule and production webhook.
+<code>stop</code>, <code>status</code>, <code>logs</code> and <code>run-report</code> work the same way. Data: <code>~/.local/share/n8n-data</code>; log: <code>logs/n8n.log</code>.</p>
+<p>The script gives n8n: the UI address and its API token (<code>bin/m2ctl.sh token</code>), the Ollama address and model, write access to <code>runs/</code> only, and listening on 127.0.0.1 only.
+The migration UI must run (<code>bin/m2ctl.sh start</code>).</p>
+<h2>2. M2 migration – run and local AI report</h2>
+<table><tr><th>Step</th><th>Node</th></tr>
+<tr><td>Trigger</td><td><i>Manual run</i>, <i>Weekdays 07:00</i>, or <i>Webhook m2-run</i> (<code>POST /webhook/m2-run</code>, body <code>{"source": "/path/to/exports"}</code> optional)</td></tr>
+<tr><td>Settings</td><td>UI address, token, source (webhook body, <code>M2_SOURCE</code>, else the folder last used in the UI), AI tasks</td></tr>
+<tr><td>Start run → Wait for run → Run state → Still running?</td><td>Starts the migration and polls every 3 s until it ends</td></tr>
+<tr><td>Ask the local AI → Wait for AI → AI state → AI still working?</td><td>Suggestions, document types and summary on Ollama, polled every 5 s</td></tr>
+<tr><td>Final summary → Format report</td><td>Markdown report: status, headline, totals, next actions</td></tr>
+<tr><td>Save report / Answer webhook</td><td><code>runs/&lt;run&gt;/n8n_report.md</code>; JSON answer to the webhook caller</td></tr></table>
+<p>From the terminal: <code>n8n/m2-n8n.sh run-report</code> or <code>n8n/m2-n8n.sh run-report '{"source": "/data/m2_exports"}'</code>.
+To send the report, add an e-mail or chat node after <i>Format report</i>: the text is in <code>report</code>, the status in <code>status</code>.</p>
+<h2>3. M2 documents – classify by name with Ollama</h2>
+<pre>curl -X POST http://127.0.0.1:5678/webhook/m2-classify -H 'Content-Type: application/json' \
+  -d '{"files": ["AP-00031-ENT/KYC/Passport.pdf", "AP-00031-ENT/scan_0003.pdf"]}'</pre>
+<p>Keyword rules first, the rest to Ollama (<code>/api/chat</code>, JSON format, temperature 0); answer
+<code>{"documents": [{"file", "type", "confidence", "by"}]}</code>. File names carry client names: this flow never calls the cloud.</p>
+<h2>4. API used by the workflows</h2>
+<table><tr><th>Call</th><th>Does</th></tr>
+<tr><td><code>POST /api/run</code> <code>{"source", "last_source": true}</code></td><td>Start a run</td></tr>
+<tr><td><code>GET /api/summary?run=</code></td><td>State, totals, levels, rule counts, AI summary</td></tr>
+<tr><td><code>POST /api/ai/run</code> <code>{"run", "tasks"}</code></td><td>Start the assistant</td></tr>
+<tr><td><code>GET /api/ai?run=</code></td><td>Assistant state and results</td></tr>
+<tr><td><code>GET /api/ai/status</code>, <code>POST /api/ai/settings</code></td><td>Models and AI settings</td></tr>
+<tr><td><code>POST /api/decide</code></td><td>Record a decision</td></tr></table>
+<p>Every call carries <code>X-Token: &lt;token&gt;</code> or <code>Authorization: Bearer &lt;token&gt;</code>. The token is in <code>.m2_api_token</code> (made once, 0600, not in git) or <code>M2_API_TOKEN</code>.</p>
+
+</body></html>

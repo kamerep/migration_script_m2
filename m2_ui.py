@@ -102,6 +102,8 @@ def run_dir(run_id):
 
 def start_run(params):
     source = (params.get('source') or '').strip()
+    if not source and params.get('last_source'):     # automation (n8n, MCP): the folder last used in the UI
+        source = (ui_settings().get('source') or '').strip()
     if not source:
         raise Error("Choose the folder with the M2 exports.")
     if not Path(source).expanduser().is_dir():

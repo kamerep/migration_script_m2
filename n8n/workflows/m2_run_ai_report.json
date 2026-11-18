@@ -1,0 +1,563 @@
+{
+ "name": "M2 migration – run and local AI report",
+ "nodes": [
+  {
+   "parameters": {},
+   "id": "40286e8d-3d98-590d-9d00-356a4c268fc0",
+   "name": "Manual run",
+   "type": "n8n-nodes-base.manualTrigger",
+   "typeVersion": 1,
+   "position": [
+    0,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "0 7 * * 1-5"
+      }
+     ]
+    }
+   },
+   "id": "eb8566ac-2fd7-5b09-a2bd-8c646e25823b",
+   "name": "Weekdays 07:00",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    200
+   ]
+  },
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "m2-run",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "id": "1773bafc-fc5f-58c8-bf31-9c3f7d6d04b4",
+   "name": "Webhook m2-run",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    400
+   ],
+   "webhookId": "m2-run"
+  },
+  {
+   "parameters": {
+    "jsCode": "// Where the migration UI listens and its API token (bin/m2ctl.sh token). n8n reads them from its environment\n// (see n8n/m2-n8n.sh); a webhook call may name another export folder in its body: {\"source\": \"/path\"}.\nconst body = $json.body || {};\nreturn [{ json: {\n  ui: $env.M2_UI_URL || 'http://127.0.0.1:8796',\n  token: $env.M2_API_TOKEN,\n  source: body.source || $env.M2_SOURCE || '',\n  ai_tasks: body.ai_tasks || ['suggest', 'documents', 'summary'],\n  report_dir: $env.M2_REPORT_DIR || '/data/migration_script/runs',\n}}];"
+   },
+   "id": "f8bbc1e7-6ddc-5d09-bdad-94f9d7949755",
+   "name": "Settings",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    200
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $('Settings').first().json.ui }}/api/run",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Token",
+       "value": "={{ $('Settings').first().json.token }}"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 60000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ source: $json.source, last_source: true }) }}"
+   },
+   "id": "e252f79e-0dca-5cb2-8940-355c83456cf0",
+   "name": "Start run",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    480,
+    200
+   ]
+  },
+  {
+   "parameters": {
+    "amount": 3
+   },
+   "id": "ae05a9b6-17c3-5526-9b77-ea9d6dc04b0e",
+   "name": "Wait for run",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    720,
+    200
+   ],
+   "webhookId": "2f299256-971e-5b90-8a4d-ec68aa2e8cda"
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "={{ $('Settings').first().json.ui }}/api/summary",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Token",
+       "value": "={{ $('Settings').first().json.token }}"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 60000
+    },
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "run",
+       "value": "={{ $('Start run').first().json.run }}"
+      }
+     ]
+    }
+   },
+   "id": "661aacc9-0450-5d34-a5a9-c221f61620f4",
+   "name": "Run state",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    960,
+    200
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c43e9ec5-d46a-5d4c-9333-ec18de963036",
+       "leftValue": "={{ $json.state }}",
+       "rightValue": "running",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "id": "90d8901f-3168-593f-ba14-9a3e921ec0b2",
+   "name": "Still running?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1200,
+    200
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $('Settings').first().json.ui }}/api/ai/run",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Token",
+       "value": "={{ $('Settings').first().json.token }}"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 60000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ run: $('Start run').first().json.run, tasks: $('Settings').first().json.ai_tasks }) }}"
+   },
+   "id": "abdda38f-b017-54b5-adbe-3cd23c765357",
+   "name": "Ask the local AI",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1440,
+    300
+   ]
+  },
+  {
+   "parameters": {
+    "amount": 5
+   },
+   "id": "f5cc9f8c-fea3-50c3-886f-901ef918ff74",
+   "name": "Wait for AI",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    1680,
+    300
+   ],
+   "webhookId": "1d1a7bb2-fb89-5ae3-ac1e-b97213a54cbe"
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "={{ $('Settings').first().json.ui }}/api/ai",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Token",
+       "value": "={{ $('Settings').first().json.token }}"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 60000
+    },
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "run",
+       "value": "={{ $('Start run').first().json.run }}"
+      }
+     ]
+    }
+   },
+   "id": "5ef89843-76fd-5bb3-a1c8-c152f7c6a235",
+   "name": "AI state",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1920,
+    300
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "dc170698-3020-5158-bd70-31862053eb98",
+       "leftValue": "={{ $json.job.state }}",
+       "rightValue": "running",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "id": "f06ec50d-0f9d-5b62-8b82-acba6aca15ad",
+   "name": "AI still working?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    2160,
+    300
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "={{ $('Settings').first().json.ui }}/api/summary",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Token",
+       "value": "={{ $('Settings').first().json.token }}"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 60000
+    },
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "run",
+       "value": "={{ $('Start run').first().json.run }}"
+      }
+     ]
+    }
+   },
+   "id": "9b5500a0-090f-54c9-bb4a-6f2f5475a902",
+   "name": "Final summary",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2400,
+    400
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Markdown report of the run: totals, AI status and actions, what to decide.\nconst s = $('Final summary').first().json;\nconst ai = s.ai_summary || {};\nconst t = s.totals || {}, lv = s.levels || {};\nconst icon = {green: '🟢', amber: '🟠', red: '🔴'}[ai.status] || '⚪';\nconst lines = [\n  `# M2 migration run ${s.run}`, '',\n  `${icon} **${ai.headline || (t.import + ' rows to import, ' + t.review + ' to review')}**`, '',\n  `| Rows to import | To review | Errors | Warnings | AI suggestions | Clients missing KYC docs |`,\n  `|---:|---:|---:|---:|---:|---:|`,\n  `| ${t.import ?? 0} | ${t.review ?? 0} | ${lv.error ?? 0} | ${lv.warning ?? 0} | ${s.ai_suggestions ?? 0} | ${s.document_gaps ?? 0} |`, '',\n];\nif ((ai.actions || []).length) { lines.push('## Next actions', ''); ai.actions.forEach((a, i) => lines.push(`${i + 1}. ${a}`)); lines.push(''); }\nif (ai.notes) lines.push(ai.notes, '');\nlines.push(`Source: \\`${s.source}\\` · open the run in the UI: ${$('Settings').first().json.ui}/ (Earlier runs → ${s.run})`);\nconst text = lines.join('\\n');\nconst binary = { data: await this.helpers.prepareBinaryData(Buffer.from(text, 'utf8'), 'n8n_report.md', 'text/markdown') };\nreturn [{ json: { run: s.run, status: ai.status || (lv.error ? 'red' : t.review ? 'amber' : 'green'), headline: ai.headline, report: text, totals: t }, binary }];"
+   },
+   "id": "7f96298d-3632-53e5-9150-76794fa9f7d4",
+   "name": "Format report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2640,
+    400
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "write",
+    "fileName": "={{ $('Settings').first().json.report_dir }}/{{ $json.run }}/n8n_report.md",
+    "options": {}
+   },
+   "id": "4bf7f549-52b5-54ab-a31e-a32330404152",
+   "name": "Save report",
+   "type": "n8n-nodes-base.readWriteFile",
+   "typeVersion": 1,
+   "position": [
+    2880,
+    300
+   ]
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify({ run: $json.run, status: $json.status, headline: $json.headline, totals: $json.totals }) }}",
+    "options": {}
+   },
+   "id": "e8502068-fe2f-5482-b70d-96b353a32d95",
+   "name": "Answer webhook",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [
+    2880,
+    500
+   ]
+  },
+  {
+   "parameters": {
+    "width": 620,
+    "height": 220,
+    "content": "## M2 migration: run + local AI report\nStarts a run of the M2 → CSP migration on the export folder last used in the UI (or `source` in the webhook body), waits for it, lets the local model (Ollama) suggest decisions, type the documents and write a summary, then saves `runs/<run>/n8n_report.md`.\n\nNothing is written to Odoo. Attach a mail / chat node after **Format report** to send the report (the text is in `report`)."
+   },
+   "id": "6aae5aff-242b-5359-b22f-dbb8a1e2dcfd",
+   "name": "Note",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    240,
+    -260
+   ]
+  }
+ ],
+ "connections": {
+  "Manual run": {
+   "main": [
+    [
+     {
+      "node": "Settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Weekdays 07:00": {
+   "main": [
+    [
+     {
+      "node": "Settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Webhook m2-run": {
+   "main": [
+    [
+     {
+      "node": "Settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Settings": {
+   "main": [
+    [
+     {
+      "node": "Start run",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Start run": {
+   "main": [
+    [
+     {
+      "node": "Wait for run",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait for run": {
+   "main": [
+    [
+     {
+      "node": "Run state",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Run state": {
+   "main": [
+    [
+     {
+      "node": "Still running?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Still running?": {
+   "main": [
+    [
+     {
+      "node": "Wait for run",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Ask the local AI",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Ask the local AI": {
+   "main": [
+    [
+     {
+      "node": "Wait for AI",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait for AI": {
+   "main": [
+    [
+     {
+      "node": "AI state",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "AI state": {
+   "main": [
+    [
+     {
+      "node": "AI still working?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "AI still working?": {
+   "main": [
+    [
+     {
+      "node": "Wait for AI",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Final summary",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Final summary": {
+   "main": [
+    [
+     {
+      "node": "Format report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Format report": {
+   "main": [
+    [
+     {
+      "node": "Save report",
+      "type": "main",
+      "index": 0
+     },
+     {
+      "node": "Answer webhook",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ },
+ "active": false,
+ "pinData": {},
+ "id": "m2RunAiReport0001",
+ "tags": []
+}

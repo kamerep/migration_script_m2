@@ -105,13 +105,18 @@ class TestDocuments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, 'summary.json').write_text(json.dumps({'documents': [
                 {'key': 'AP-1', 'folder': 'KYC', 'file': 'Passport J Doe.pdf'},
-                {'key': 'AP-1', 'folder': '', 'file': 'scan_0001.pdf'}]}))
+                {'key': 'AP-1', 'folder': '', 'file': 'scan_0001.pdf'},
+                {'key': 'AP-1', 'folder': '', 'file': 'Mietvertrag Zug.pdf'},
+                {'key': 'AP-1', 'folder': '', 'file': 'Schreiben Kunde Mai.pdf'}]}))
             ai = FakeAI({'documents': lambda p: [{'id': x['id'], 'value': 'other', 'confidence': 0.4}
                                                  for x in p['items']]})
             data = m2_ai.classify_documents(tmp, ai)
-            self.assertEqual([d['doc_type'] for d in data['documents']], ['passport_id', 'other'])
+            self.assertEqual([d['doc_type'] for d in data['documents']], ['passport_id', 'other', 'contract', 'other'])
+            self.assertEqual(data['documents'][1]['reason'], 'generic file name: open it to type it')
+            self.assertEqual(len(ai.asked), 1)                         # only the non-generic unknown name
+            self.assertEqual(len(ai.asked[0][2]['items']), 1)
             self.assertEqual(data['documents'][0]['provider'], 'rules')
-            self.assertEqual(data['document_gaps'][0]['missing'], ['proof_of_address', 'kyc_compliance'])
+            self.assertEqual(data['document_gaps'][0]['missing'], ['proof_of_address'])   # KYC folder counts
             self.assertTrue(all(prov == 'ollama' for _t, prov, _p in ai.asked))
 
 

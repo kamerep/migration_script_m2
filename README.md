@@ -8,7 +8,7 @@ Nothing is written to Odoo. The run produces files you load with *Contacts › C
 ## Quick start
 
 ```bash
-python3 -m venv --without-pip .venv && .venv/bin/python get-pip.py && .venv/bin/pip install openpyxl xlrd
+python3 -m venv --without-pip .venv && .venv/bin/python get-pip.py && .venv/bin/pip install openpyxl xlrd anthropic mcp
 .venv/bin/python m2_ui.py                 # UI on http://127.0.0.1:8796 (next free port if taken)
 .venv/bin/python migration_script_m2_odoo.py <exports folder> [<output folder>]   # same run, terminal only
 .venv/bin/python make_sample_m2.py        # fictitious M2 exports in ./sample_m2 to try it
@@ -85,6 +85,70 @@ client's documents.
   amount in the invoice currency is used.
 * Compliance data (ML-related, risk category, country of max. risk, lock, note) has no template column: it goes into
   the client's Notes and the Compliance sheet unchanged; a lock is flagged. The risk rating is decided in Odoo.
+
+
+## AI assistant (Ollama local, Claude optional)
+
+The migration itself stays rule-based and repeatable. The assistant (`m2_ai.py`) reads a **finished** run and proposes
+decisions; nothing is applied until somebody presses **Accept** (or tells Claude to decide).
+
+| Task | What it does | Where it runs |
+|---|---|---|
+| Suggest decisions | column → CSP field, unrecognised file → kind, M2 type code → register, holder code → company, legal form → entity type | Ollama; with `allow_cloud`, weak answers on headers/codes go to Claude |
+| Classify documents | type of each indexed file (passport, register extract, LEI, …) and clients missing KYC documents | keyword rules, then Ollama only |
+| Summary | status (green / amber / red), headline and next actions of a run | Ollama only |
+
+* Both providers are reached with the Anthropic SDK over the Messages API: Ollama (≥ 0.14) serves it on
+  `http://localhost:11434` (`llama3.1:8b`, embeddings `nomic-embed-text`), Claude is `claude-opus-5-5`.
+* A suggestion's confidence is not the model's word alone: the local model is capped at 85 %, column suggestions
+  are checked against the header names already known for the field (embedding similarity) and against the sample
+  values (an e-mail field needs an `@`, a currency a 3-letter code, sort orders 1, 2, 3 are not keys, key fields
+  are never above 40 %). Suggestions below `min_confidence` are hidden.
+* **Privacy:** client names, file names, sample values and documents never leave the machine. Only column headers
+  and M2 codes may go to Claude, and only when the company setting `allow_cloud` is on and `ANTHROPIC_API_KEY` is
+  set (in `.env`, read by `bin/m2ctl.sh`; never committed).
+* UI: tab **AI assistant** (models, Run all / Suggest / Classify / Summary, suggestions with Accept, document types,
+  every model call), ✨ hints with Accept in **Needs decision**, AI summary on **Overview**, AI settings.
+* Terminal: `bin/m2ctl.sh ai status|suggest|documents|summary|all [runs/<stamp>]`. Output: `runs/<stamp>/ai_suggestions.json`.
+
+## Claude Code (MCP server)
+
+`m2_mcp.py` gives Claude Code the tool through the running UI (`.mcp.json` registers it for this folder;
+elsewhere: `claude mcp add m2-migration -- /data/migration_script/bin/m2ctl.sh mcp`):
+
+`m2_status`, `m2_runs`, `m2_run`, `m2_summary`, `m2_open_decisions` (with the AI suggestion of each),
+`m2_journal`, `m2_record`, `m2_ai_assist`, `m2_decide` (only after the user's yes), and `ollama_ask`, which hands
+work over client data to the local model instead of reading it in the cloud.
+
+## Archive inventory (M2 document archive without copying it)
+
+When the M2 database cannot be shared, the document archive (`Z:\ARVIS-PH\AP-00031-ENT\…`, one folder per mandate)
+still tells which client has which documents. On the Windows side:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\m2_archive_inventory.ps1 -Root 'Z:\ARVIS-PH'
+```
+
+writes `M2 Archive inventory.csv` (path, size, date only: no file is opened or copied). Put it next to the exports:
+it is read as **Archive inventory**, every file is indexed under the mandate whose number names its folder (zero
+padding ignored), the folder above it is kept as the holder's archive. Rules: `ARCHIVE_FOLDER`,
+`ARCHIVE_FOLDER_UNKNOWN` (folder not a mandate of the exports), `ARCHIVE_NOT_MANDATE` (files outside mandate
+folders), `ARCHIVE_NO_FOLDER` (mandates with no archive folder). The AI assistant then types the documents and lists
+the clients missing KYC documents.
+
+## n8n workflows
+
+`n8n/m2-n8n.sh install|start|stop|status|import|run-report` runs n8n locally (127.0.0.1, port 5678 or the next free
+one, data in `~/.local/share/n8n-data`). Workflows in `n8n/workflows/`:
+
+* **M2 migration – run and local AI report**: manual, weekdays 07:00 or webhook `POST /webhook/m2-run`
+  (`{"source": "/path"}` optional) → run → wait → local AI (suggest, documents, summary) → `runs/<run>/n8n_report.md`
+  and the JSON answer. Attach a mail or chat node after *Format report* to send it.
+* **M2 documents – classify by name with Ollama**: webhook `POST /webhook/m2-classify` `{"files": [...]}` → keyword
+  rules, then Ollama → `{documents: [{file, type, confidence, by}]}`.
+
+n8n calls the UI with the stable API token (`bin/m2ctl.sh token`, stored in `.m2_api_token`, 0600, not in git) and
+may write files only under `runs/`.
 
 Documentation: `docs/` (HTML and PDF).
 

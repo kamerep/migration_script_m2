@@ -1,0 +1,202 @@
+{
+ "name": "M2 documents – classify by name with Ollama",
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "m2-classify",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "id": "e72856a8-e249-5b74-b3f5-8ba9bed73ee8",
+   "name": "Webhook m2-classify",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "webhookId": "m2-classify"
+  },
+  {
+   "parameters": {
+    "jsCode": "// Keyword rules first (same as m2_ai.py), the local model only for what they do not recognise.\nconst RULES = [\n  ['passport_id', /pass(port)?|reisepass|\\bid\\b|identit|ausweis/i], ['proof_of_address', /utility|proof of address|wohnsitz|residence/i],\n  ['incorporation', /incorporat|gr[uü]ndung|formation/i], ['register_extract', /register|handelsregister|auszug|extract|good standing|incumbency/i],\n  ['articles', /statut|articles|memorandum|satzung|bylaws|deed|charter/i], ['share_register', /aktienbuch|share ?register|share cert/i],\n  ['resolution', /resolution|beschluss|protokoll|minutes|board/i], ['power_of_attorney', /vollmacht|power of attorney|\\bpoa\\b/i],\n  ['kyc_compliance', /kyc|fatca|\\bcrs\\b|world ?check|pep|compliance|due diligence|source of (funds|wealth)/i], ['lei', /\\blei\\b/i],\n  ['bank', /bank|account|konto|iban|statement/i], ['invoice_fee', /invoice|rechnung|honorar|\\bfee\\b/i],\n  ['financials', /bilanz|balance|financial|jahresrechnung|annual account|audit/i], ['tax', /steuer|\\btax\\b|\\bvat\\b|mwst/i],\n  ['contract', /vertrag|contract|agreement|engagement/i], ['correspondence', /brief|letter|korrespondenz|\\.msg$|\\.eml$/i],\n];\nconst GENERIC = /^(scan|img|image|dsc|doc|dok|document|dokument|file|datei|neu|new|copy|kopie)?[\\s_-]*[\\d\\s_()-]*\\.[a-z0-9]{2,5}$/i;\nconst files = ($json.body && $json.body.files) || [];\nconst known = [], unknown = [];\nfiles.forEach((f, i) => { const hit = RULES.find(([, rx]) => rx.test(f)); const base = f.split(/[\\\\/]/).pop();\n  if (hit) known.push({ id: 'd' + i, file: f, type: hit[0], confidence: 0.9 });\n  else if (GENERIC.test(base)) known.push({ id: 'd' + i, file: f, type: 'other', confidence: 0.2 });\n  else unknown.push({ id: 'd' + i, file: f, type: null }); });\nreturn [{ json: { known, unknown, types: RULES.map(r => r[0]).concat(['other']),\n  ollama: $env.OLLAMA_URL || 'http://127.0.0.1:11434', model: $env.OLLAMA_MODEL || 'llama3.1:8b' } }];"
+   },
+   "id": "0fbd16b6-c185-5901-9947-2ca6786cbecf",
+   "name": "Rules first",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "9f695267-d02f-5e16-b030-9bc9ab479b32",
+       "leftValue": "={{ $json.unknown.length > 0 }}",
+       "rightValue": "true",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "id": "861d4572-c7f6-57cf-a8af-a7f91233ca71",
+   "name": "Anything left?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    480,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $json.ollama }}/api/chat",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ model: $json.model, stream: false, format: 'json', options: { temperature: 0 }, messages: [{ role: 'system', content: 'Classify documents of a fiduciary client file by folder and file name (German or English). Answer JSON {\"items\": [{\"id\", \"value\" (one of the allowed types), \"confidence\" 0..1}]}. Allowed: ' + $json.types.join(', ') }, { role: 'user', content: JSON.stringify($json.unknown.map(u => ({ id: u.id, file: u.file }))) }] }) }}",
+    "options": {
+     "timeout": 120000
+    }
+   },
+   "id": "8700f043-55e5-5d7d-a20e-5fe27f1b4e65",
+   "name": "Ollama classify",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    720,
+    -100
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const prep = $('Rules first').first().json;\nlet typed = [];\ntry { const msg = $json.message ? $json.message.content : '[]'; const parsed = JSON.parse(msg);\n  typed = Array.isArray(parsed) ? parsed : (parsed.items || parsed.results || []); } catch (e) { typed = []; }\nconst byId = Object.fromEntries(typed.filter(x => prep.types.includes(x.value)).map(x => [x.id, x]));\nconst result = prep.known.map(k => ({ file: k.file, type: k.type, confidence: k.confidence, by: 'rules' }))\n  .concat(prep.unknown.map(u => ({ file: u.file, type: (byId[u.id] || {}).value || 'other',\n    confidence: Math.min(0.85, Number((byId[u.id] || {}).confidence) || 0), by: byId[u.id] ? prep.model : 'none' })));\nreturn [{ json: { documents: result } }];"
+   },
+   "id": "9976da19-1e78-5fc6-8c9d-6a8323d2bf7e",
+   "name": "Parse answer",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    960,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify($json) }}",
+    "options": {}
+   },
+   "id": "81dc0349-a4e6-5d34-b565-6b2ce5bafcde",
+   "name": "Answer",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [
+    1200,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "width": 560,
+    "height": 200,
+    "content": "## M2 documents: type by name (local)\nPOST `{\"files\": [\"AP-00031-ENT/KYC/passport.pdf\", ...]}` to the webhook `m2-classify`. Keyword rules first, the rest goes to Ollama on this machine (never to the cloud: file names carry client names). Answers `{documents: [{file, type, confidence, by}]}`."
+   },
+   "id": "6aae5aff-242b-5359-b22f-dbb8a1e2dcfd",
+   "name": "Note",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    0,
+    -320
+   ]
+  }
+ ],
+ "connections": {
+  "Webhook m2-classify": {
+   "main": [
+    [
+     {
+      "node": "Rules first",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Rules first": {
+   "main": [
+    [
+     {
+      "node": "Anything left?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Anything left?": {
+   "main": [
+    [
+     {
+      "node": "Ollama classify",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Parse answer",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Ollama classify": {
+   "main": [
+    [
+     {
+      "node": "Parse answer",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Parse answer": {
+   "main": [
+    [
+     {
+      "node": "Answer",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ },
+ "active": false,
+ "pinData": {},
+ "id": "m2ClassifyDocs0002",
+ "tags": []
+}

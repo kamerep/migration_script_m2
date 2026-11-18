@@ -1,0 +1,34 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – Archive Inventory</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
+h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#eef1f4}code,pre{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}pre{padding:8px 10px;white-space:pre-wrap}
+.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – Archive Inventory</h1>
+
+<p>The M2 document archive (drive <code>Z:</code> “M2 Archiv”, e.g. <code>Z:\ARVIS-PH</code>) keeps one folder per mandate:
+<code>AP-00031-ENT</code>, <code>AP-00035-ACC</code>, … When the M2 database itself cannot be shared, the folder structure still tells
+which client has which documents. The archive inventory reads only that structure: path, size and date of every file. No file is opened or copied.</p>
+<h2>1. Make the inventory (Windows)</h2>
+<p>Copy <code>tools\m2_archive_inventory.ps1</code> to the Windows machine and run:</p>
+<pre>powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\ARVIS-PH'</pre>
+<p>It writes <code>Documents\M2 Archive inventory.csv</code> (or the path given with <code>-Out</code>) and prints the number of files and folders.
+<code>-Root 'Z:\'</code> lists every holder folder of the drive in one file. Thumbs.db, desktop.ini and Office lock files are left out.</p>
+<p>Without the script, the same in one line:</p>
+<pre>Get-ChildItem 'Z:\ARVIS-PH' -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Substring(3)}}, Length, @{n='Modified';e={$_.LastWriteTime.ToString('yyyy-MM-dd HH:mm')}} | Export-Csv "$env:USERPROFILE\Documents\M2 Archive inventory.csv" -NoTypeInformation -Encoding UTF8</pre>
+<h2>2. Use it</h2>
+<p>Put the CSV in the folder with the M2 exports (or alone in a folder, for an archive-only run) and run the migration. The file is recognised as
+<b>Archive inventory (file list)</b> by its headers <code>Path</code>, <code>Length</code>, <code>Modified</code> (also <code>FullName</code>, <code>LastWriteTime</code>).</p>
+<table><tr><th>Path in the inventory</th><th>Read as</th></tr>
+<tr><td><code>ARVIS-PH\AP-00031-ENT\KYC\Passport.pdf</code></td><td>Mandate AP-00031-ENT = AP-31-ENT (zero padding ignored), holder archive ARVIS-PH, sub-folder KYC</td></tr>
+<tr><td><code>ARVIS-PH\AP-00054-ACC\scan.pdf</code></td><td>Mandate AP-54-ACC, no sub-folder</td></tr>
+<tr><td><code>ARVIS-PH\Thumbs.db</code></td><td>Not under a mandate folder: not indexed (one warning per folder)</td></tr></table>
+<h2>3. Rules</h2>
+<table><tr><th>Rule</th><th>Level</th><th>Meaning</th></tr>
+<tr><td><code>ARCHIVE_FOLDER</code></td><td>decision</td><td>Folder linked to a client of the exports; its files are indexed</td></tr>
+<tr><td><code>ARCHIVE_FOLDER_UNKNOWN</code></td><td>warning (info in an archive-only run)</td><td>Folder named like a mandate, but not a mandate of the exports (closed, or exported under another number); indexed under the folder name</td></tr>
+<tr><td><code>ARCHIVE_NOT_MANDATE</code></td><td>warning</td><td>Files not under a mandate folder</td></tr>
+<tr><td><code>ARCHIVE_NO_FOLDER</code></td><td>warning</td><td>Open mandates of the exports with no archive folder</td></tr></table>
+<p>The files appear in <b>Finance › Documents</b> and in the <i>Documents</i> sheet of the review workbook with “On disk” = <code>archive: …</code>.
+<b>AI assistant › Classify documents</b> then types each file and lists the clients missing KYC documents (all on this machine).</p>
+<div class='note'>The inventory holds client names in file names: keep it on internal shares, like the exports.</div>
+
+</body></html>

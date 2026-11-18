@@ -80,6 +80,9 @@ DOC_TYPES = {
     'correspondence': r'brief|letter|mail|korrespondenz|correspondence|\.msg$|\.eml$',
 }
 DOC_RULES = [(k, re.compile(v, re.I)) for k, v in DOC_TYPES.items()]
+# Names that say nothing about the content (scanner output, numbers): no model is asked, a person must look.
+GENERIC_NAME = re.compile(r'^(scan|img|image|dsc|doc|dok|document|dokument|file|datei|neu|new|copy|kopie)?'
+                          r'[\s_-]*[\d\s_()-]*\.[a-z0-9]{2,5}$', re.I)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -471,6 +474,9 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
         doc_id = f"d{i}"
         if hit:
             types[doc_id] = {'value': hit, 'confidence': 0.9, 'reason': 'keyword rule', 'provider': 'rules'}
+        elif GENERIC_NAME.match(d.get('file') or '') and not d.get('description'):
+            types[doc_id] = {'value': 'other', 'confidence': 0.2, 'reason': 'generic file name: open it to type it',
+                             'provider': 'rules'}
         else:
             todo.append({'id': doc_id, 'folder': d.get('folder') or '', 'file': d.get('file') or '',
                          'description': d.get('description') or ''})
@@ -485,8 +491,12 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
                      'on_disk': d.get('on_disk'), 'doc_type': t['value'], 'confidence': t['confidence'],
                      'provider': t.get('provider'), 'reason': t.get('reason')})
     coverage = {}
+    kyc_folder = re.compile(r'kyc|compliance|due diligence|\bcdd\b|gwg', re.I)
     for r in rows:
-        coverage.setdefault(r['key'] or '?', set()).add(r['doc_type'])
+        types_of = coverage.setdefault(r['key'] or '?', set())
+        types_of.add(r['doc_type'])
+        if kyc_folder.search(r.get('folder') or ''):     # a KYC folder is the client's KYC file
+            types_of.add('kyc_compliance')
     must = ('passport_id', 'proof_of_address', 'kyc_compliance')
     gaps = [{'key': k, 'missing': [m for m in must if m not in v]} for k, v in sorted(coverage.items())
             if any(m not in v for m in must)]

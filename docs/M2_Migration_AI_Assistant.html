@@ -1,0 +1,55 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – AI Assistant (Ollama and Claude)</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
+h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#eef1f4}code,pre{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}pre{padding:8px 10px;white-space:pre-wrap}
+.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – AI Assistant (Ollama and Claude)</h1>
+
+<p>The migration is rule-based: the same exports and settings always give the same import file, and every decision is in the journal.
+The AI assistant does not change that. It reads a <b>finished</b> run and <b>proposes</b> decisions; a person accepts them, and they apply on the next run.</p>
+<h2>1. Models</h2>
+<table><tr><th>Provider</th><th>Model</th><th>Used for</th></tr>
+<tr><td>Ollama (this machine, GPU)</td><td><code>llama3.1:8b</code></td><td>Every task by default: suggestions, document types, run summary</td></tr>
+<tr><td>Ollama</td><td><code>nomic-embed-text</code></td><td>Header similarity: checks a column suggestion against the header names already known for the field</td></tr>
+<tr><td>Claude (Anthropic cloud, optional)</td><td><code>claude-opus-5-5</code></td><td>Second opinion on weak answers about column headers and M2 codes only</td></tr></table>
+<p>Both are reached with the Anthropic SDK over the Messages API: Ollama (version 0.14 or later) serves the same API on <code>http://localhost:11434</code>.
+Changing the model is a setting, not code (Settings › AI or <code>m2_config.json › ai</code>).</p>
+<h2>2. What stays on this machine</h2>
+<div class='note'>Client names, file and folder names, sample values, documents and the run summary <b>never</b> go to the cloud.
+Only column headers and M2 codes (type codes, holder codes, legal-form words) may go to Claude, and only when the company setting
+<b>Allow column headers and M2 codes to go to Claude</b> is on and <code>ANTHROPIC_API_KEY</code> is set. The code refuses a cloud call for any other task.</div>
+<table><tr><th>Mode</th><th>Behaviour</th></tr>
+<tr><td><code>ollama</code> (default)</td><td>Everything on Ollama.</td></tr>
+<tr><td><code>auto</code></td><td>Ollama first; an answer below <i>Ask Claude below confidence</i> (0.6) on a header/code task is asked again to Claude.</td></tr>
+<tr><td><code>claude</code></td><td>Header/code tasks go to Claude first; documents, samples and summaries stay on Ollama.</td></tr></table>
+<p>The API key belongs in <code>/data/migration_script/.env</code> (<code>ANTHROPIC_API_KEY=…</code>), which <code>bin/m2ctl.sh</code> reads and git ignores.</p>
+<h2>3. Tasks</h2>
+<table><tr><th>Task</th><th>Input (from the run)</th><th>Output</th></tr>
+<tr><td>Suggest decisions</td><td>Columns with no CSP field (with up to 3 sample values), unrecognised files (headers), unknown M2 type codes, unknown mandate-holder codes (with the companies listed in AI settings), unknown legal forms</td><td>One proposed decision per item: value, confidence, reason, provider and model</td></tr>
+<tr><td>Classify documents</td><td>The document index (export, copied folders, archive inventory)</td><td>Type of every file (passport/ID, proof of address, incorporation, register extract, articles, share register, resolution, power of attorney, KYC/compliance, LEI, bank, invoice/fee, financials, tax, contract, correspondence, other) and the clients missing passport/ID, proof of address or KYC documents (a file in a KYC / compliance folder counts as KYC). Generic names (scan_0003.pdf, IMG_1234.jpg) are typed <i>other</i> at 20 % without asking the model: open them.</td></tr>
+<tr><td>Summary</td><td>Totals, counts per rule, up to 60 errors/review items</td><td>Status green/amber/red, headline, up to 6 next actions</td></tr></table>
+<h2>4. How far a suggestion can be trusted</h2>
+<ul><li>The local model's own confidence is capped at 85 %: small models are not calibrated.</li>
+<li>Column suggestions: only fields the file does not read yet are offered; the header must be close to the known header names of the field (embedding similarity ≥ 0.8 keeps the confidence, 0.65–0.8 caps it at 75 %, below 0.58 at 20 %); the sample values must fit the field (e-mail needs <code>@</code>, IBAN, SWIFT, currency, dates, postcode, phone and amounts have patterns), otherwise the suggestion is dropped.</li>
+<li>Values like 1, 2, 3 look like a sort order: at most 30 %. Key fields (mandate, debtor, address numbers) never above 40 %: confirm by hand.</li>
+<li>Suggestions below <i>Hide suggestions below</i> (0.35) are not shown. Every model call is listed (time, task, provider, model, items, seconds, result).</li></ul>
+<div class='warn'>Never accept an operating company, an exclusion or a compliance matter on the model's word: check it. The assistant does not decide risk or KYC.</div>
+<h2>5. Using it</h2>
+<ul><li><b>AI assistant</b> tab: model status, <b>Run all</b>, <b>Suggest decisions</b>, <b>Classify documents</b>, <b>Summary</b>; the table of suggestions with <b>Accept</b>; document types and KYC gaps; model calls; AI settings.</li>
+<li><b>Needs decision</b>: <b>✨ Ask AI</b>, and a ✨ hint with <b>Accept</b> next to each item that has a suggestion.</li>
+<li><b>Overview</b>: the AI summary of the run.</li>
+<li>Setting <i>Run the assistant by itself after every migration run</i>.</li>
+<li>Terminal: <code>bin/m2ctl.sh ai status</code>, <code>bin/m2ctl.sh ai all</code> (last run) or <code>bin/m2ctl.sh ai suggest runs/&lt;stamp&gt;</code>. Result file: <code>runs/&lt;stamp&gt;/ai_suggestions.json</code>.</li></ul>
+<h2>6. Claude Code (MCP server)</h2>
+<p><code>m2_mcp.py</code> lets Claude Code work with the tool through the running UI, so the browser, n8n and Claude see the same runs and settings.
+In <code>/data/migration_script</code> it is registered by <code>.mcp.json</code>; elsewhere: <code>claude mcp add m2-migration -- /data/migration_script/bin/m2ctl.sh mcp</code>.</p>
+<table><tr><th>Tool</th><th>Does</th></tr>
+<tr><td><code>m2_status</code></td><td>UI health, last run, model status</td></tr>
+<tr><td><code>m2_runs</code>, <code>m2_summary</code></td><td>Runs and their totals</td></tr>
+<tr><td><code>m2_run</code></td><td>Start a run (default: the folder last used) and wait for it</td></tr>
+<tr><td><code>m2_open_decisions</code></td><td>What blocks rows, grouped like Needs decision, with the AI suggestion of each item</td></tr>
+<tr><td><code>m2_journal</code>, <code>m2_record</code></td><td>Journal events by rule, level, key or text; the full trail of one mandate</td></tr>
+<tr><td><code>m2_ai_assist</code></td><td>Run the local assistant and return its result</td></tr>
+<tr><td><code>m2_decide</code></td><td>Record a decision in the settings (only after the user said yes)</td></tr>
+<tr><td><code>ollama_ask</code></td><td>Hand a question over client data (review items, document index, totals) to the local model</td></tr></table>
+
+</body></html>
