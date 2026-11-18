@@ -223,6 +223,7 @@ details.card > summary .muted { font-weight: 400; }
 .hold.done { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
 .hold.listing { color: var(--info-fg); border-color: var(--info); background: color-mix(in srgb, var(--info) 8%, var(--surface)); }
 .hold.waiting { color: var(--text-muted); border-style: dashed; }
+.hold.partial { color: var(--warn-fg); border-color: var(--warn); }
 .pagehead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .pagehead h2 { margin: 0; font-size: 18px; flex: 1; min-width: 200px; }
 .pagehead p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); font-weight: 400; }
@@ -1372,14 +1373,14 @@ function renderInventory() {
   const line = v.state === 'writing'
     ? `${v.done} of ${v.total} mandate holders done${cur ? `, listing ${esc(cur.name)} (${fmt(cur.files)} files so far)` : ''}. ${fmt(v.files)} files in all; last write ${ago}.`
     : v.state === 'complete' ? `All ${v.total} mandate holders listed: ${fmt(v.files)} files. The inventory is ready for a run.`
-    : `The file has not changed for ${ago} and ${v.total - v.done} holder(s) have no files: the listing stopped early or covered only part of the drive.`;
-  const icon = {done: ic('check'), listing: '<span class="spin" style="width:12px;height:12px"></span>', waiting: ''};
+    : `The listing stopped ${ago}: ${v.done} of ${v.total} holders done${v.holders.some(h => h.state === 'partial') ? `, ${v.holders.filter(h => h.state === 'partial').map(h => esc(h.name)).join(', ')} only in part` : ''}. List the rest with <span class="mono">-Holders</span> (Archive Inventory guide); the second CSV joins this one.`;
+  const icon = {done: ic('check'), listing: '<span class="spin" style="width:12px;height:12px"></span>', partial: ic('warn'), waiting: ''};
   el.innerHTML = `<div class="card inv"><h2>${ic('folder')}Archive inventory <span class="mono small muted" style="font-weight:400">${esc(v.file)}</span>
       <span class="grow"></span><span class="pill ${v.state === 'writing' ? 'running' : v.state === 'complete' ? 'done' : 'failed'}">${label}</span></h2>
     <div class="bar tall" role="progressbar" aria-label="Mandate holders listed" aria-valuemin="0" aria-valuemax="${v.total}" aria-valuenow="${v.done}"
       aria-valuetext="${v.done} of ${v.total} holders"><i style="width:${pct}%;background:var(--${v.state === 'stopped' ? 'warn' : 'ok'})"></i></div>
     <p class="small" style="margin:8px 0 0">${line}</p>
-    ${v.others.length ? `<p class="small" style="margin:6px 0 0;color:var(--warn-fg)">${ic('warn')} Also in the folder: ${v.others.map(x => `<span class="mono">${esc(x)}</span>`).join(', ')}. Move ${v.others.length === 1 ? 'it' : 'them'} aside before the run, or those holders are counted twice.</p>` : ''}
+    ${v.others.length ? `<p class="small muted" style="margin:6px 0 0">${ic('info')} Combined with ${v.others.map(x => `<span class="mono">${esc(x)}</span>`).join(', ')}: the run reads every inventory in the folder, and a file listed in two of them is indexed once.</p>` : ''}
     ${v.expected_list ? '' : '<p class="small muted" style="margin:6px 0 0">No archive_holders.txt beside the CSV: the holders below are the ones found so far, not the full list.</p>'}
     <div class="holders">${v.holders.map(h => `<span class="hold ${h.state}" title="${esc(h.name)}: ${h.state}${h.files ? `, ${fmt(h.files)} files in ${fmt(h.folders)} mandate folders` : ''}">${icon[h.state]}${esc(h.name)}${h.files ? ` <b>${fmt(h.files)}</b>` : ''}<span class="sr">, ${h.state}</span></span>`).join('')}</div>
     ${v.extra.length ? `<p class="small muted" style="margin:8px 0 0">Also on the drive, not in archive_holders.txt: ${v.extra.map(esc).join(', ')}</p>` : ''}</div>`;

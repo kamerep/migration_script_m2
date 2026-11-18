@@ -167,6 +167,20 @@ class TestServer(unittest.TestCase):
             os.utime(csv_path, (old, old)); m2_ui.INVENTORY_CACHE.clear()
             r = m2_ui.api_inventory({'folder': tmp})
             self.assertEqual((r['state'], r['done']), ('complete', 3))
+        with tempfile.TemporaryDirectory() as tmp:                     # broken listing, then a second CSV resumes it
+            Path(tmp, 'archive_holders.txt').write_text('A-ONE\nB-TWO\nC-THREE\n', encoding='utf-8')
+            first = Path(tmp, 'inventory 1.csv'); second = Path(tmp, 'inventory 2.csv')
+            first.write_text('"Path","Length","Modified"\r\n"A-ONE\\KP-1-ENT\\a.pdf","1",""\r\n'
+                             '"B-TWO\\KP-2-ENT\\b.pdf","1",""\r\n', encoding='utf-8-sig')
+            old = first.stat().st_mtime - 3600; os.utime(first, (old, old))
+            r = m2_ui.api_inventory({'folder': tmp})
+            self.assertEqual((r['state'], [h['state'] for h in r['holders']]), ('stopped', ['done', 'partial', 'waiting']))
+            second.write_text('"Path","Length","Modified"\r\n"B-TWO\\KP-2-ENT\\b.pdf","1",""\r\n'
+                              '"B-TWO\\KP-2-ENT\\c.pdf","1",""\r\n"C-THREE\\KP-3-ENT\\d.pdf","1",""\r\n', encoding='utf-8-sig')
+            os.utime(second, (old, old))
+            r = m2_ui.api_inventory({'folder': tmp})
+            self.assertEqual((r['state'], r['done'], r['files']), ('complete', 3, 4))   # B-TWO counted from the fuller file
+            self.assertEqual(len(r['others']), 1)
 
     def test_routes_are_described(self):
         routes = json.loads(self.get('/api/routes')[2])['routes']

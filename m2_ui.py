@@ -496,8 +496,9 @@ def _inventory_read(path):
 
 
 def api_inventory(params):
-    """Progress of the archive inventory in `folder` (default: the source folder): per mandate holder of
-    archive_holders.txt done, being listed or waiting, with files and mandate folders so far."""
+    """Progress of the archive inventory in `folder` (default: the source folder), over every inventory CSV there
+    (a resumed listing writes a second one): per mandate holder of archive_holders.txt done, being listed or
+    waiting, with files and mandate folders so far."""
     folder = Path(params.get('folder') or ui_settings().get('source') or '').expanduser()
     if not str(folder) or not folder.is_dir():
         return {'file': None}
@@ -506,27 +507,39 @@ def api_inventory(params):
                    key=lambda p: p.stat().st_mtime, reverse=True)
     if not found:
         return {'file': None}
-    path = found[0]
-    c = _inventory_read(path)
-    idle = max(0, int(datetime.datetime.now().timestamp() - c['mtime']))
+    reads = [(path, _inventory_read(path)) for path in found]      # newest first
+    counts, folders, order = {}, {}, []
+    for _path, c in reversed(reads):               # oldest first, so the order is the listing order
+        for top in c['order']:
+            if top not in order:
+                order.append(top)
+            if c['counts'][top] > counts.get(top, 0):      # a holder in two files: the fuller listing counts
+                counts[top], folders[top] = c['counts'][top], c['folders'][top]
+    newest = reads[0][1]
+    idle = max(0, int(datetime.datetime.now().timestamp() - newest['mtime']))
     listed = folder / 'archive_holders.txt'
     expected = [x.strip() for x in listed.read_text(encoding='utf-8-sig').splitlines()
                 if x.strip() and not x.lstrip().startswith('#')] if listed.is_file() else []
-    by_key = {_squash(t): t for t in c['order']}
-    current = c['order'][-1] if c['order'] else None
+    by_key = {_squash(t): t for t in order}
+    current = newest['order'][-1] if newest['order'] else None
     writing = idle < INVENTORY_IDLE
+    # the last holder of a file is finished only when another holder follows it, or when every holder is there
+    last_of = {c['order'][-1] for _p, c in reads if c['order']}
+    followed = {t for _p, c in reads for t in c['order'][:-1]}
+    every = all(by_key.get(_squash(x)) for x in (expected or order))
     holders = []
-    for name in expected or c['order']:
+    for name in expected or order:
         top = by_key.get(_squash(name))
-        files = c['counts'].get(top, 0) if top else 0
-        state = 'waiting' if not files else 'listing' if writing and top == current else 'done'
+        files = counts.get(top, 0) if top else 0
+        state = ('waiting' if not files else 'listing' if writing and top == current
+                 else 'partial' if top in last_of and top not in followed and not every else 'done')
         holders.append({'name': name, 'state': state, 'files': files,
-                        'folders': len(c['folders'].get(top, ())) if top else 0})
-    extra = [t for t in c['order'] if expected and _squash(t) not in {_squash(x) for x in expected}]
+                        'folders': len(folders.get(top, ())) if top else 0})
+    extra = [t for t in order if expected and _squash(t) not in {_squash(x) for x in expected}]
     done = sum(h['state'] == 'done' for h in holders)
-    state = 'writing' if writing else 'complete' if all(h['files'] for h in holders) else 'stopped'
-    return {'file': path.name, 'others': [p.name for p in found[1:]], 'state': state, 'idle': idle,
-            'size': c['size'], 'files': sum(c['counts'].values()), 'holders': holders, 'extra': extra,
+    state = 'writing' if writing else 'complete' if every else 'stopped'
+    return {'file': found[0].name, 'others': [p.name for p in found[1:]], 'state': state, 'idle': idle,
+            'size': sum(c['size'] for _p, c in reads), 'files': sum(counts.values()), 'holders': holders, 'extra': extra,
             'done': done, 'total': len(holders), 'listing': next((h['name'] for h in holders if h['state'] == 'listing'),
                                                                    None), 'expected_list': bool(expected)}
 

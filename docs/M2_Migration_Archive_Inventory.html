@@ -30,6 +30,12 @@ written for two minutes the card says <i>complete</i>, or <i>stopped</i> when ho
 second inventory CSV in the folder (holders counted twice), and <b>Run migration</b> asks before starting while the listing
 is still running. Writing to <code>\\tsclient\…</code> over the remote desktop is slow; for speed, write to a local disk
 and copy the finished CSV (the card then only shows the end).</p>
+<p><b>Resuming a broken listing.</b> If the listing stops (for example <i>Export-Csv : The operation was canceled</i> when the
+remote-desktop link drops), list only the holders still missing with <code>-Holders</code>, including the one it stopped in:</p>
+<pre>powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\' -Holders 'NOVA-SG','ORBIT-CH' -Out "$env:USERPROFILE\Documents\M2 Archive inventory - part 2.csv"
+Copy-Item "$env:USERPROFILE\Documents\M2 Archive inventory - part 2.csv" '\\tsclient\m2_db\'</pre>
+<p>Leave the first CSV where it is: the run reads every inventory in the folder, a file listed in both is indexed once,
+and the card combines them (the holder that was cut off shows <i>partial</i> until the second file lists it in full).</p>
 <p>Without the script, the same in one line:</p>
 <pre>Get-ChildItem 'Z:\NOVA-PH' -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Substring(3)}}, Length, @{n='Modified';e={$_.LastWriteTime.ToString('yyyy-MM-dd HH:mm')}} | Export-Csv "$env:USERPROFILE\Documents\M2 Archive inventory.csv" -NoTypeInformation -Encoding UTF8</pre>
 <h2>2. Use it</h2>

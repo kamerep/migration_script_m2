@@ -13,11 +13,16 @@
   powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\NOVA-PH'
 
 .EXAMPLE
+  # Resume after a broken listing: only the holders still missing, written locally, then copied
+  powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\' -Holders 'NOVA-SG','ORBIT-CH' -Out "$env:USERPROFILE\Documents\M2 Archive inventory - part 2.csv"
+
+.EXAMPLE
   # Several holder folders at once (one CSV)
   powershell -ExecutionPolicy Bypass -File m2_archive_inventory.ps1 -Root 'Z:\' -Out 'W:\M2 Archive inventory.csv'
 #>
 param(
   [string]$Root = 'Z:\',
+  [string[]]$Holders = @(),   # only these top folders (e.g. the ones a broken listing did not finish); all when empty
   [string]$Out = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'M2 Archive inventory.csv')
 )
 $ErrorActionPreference = 'Stop'
@@ -27,17 +32,21 @@ Write-Host "Listing $Root ..."
 # Only files inside folders: loose files of the root (e.g. the "Archive (L) - Verknüpfung" shortcut) are skipped,
 # and shortcuts (.lnk) are never followed or listed.
 # Progress per mandate holder (top folder): a bar in the console, and a line when each holder starts.
-$holders = @(Get-ChildItem -LiteralPath $Root -Directory -Force -ErrorAction SilentlyContinue)
+$wanted = $Holders
+$tops = @(Get-ChildItem -LiteralPath $Root -Directory -Force -ErrorAction SilentlyContinue |
+  Where-Object { $wanted.Count -eq 0 -or $wanted -contains $_.Name })
+$unknown = @($wanted | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
+if ($unknown.Count) { Write-Warning ("Not found under {0}: {1}" -f $Root, ($unknown -join ', ')) }
 $n = 0
 $script:count = 0
 # Rows go straight into the CSV (not collected first), so the file grows holder by holder and the M2 UI can show
 # which holders are done (Overview > Archive inventory).
-$holders |
+$tops |
   ForEach-Object {
     $n++
-    Write-Progress -Activity "Listing $Root" -Status ("Holder {0} of {1}: {2}" -f $n, $holders.Count, $_.Name) `
-                   -PercentComplete ([int](100 * ($n - 1) / [Math]::Max(1, $holders.Count)))
-    Write-Host ("[{0}/{1}] {2}" -f $n, $holders.Count, $_.Name)
+    Write-Progress -Activity "Listing $Root" -Status ("Holder {0} of {1}: {2}" -f $n, $tops.Count, $_.Name) `
+                   -PercentComplete ([int](100 * ($n - 1) / [Math]::Max(1, $tops.Count)))
+    Write-Host ("[{0}/{1}] {2}" -f $n, $tops.Count, $_.Name)
     Get-ChildItem -LiteralPath $_.FullName -Recurse -File -Force -ErrorAction SilentlyContinue } |
   Where-Object { $_.Name -notin @('Thumbs.db', 'desktop.ini') -and -not $_.Name.StartsWith('~$') -and
                  $_.Extension -ne '.lnk' } |
@@ -47,4 +56,4 @@ $holders |
   ForEach-Object { $script:count++; $_ } |
   Export-Csv -LiteralPath $Out -NoTypeInformation -Encoding UTF8
 Write-Progress -Activity "Listing $Root" -Completed
-Write-Host ("{0} files in {1} holder folders -> {2}" -f $script:count, $holders.Count, $Out)
+Write-Host ("{0} files in {1} holder folders -> {2}" -f $script:count, $tops.Count, $Out)
