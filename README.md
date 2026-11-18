@@ -47,16 +47,32 @@ client's documents.
 
 ## The UI
 
-* **Overview** – counts, result per sheet, downloads, the rules that fired.
-* **Needs decision** – what blocks rows: mandate holder → operating company (*never a default company*), M2
-  employee abbreviations, M2 Detail addr. type codes → register sheet, unrecognised files, unmapped columns,
-  unresolved clients. Saving writes `m2_config.json`; *Run again* applies it.
-* **Journal** – the live event stream with filters by level, stage, rule, file and text; click an event for all
-  its details and the fix.
-* **Records** – the full decision trail of one M2 mandate across all files, plus its final import row.
-* **Files & columns** (every column: read as which field, or not loaded with sample values), **Review rows**,
-  **Changes & not loaded**, **Finance** (receivables, fees, compliance, documents), **Settings**.
-* **Sample data** / **Sample (English M2)** write fictitious exports to try a run.
+One page (`m2_ui.html`), no external fonts or scripts, light and dark, in five colour palettes (Settings › This browser,
+or the palette button at the foot of the side bar; kept per browser). Level colours stay the same in every palette. A side bar groups the sections:
+
+* **Run**: **Overview** (status and next step, counts, result per sheet, downloads, the rules that fired),
+  **Needs decision** (what blocks rows: mandate holder → operating company, *never a default company*; M2 employee
+  abbreviations; M2 Detail addr. type codes → register sheet; unrecognised files; unmapped columns; unresolved
+  clients. Each section is marked *blocks rows* or *optional*; a saved answer gets a tick and an **Undo**, the bar
+  counts them, *Run again* applies them), **AI assistant**.
+* **Inspect**: **Journal** (the live event stream with filters by level, stage, rule, file and text; click an event
+  for its details, the fix and the JSON), **Records** (the full decision trail of one M2 mandate across all files,
+  plus its final import row), **Files & columns** (every column: read as which field, or not loaded with sample
+  values), **Review rows**, **Changes & not loaded**, **Finance** (receivables, fees, compliance, documents).
+* **Configure**: **Settings**, **Docs** (the guides of `docs/` with search, and reference pages generated from the
+  code: HTTP API, MCP tools, command line, keyboard and links).
+
+Feedback: a stage strip with a progress line while a run goes (percentage in the browser tab), messages at the
+bottom right (saved, failed, run finished, with Undo or the next step as a button), a spinner on the button that is
+working, placeholders while a section loads, and a banner with automatic reconnection when the tool stops answering.
+
+Keys: `Ctrl+K` search and commands (sections, mandates, rules, guides), `Ctrl+Enter` run, `/` search of the section,
+`[` `]` and `1`–`0` change section, `?` the list. Every place has an address: `#decide`, `#records/AP-482-ACC`,
+`#journal/COMPANY_UNKNOWN`, `#docs/ref-api`, and `?run=<stamp>` for an earlier run.
+
+Logo and icons are in `assets/` (`icon.svg`, `favicon.svg`, `logo.svg`, `logo-dark.svg` are the sources;
+`python3 tools/make_icons.py` rebuilds the PNG / ICO / web manifest). `tools/make_docs_pdf.sh` rebuilds the PDF of
+each guide from its HTML.
 
 ## Key rules
 
@@ -108,7 +124,7 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
   and M2 codes may go to Claude, and only when the company setting `allow_cloud` is on and `ANTHROPIC_API_KEY` is
   set (in `.env`, read by `bin/m2ctl.sh`; never committed).
 * UI: tab **AI assistant** (models, Run all / Suggest / Classify / Summary, suggestions with Accept, document types,
-  every model call), ✨ hints with Accept in **Needs decision**, AI summary on **Overview**, AI settings.
+  every model call), AI hints with Accept in **Needs decision**, AI summary on **Overview**, AI settings.
 * Terminal: `bin/m2ctl.sh ai status|suggest|documents|summary|all [runs/<stamp>]`. Output: `runs/<stamp>/ai_suggestions.json`.
 
 ## Claude Code (MCP server)
@@ -150,7 +166,7 @@ one, data in `~/.local/share/n8n-data`). Workflows in `n8n/workflows/`:
 n8n calls the UI with the stable API token (`bin/m2ctl.sh token`, stored in `.m2_api_token`, 0600, not in git) and
 may write files only under `runs/`.
 
-Documentation: `docs/` (HTML and PDF).
+Documentation: `docs/` (HTML and PDF), also shown in the **Docs** tab of the UI. For agents and developers: `AGENTS.md`.
 
 ## Portwatch (deploy and monitoring)
 

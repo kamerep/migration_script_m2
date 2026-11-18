@@ -1,8 +1,9 @@
 <!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – AI Assistant (Ollama and Claude)</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
-h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+h1{color:#3a1846;font-size:24px;border-bottom:2px solid #3a1846;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#4f2460}
 table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
 th{background:#eef1f4}code,pre{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}pre{padding:8px 10px;white-space:pre-wrap}
-.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – AI Assistant (Ollama and Claude)</h1>
+.note{border-left:3px solid #3a1846;background:#f4f1fa;padding:8px 12px}.warn{border-left:3px solid #9a6700;background:#fff8e6;padding:8px 12px}.by{margin-top:32px;padding-top:8px;border-top:1px solid #d8dee5;color:#59636e;font-size:12.5px}
+@page{size:A4;margin:14mm}@media print{body{margin:0;max-width:none;padding:0}}</style></head><body><h1>M2 Migration – AI Assistant (Ollama and Claude)</h1>
 
 <p>The migration is rule-based: the same exports and settings always give the same import file, and every decision is in the journal.
 The AI assistant does not change that. It reads a <b>finished</b> run and <b>proposes</b> decisions; a person accepts them, and they apply on the next run.</p>
@@ -35,7 +36,7 @@ Only column headers and M2 codes (type codes, holder codes, legal-form words) ma
 <div class='warn'>Never accept an operating company, an exclusion or a compliance matter on the model's word: check it. The assistant does not decide risk or KYC.</div>
 <h2>5. Using it</h2>
 <ul><li><b>AI assistant</b> tab: model status, <b>Run all</b>, <b>Suggest decisions</b>, <b>Classify documents</b>, <b>Summary</b>; the table of suggestions with <b>Accept</b>; document types and KYC gaps; model calls; AI settings.</li>
-<li><b>Needs decision</b>: <b>✨ Ask AI</b>, and a ✨ hint with <b>Accept</b> next to each item that has a suggestion.</li>
+<li><b>Needs decision</b>: <b> Ask AI</b>, and a AI hint with <b>Accept</b> next to each item that has a suggestion.</li>
 <li><b>Overview</b>: the AI summary of the run.</li>
 <li>Setting <i>Run the assistant by itself after every migration run</i>.</li>
 <li>Terminal: <code>bin/m2ctl.sh ai status</code>, <code>bin/m2ctl.sh ai all</code> (last run) or <code>bin/m2ctl.sh ai suggest runs/&lt;stamp&gt;</code>. Result file: <code>runs/&lt;stamp&gt;/ai_suggestions.json</code>.</li></ul>
@@ -52,4 +53,5 @@ In <code>/data/migration_script</code> it is registered by <code>.mcp.json</code
 <tr><td><code>m2_decide</code></td><td>Record a decision in the settings (only after the user said yes)</td></tr>
 <tr><td><code>ollama_ask</code></td><td>Hand a question over client data (review items, document index, totals) to the local model</td></tr></table>
 
+<p class="by">Prepared by Peter Kamere</p>
 </body></html>

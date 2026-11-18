@@ -1,8 +1,9 @@
 <!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – Rules and Decisions</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
-h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+h1{color:#3a1846;font-size:24px;border-bottom:2px solid #3a1846;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#4f2460}
 table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
 th{background:#eef1f4}code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}
-.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – Rules and Decisions</h1><p>The rules the migration applies, with the rule code shown in the journal.</p>
+.note{border-left:3px solid #3a1846;background:#f4f1fa;padding:8px 12px}.by{margin-top:32px;padding-top:8px;border-top:1px solid #d8dee5;color:#59636e;font-size:12.5px}
+@page{size:A4;margin:14mm}@media print{body{margin:0;max-width:none;padding:0}}</style></head><body><h1>M2 Migration – Rules and Decisions</h1><p>The rules the migration applies, with the rule code shown in the journal.</p>
 <h2>Reading the files</h2><table><tr><th>Rule</th><th>What happens</th></tr>
 <tr><td><code>KIND</code>, <code>KIND_UNKNOWN</code>, <code>KIND_OVERRIDE</code></td><td>A file is scored against every export kind: each header matched +1, key columns +2 more, words of the file name +4. Below 4 it is not read; a lead of 1 or less is a warning. Settings › file kinds forces a kind.</td></tr>
 <tr><td><code>HEADER_ROW</code>, <code>ROW_TOTAL</code></td><td>Report titles above the header and total lines are skipped.</td></tr>
@@ -48,4 +49,5 @@ open items are totalled per operating company and currency for the reconciliatio
 <tr><td><code>ARCHIVE_NOT_MANDATE</code></td><td>Files outside mandate folders: not indexed.</td></tr>
 <tr><td><code>ARCHIVE_NO_FOLDER</code></td><td>Open mandates without an archive folder.</td></tr></table>
 <p>AI suggestions are not rules: they never change a run; an accepted suggestion is an ordinary decision in <code>m2_config.json</code>.</p>
+<p class="by">Prepared by Peter Kamere</p>
 </body></html>

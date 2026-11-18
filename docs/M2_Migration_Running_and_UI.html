@@ -1,8 +1,9 @@
 <!doctype html><html lang='en'><head><meta charset='utf-8'><title>M2 Migration – Running and the UI</title><style>body{font:14px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;color:#1f2328;max-width:900px;margin:32px auto;padding:0 16px}
-h1{color:#0f766e;font-size:24px;border-bottom:2px solid #0f766e;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#115e59}
+h1{color:#3a1846;font-size:24px;border-bottom:2px solid #3a1846;padding-bottom:6px}h2{font-size:18px;margin-top:28px;color:#4f2460}
 table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d8dee5;padding:5px 8px;text-align:left;vertical-align:top}
 th{background:#eef1f4}code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}
-.note{border-left:3px solid #0f766e;background:#f0faf8;padding:8px 12px}@media print{body{margin:0}}</style></head><body><h1>M2 Migration – Running and the UI</h1><p>The migration turns the M2 Mandat exports into the CSP client import workbook and records every decision it takes.
+.note{border-left:3px solid #3a1846;background:#f4f1fa;padding:8px 12px}.by{margin-top:32px;padding-top:8px;border-top:1px solid #d8dee5;color:#59636e;font-size:12.5px}
+@page{size:A4;margin:14mm}@media print{body{margin:0;max-width:none;padding:0}}</style></head><body><h1>M2 Migration – Running and the UI</h1><p>The migration turns the M2 Mandat exports into the CSP client import workbook and records every decision it takes.
 Nothing is written to Odoo.</p>
 <h2>1. Export from M2</h2><p>From each M2 function (Addresses, Mandates, officers, beneficial owners, share register, bank details,
 signatories, contact persons, Fees, open items) export the list to Excel or CSV into one folder. Keep the column headers;
@@ -12,9 +13,11 @@ Address, Detail addr., Bank / Account / Authorized to sign, Fees, Invoice, Compl
 mandate has no mandate column: name the file after the mandate, e.g. <code>AP-482-ACC Detail addr.xlsx</code>. Copy M2's document
 folders (named after the mandate number) next to the exports to have the files indexed per client.</p>
 <h2>2. Start the tool</h2><p><code>.venv/bin/python m2_ui.py</code> opens <code>http://127.0.0.1:8796</code> (the next free port when it is taken).
-Choose the folder with <b>Browse…</b>, or press <b>Sample data</b> (German headers) or <b>Sample (English M2)</b> to try it with fictitious exports, then <b>Run migration</b>.</p>
-<h2>3. Watch the run</h2><p>The strip under the toolbar shows the stages (read &amp; classify files, build clients, link registers,
-fees &amp; open items, compliance, documents, template checks, write files) and live counts per level. The <b>Journal</b> follows the events as they are written.</p>
+Choose the folder with <b>Browse…</b> (the picker shows how many export files a folder holds), or open <b>Sample data</b> and pick <i>German headers</i> or <i>English M2 grids</i> to try it with fictitious exports, then press <b>Run migration</b> (<code>Ctrl+Enter</code>).</p>
+<h2>3. Watch the run</h2><p>The strip under the toolbar shows the eight stages (read &amp; classify files, build clients, link registers,
+fees &amp; open items, compliance, documents, template checks, write files) with a progress line, the event count and the time taken, and live counts per level:
+click a count to see those events. The <b>Journal</b> follows the events as they are written. The browser tab shows the percentage while a run goes,
+and a message at the bottom right tells you when it ends, with a button to the next step.</p>
 <table><tr><th>Level</th><th>Meaning</th></tr>
 <tr><td>Error</td><td>Data that cannot be used as it is (unreadable file, duplicate mandate number, crash).</td></tr>
 <tr><td>To review</td><td>A row left out of the import file, with its reason and fix.</td></tr>
@@ -23,13 +26,26 @@ fees &amp; open items, compliance, documents, template checks, write files) and 
 <tr><td>Change</td><td>A value converted or cleaned (country name to ISO code, Swiss amount, date format).</td></tr>
 <tr><td>Not loaded</td><td>An M2 value with no CSP column, kept in the review file and the client's Notes.</td></tr></table>
 <h2>4. Decide</h2><p><b>Needs decision</b> lists what blocks rows: the operating company of each mandate holder (never a default company),
-employee abbreviations, the M2 Detail addr. type codes (which register sheet each fills), unrecognised files, unmapped columns and register rows whose client was not found. Each answer is saved to
-<code>m2_config.json</code>; <b>Run again with these decisions</b> starts the next run.</p>
+employee abbreviations, the M2 Detail addr. type codes (which register sheet each fills), unrecognised files, unmapped columns and register rows whose client was not found. Each section says whether it <i>blocks rows</i> or is <i>optional</i>, and the bar at the top counts the decisions saved. Each answer is saved to
+<code>m2_config.json</code> and marked with a green tick; <b>Undo</b> takes it back. <b>Run again</b> starts the next run with them.</p>
 <h2>5. Trace a record</h2><p>Click any M2 key (for example <code>M-0001</code>) to open <b>Records</b>: every event of that mandate across all files,
 in order, with the row it finally has in the import file or the reason it waits in review.</p>
+<p>The <b>Link</b> button copies the address of that record (<code>#records/M-0001</code>) to paste into a ticket or a message.</p>
 <h2>6. Load into Odoo</h2><p>Download <code>CSP_Import_M2.xlsx</code> from the Overview and load it in Contacts › Configuration › Client Import
 (Check, then Import). Fix the rows of <code>CSP_Import_M2_Review.xlsx</code>, paste them into the import file and load again: the M2 Reference makes
 every load an update.</p>
+<h2>7. Finding your way in the page</h2>
+<table><tr><th>Where</th><th>What it is for</th></tr>
+<tr><td>Side bar</td><td>The sections in three groups: <i>Run</i> (Overview, Needs decision, AI assistant), <i>Inspect</i> (Journal, Records, Files &amp; columns, Review rows,
+Changes &amp; not loaded, Finance) and <i>Configure</i> (Settings, Docs). The button at its foot folds it to icons.</td></tr>
+<tr><td>Search and commands (<code>Ctrl+K</code>)</td><td>Type a section, a mandate number or name, a rule, a guide or a command (Run migration, Switch theme, Download…) and press Enter.</td></tr>
+<tr><td>Messages (bottom right)</td><td>Green: done. Amber: needs your attention. Red: failed, and stays until closed. A message about a saved decision carries <b>Undo</b>.</td></tr>
+<tr><td>Loading</td><td>A thin bar at the very top while the tool is asked something, grey placeholders while a section loads, a spinner on the button that is working.
+If the tool stops answering, a banner says so and the page reconnects by itself.</td></tr>
+<tr><td>Docs</td><td>These guides inside the tool, with search, plus reference pages built from the code: HTTP API, MCP tools, command line, keyboard and links.</td></tr>
+<tr><td>Theme and colours</td><td>Light, dark or as the system, and five colour palettes (Aubergine &amp; lavender, Mauve &amp; sage, Forest green, Lime &amp; indigo, Rose &amp; sky): the buttons at the foot of the side bar, or Settings › This browser. The side bar, the count cards, the buttons and the tab icon follow the palette; the level colours (error, review, warning…) stay the same in all of them.</td></tr></table>
+<p>Keys: <code>/</code> focuses the search of the section, <code>[</code> and <code>]</code> move between sections, <code>1</code>–<code>0</code> jump to one,
+<code>↑</code> <code>↓</code> step through events while the details are open, <code>Esc</code> closes, <code>?</code> lists them all.</p>
 <h2>Files of a run</h2><p>Each run is kept in <code>runs/&lt;stamp&gt;/</code>: the two workbooks, <code>journal.jsonl</code>, <code>summary.json</code>,
 <code>run.log</code> and the <code>config.json</code> it ran with. Earlier runs open from the run selector.</p>
 <h2>Terminal</h2><p><code>.venv/bin/python migration_script_m2_odoo.py &lt;folder&gt; [&lt;output&gt;] [--config m2_config.json] [--quiet]</code>
@@ -37,6 +53,7 @@ prints the same journal; the exit code is 1 when there are errors.</p><h2>Portwa
 a health check on <code>/health</code>, the server log <code>logs/m2_ui.log</code> (UI start, every run start and result, failed requests), Start / Stop / Restart,
 and the actions <b>Deploy</b> (unit tests, then restart on the new code, then health check; it stops at the first failure), Run tests, Status,
 Last run summary, Migrate last folder and Sample run. The same commands work by hand: <code>bin/m2ctl.sh start|stop|restart|status|test|deploy|sample|migrate|last</code>.</p><h2>AI assistant, Claude Code and n8n</h2><p>The <b>AI assistant</b> tab proposes decisions for a finished run with the local model (Ollama), types the documents and writes a summary;
-<b>Needs decision</b> shows a ✨ hint with <b>Accept</b> next to each item it has a suggestion for. Claude Code can drive the tool through the MCP server (<code>bin/m2ctl.sh mcp</code>),
+<b>Needs decision</b> shows an AI hint with <b>Accept</b> next to each item it has a suggestion for. Claude Code can drive the tool through the MCP server (<code>bin/m2ctl.sh mcp</code>),
 and n8n can run it on a schedule. See <i>M2 Migration – AI Assistant</i>, <i>M2 Migration – n8n Workflows</i> and <i>M2 Migration – Archive Inventory</i>.</p>
+<p class="by">Prepared by Peter Kamere</p>
 </body></html>

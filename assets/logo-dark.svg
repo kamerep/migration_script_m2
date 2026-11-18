@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 64" role="img" aria-label="M2 to CSP Migration">
+  <g>
+    <rect width="64" height="64" rx="14" fill="#3a1846"/>
+    <g fill="#ffffff" opacity=".92"><rect x="9" y="18" width="13.5" height="6" rx="3"/><rect x="9" y="29" width="9" height="6" rx="3"/><rect x="9" y="40" width="16" height="6" rx="3"/></g>
+    <path d="M25.5 21l11 11-11 11" fill="none" stroke="#bcb3de" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="42" y="17" width="14" height="30" rx="4" fill="#ffffff"/>
+    <g fill="#3a1846"><rect x="45.5" y="23" width="7" height="3.6" rx="1.8"/><rect x="45.5" y="30.2" width="7" height="3.6" rx="1.8"/><rect x="45.5" y="37.4" width="7" height="3.6" rx="1.8"/></g>
+  </g>
+  <g font-family="ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="80" y="31" font-size="26" font-weight="700" fill="#e6edf3" letter-spacing="-.4">M2 <tspan fill="#bcb3de">&#8594;</tspan> CSP</text>
+    <text x="81" y="52" font-size="13.5" font-weight="600" fill="#8b98a5" letter-spacing="2.6">MIGRATION</text>
+  </g>
+</svg>

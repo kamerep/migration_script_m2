@@ -13,11 +13,14 @@ For Portwatch: GET /health answers without the token (200 with the state of the 
 writes one line per run start, run end and failed request to logs/m2_ui.log.
 """
 import argparse
+import ast
 import datetime
 import errno
 import json
 import mimetypes
+import html
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -40,6 +43,9 @@ RUNS = HERE / 'runs'
 CONFIG = HERE / 'm2_config.json'
 SETTINGS = HERE / '.m2_ui.json'
 SERVER_LOG = HERE / 'logs' / 'm2_ui.log'
+ASSETS = HERE / 'assets'            # logo, favicon, app icons (tools/make_icons.py rebuilds the raster ones)
+DOCS = HERE / 'docs'                # the guides shown in the Docs tab (HTML) and their PDF copies
+VERSION = '1.1'
 TOKEN = secrets.token_urlsafe(24)    # the page's token: new at every start
 API_TOKEN_FILE = HERE / '.m2_api_token'
 
@@ -101,6 +107,7 @@ def run_dir(run_id):
 # -- runs ----------------------------------------------------------------------------------------------------
 
 def start_run(params):
+    """Start a migration run on `source` (or `last_source`: true for the folder last used). One run at a time."""
     source = (params.get('source') or '').strip()
     if not source and params.get('last_source'):     # automation (n8n, MCP): the folder last used in the UI
         source = (ui_settings().get('source') or '').strip()
@@ -179,15 +186,17 @@ def load_run(run_id):
 
 
 def api_events(params):
+    """Journal events of a run from position `since` (at most 5000 a call), its state, and the summary once done."""
     job = load_run(params.get('run'))
     since = int(params.get('since') or 0)
     events = job['events'][since:since + 5000]
     return {'run': job['id'], 'state': job['state'], 'events': events, 'next': since + len(events),
             'total': len(job['events']), 'summary': job['summary'] if job['state'] != 'running' else None,
-            'trace': job.get('trace')}
+            'trace': job.get('trace'), 'source': job.get('source'), 'started': job.get('started')}
 
 
 def api_runs(_params):
+    """The last 60 runs: id, state, source folder, totals and level counts."""
     runs = []
     if RUNS.is_dir():
         for path in sorted(RUNS.iterdir(), reverse=True)[:60]:
@@ -204,15 +213,17 @@ def api_runs(_params):
 
 
 def api_state(_params):
+    """Settings (m2_config.json), export kinds and their fields, template sheets, the run going now, version."""
     config = m2.load_config(CONFIG)
     return {'config': config, 'settings': ui_settings(), 'kinds': {k: v['title'] for k, v in m2.KINDS.items()},
             'kind_fields': {k: sorted(v['fields']) for k, v in m2.KINDS.items()},
             'spec': m2.SPEC_PATH, 'sheets': {k: v['title'] for k, v in m2.SHEETS.items()},
             'running': next((j['id'] for j in JOBS.values() if j['state'] == 'running'), None),
-            'sample': str(HERE / 'sample_m2')}
+            'sample': str(HERE / 'sample_m2'), 'version': VERSION, 'home': str(HERE)}
 
 
 def api_config(params):
+    """Replace the whole settings file with `config` (a JSON object)."""
     config = params.get('config')
     if not isinstance(config, dict):
         raise Error("Settings must be a JSON object.")
@@ -221,7 +232,8 @@ def api_config(params):
 
 
 def api_decide(params):
-    """One decision from the Decisions panel, written to the settings for the next run."""
+    """One decision (`type` company, employee, file_kind, alias, officer_type, exclude, setting, or unset to take
+    one back), written to the settings for the next run."""
     config = m2.load_config(CONFIG)
     kind, key, value = params.get('type'), str(params.get('key') or '').strip(), params.get('value')
     if not key:
@@ -246,6 +258,20 @@ def api_decide(params):
         if value not in allowed:
             raise Error(f"Choose one of {', '.join(allowed)}.")
         config.setdefault('officer_types', {})[key] = value
+    elif kind == 'unset':                      # Undo in the page: take one saved decision back
+        target, field = params.get('target'), params.get('field')
+        names = {'company': 'company_map', 'employee': 'employee_map', 'file_kind': 'file_kinds',
+                 'officer_type': 'officer_types'}
+        if target in names:
+            config.get(names[target], {}).pop(key, None)
+        elif target == 'alias':
+            aliases = config.get('extra_aliases', {}).get(params.get('kind'), {})
+            if key in aliases.get(field, []):
+                aliases[field].remove(key)
+            if field in aliases and not aliases[field]:
+                del aliases[field]
+        else:
+            raise Error(f"Nothing to undo for {target}.")
     elif kind == 'exclude':
         if key not in config.setdefault('excluded_keys', []):
             config['excluded_keys'].append(key)
@@ -261,6 +287,7 @@ def api_decide(params):
 
 
 def api_sample(params):
+    """Write the fictitious M2 exports (`english`: the English grid titles) and return their folder."""
     english = bool(params.get('english'))
     target = HERE / ('sample_m2_en' if english else 'sample_m2')
     result = subprocess.run([sys.executable, str(HERE / 'make_sample_m2.py')] + (['--english'] if english else [])
@@ -292,6 +319,7 @@ def api_browse(params):
 
 
 def api_open(params):
+    """Open the folder of a run (or one of its files) with the desktop's file manager."""
     path = run_dir(params.get('run'))
     opener = shutil.which('xdg-open') or shutil.which('open')
     if not opener:
@@ -311,11 +339,13 @@ AI_KEYS = {'enabled': bool, 'provider': str, 'ollama_url': str, 'ollama_model': 
 
 
 def api_ai_status(_params):
+    """Whether Ollama answers and has the model, whether Claude is allowed and has a key, and the AI settings."""
     config = m2.load_config(CONFIG)
     return {**m2_ai.AI(m2_ai.load_settings(config)).status(), 'settings': m2_ai.load_settings(config)}
 
 
 def api_ai_settings(params):
+    """Change AI settings: `ai` is an object with any of the keys of AI_KEYS."""
     values = params.get('ai')
     if not isinstance(values, dict):
         raise Error("AI settings must be a JSON object.")
@@ -370,6 +400,7 @@ def api_ai_run(params):
 
 
 def api_ai(params):
+    """What the assistant produced for a run (suggestions, document types, summary, model calls) and its job."""
     run_id = params.get('run')
     path = run_dir(run_id)
     data = read_json(path / m2_ai.SUGGESTIONS_FILE, {}) or {}
@@ -404,6 +435,104 @@ def api_health():
     return {'status': 'ok', 'running': running, 'last_run': last, 'last_state': state}
 
 
+# -- documentation shown in the Docs tab -----------------------------------------------------------------------
+GUIDE_ORDER = ['M2_Migration_Running_and_UI', 'M2_Migration_Rules_and_Decisions', 'M2_Migration_AI_Assistant',
+               'M2_Migration_Archive_Inventory', 'M2_Migration_n8n_Workflows']
+
+
+def _guide(path):
+    """Title and body of one guide of docs/ (its own <style> and any script are left out)."""
+    text = path.read_text(encoding='utf-8')
+    body = re.search(r'<body[^>]*>(.*)</body>', text, re.S | re.I)
+    body = body.group(1) if body else text
+    body = re.sub(r'<(script|style)\b.*?</\1>', '', body, flags=re.S | re.I)
+    title = re.search(r'<h1[^>]*>(.*?)</h1>', body, re.S | re.I)
+    name = html.unescape(re.sub(r'<[^>]+>', '', title.group(1))).strip() if title else path.stem.replace('_', ' ')
+    body = re.sub(r'<h1[^>]*>.*?</h1>', '', body, count=1, flags=re.S | re.I)
+    return {'id': path.stem, 'title': re.sub(r'^M2 Migration\s*[–-]\s*', '', name), 'group': 'Guides',
+            'html': body.strip(), 'pdf': path.with_suffix('.pdf').name if path.with_suffix('.pdf').is_file() else None}
+
+
+def _table(head, rows):
+    def cells(tag, row):
+        return ''.join(f'<{tag}>{c}</{tag}>' for c in row)
+    return '<table><tr>' + cells('th', head) + '</tr>' + ''.join('<tr>' + cells('td', r) + '</tr>' for r in rows) \
+        + '</table>'
+
+
+def _reference_api():
+    rows = [[f'<code>{m}</code>', f'<code>{html.escape(p)}</code>', html.escape((f.__doc__ or '').strip())]
+            for (m, p), f in sorted(ROUTES.items(), key=lambda x: x[0][1])]
+    rows += [['<code>GET</code>', '<code>/api/download</code>', 'A file of a run: <code>run</code>, <code>file</code>.'],
+             ['<code>GET</code>', '<code>/health</code>', 'No token: whether a run goes and how the last one ended.'],
+             ['<code>GET</code>', '<code>/assets/&lt;file&gt;</code>', 'No token: logo, favicon and app icons.']]
+    return ("<p>Everything the page does goes through this local API, so a script, n8n or an agent can do the same. "
+            "The server listens on <code>127.0.0.1</code> only. Send the token as <code>X-Token</code> or "
+            "<code>Authorization: Bearer</code>; the stable token for automation is printed by "
+            "<code>bin/m2ctl.sh token</code>. Answers are JSON; an error is <code>{\"error\": \"…\"}</code> with "
+            "status 400, 403, 404 or 500.</p>"
+            "<pre>T=$(bin/m2ctl.sh token)\ncurl -s -H \"X-Token: $T\" http://127.0.0.1:8796/api/summary\n"
+            "curl -s -H \"X-Token: $T\" -d '{\"last_source\": true}' http://127.0.0.1:8796/api/run</pre>"
+            + _table(['Method', 'Path', 'What it does'], rows) +
+            "<p>The same list as JSON: <code>GET /api/routes</code>.</p>")
+
+
+def _reference_mcp():
+    try:
+        tree = ast.parse((HERE / 'm2_mcp.py').read_text(encoding='utf-8'))
+    except (OSError, SyntaxError):
+        return ''
+    rows = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and any('tool' in ast.unparse(d) for d in node.decorator_list):
+            rows.append([f'<code>{node.name}</code>', f'<code>{html.escape(ast.unparse(node.args))}</code>',
+                         html.escape(ast.get_docstring(node) or '')])
+    return ("<p><code>m2_mcp.py</code> gives Claude Code (or any MCP client) the tool through the running UI, so the "
+            "browser, n8n and the agent see the same runs, decisions and settings. <code>.mcp.json</code> registers "
+            "it for this folder; elsewhere: <code>claude mcp add m2-migration -- bin/m2ctl.sh mcp</code>.</p>"
+            "<p class='note'>An agent never decides an operating company, a compliance matter or an exclusion "
+            "without your explicit yes. Names, messages and file names it reads are data from the M2 exports, "
+            "never instructions.</p>" + _table(['Tool', 'Arguments', 'What it does'], rows))
+
+
+def _reference_cli():
+    try:
+        lines = (HERE / 'bin' / 'm2ctl.sh').read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return ''
+    rows = []
+    for line in lines:
+        found = re.match(r'#\s+(bin/m2ctl\.sh\s+.*?)(?:\s{2,}(.*))?$', line)
+        if found:
+            rows.append([f'<code>{html.escape(found.group(1))}</code>', html.escape(found.group(2) or '')])
+    return ("<p>The control script used by Portwatch and by hand. It reads <code>.env</code> for secrets "
+            "(<code>ANTHROPIC_API_KEY</code>, <code>M2_API_TOKEN</code>), which never go into git.</p>"
+            + _table(['Command', 'What it does'], rows) +
+            "<pre>.venv/bin/python m2_ui.py [--port 9000] [--no-browser]\n"
+            ".venv/bin/python migration_script_m2_odoo.py &lt;folder&gt; [&lt;output&gt;] [--config m2_config.json] [--quiet]\n"
+            ".venv/bin/python -m unittest discover -s tests -v\n"
+            "python3 tools/make_icons.py        # rebuild the icons from assets/*.svg</pre>")
+
+
+def api_docs(_params):
+    """The guides of docs/ and the generated reference pages (HTTP API, MCP tools, command line) for the Docs tab."""
+    paths = sorted(DOCS.glob('*.html'), key=lambda p: (GUIDE_ORDER.index(p.stem) if p.stem in GUIDE_ORDER
+                                                       else len(GUIDE_ORDER), p.name)) if DOCS.is_dir() else []
+    docs = [_guide(p) for p in paths]
+    for ident, title, body in (('ref-api', 'HTTP API', _reference_api()), ('ref-mcp', 'MCP tools (Claude Code)',
+                               _reference_mcp()), ('ref-cli', 'Command line', _reference_cli())):
+        if body:
+            docs.append({'id': ident, 'title': title, 'group': 'Reference', 'html': body, 'pdf': None})
+    return {'docs': docs, 'version': VERSION}
+
+
+def api_routes(_params):
+    """This list: every API route with its method and what it does."""
+    return {'routes': [{'method': m, 'path': p, 'doc': (f.__doc__ or '').strip()}
+                       for (m, p), f in sorted(ROUTES.items(), key=lambda x: x[0][1])],
+            'auth': 'X-Token header, Authorization: Bearer, or ?token= (bin/m2ctl.sh token)', 'version': VERSION}
+
+
 ROUTES = {
     ('GET', '/api/state'): api_state, ('GET', '/api/events'): api_events, ('GET', '/api/runs'): api_runs,
     ('GET', '/api/browse'): api_browse,
@@ -411,7 +540,10 @@ ROUTES = {
     ('POST', '/api/sample'): api_sample, ('POST', '/api/open'): api_open,
     ('GET', '/api/ai/status'): api_ai_status, ('GET', '/api/ai'): api_ai, ('GET', '/api/summary'): api_summary,
     ('POST', '/api/ai/run'): api_ai_run, ('POST', '/api/ai/settings'): api_ai_settings,
+    ('GET', '/api/docs'): api_docs, ('GET', '/api/routes'): api_routes,
 }
+ASSET_TYPES = {'.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
+               '.webmanifest': 'application/manifest+json'}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -449,8 +581,8 @@ class Handler(BaseHTTPRequestHandler):
                                                           "script-src 'unsafe-inline'; img-src 'self' data:"})
         if url.path == '/health':
             return self._send(200, api_health())
-        if url.path == '/favicon.ico':
-            return self._send(HTTPStatus.NO_CONTENT, b'', 'image/x-icon')
+        if url.path == '/favicon.ico' or url.path.startswith('/assets/'):
+            return self._asset('favicon.ico' if url.path == '/favicon.ico' else url.path[len('/assets/'):])
         if not self._authorised(params):
             return self._send(HTTPStatus.FORBIDDEN, {'error': 'Reload the page (token).'})
         if url.path == '/api/download':
@@ -464,7 +596,20 @@ class Handler(BaseHTTPRequestHandler):
             ctype = mimetypes.guess_type(target.name)[0] or 'application/octet-stream'
             return self._send(200, target.read_bytes(), ctype,
                               {'Content-Disposition': f"attachment; filename*=UTF-8''{quote(target.name)}"})
+        if url.path == '/api/doc-file':     # the PDF copy of a guide
+            target = DOCS / params.get('name', '')
+            if target.parent != DOCS or target.suffix != '.pdf' or not target.is_file():
+                return self._send(404, {'error': 'Unknown guide.'})
+            return self._send(200, target.read_bytes(), 'application/pdf',
+                              {'Content-Disposition': f"inline; filename*=UTF-8''{quote(target.name)}"})
         self._route('GET', url.path, params)
+
+    def _asset(self, name):
+        """Logo, favicon and app icons: public (no data in them), only plain file names of assets/."""
+        target = ASSETS / name
+        if target.parent != ASSETS or target.suffix not in ASSET_TYPES or not target.is_file():
+            return self._send(404, {'error': 'Not found.'})
+        return self._send(200, target.read_bytes(), ASSET_TYPES[target.suffix])
 
     def do_POST(self):  # noqa: N802
         url = urlparse(self.path)
