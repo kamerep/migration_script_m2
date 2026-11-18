@@ -26,13 +26,25 @@ $drive = $item.PSDrive.Root            # e.g. Z:\
 Write-Host "Listing $Root ..."
 # Only files inside folders: loose files of the root (e.g. the "Archive (L) - Verknüpfung" shortcut) are skipped,
 # and shortcuts (.lnk) are never followed or listed.
-$rows = Get-ChildItem -LiteralPath $Root -Directory -Force -ErrorAction SilentlyContinue |
-  ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Recurse -File -Force -ErrorAction SilentlyContinue } |
+# Progress per mandate holder (top folder): a bar in the console, and a line when each holder starts.
+$holders = @(Get-ChildItem -LiteralPath $Root -Directory -Force -ErrorAction SilentlyContinue)
+$n = 0
+$script:count = 0
+# Rows go straight into the CSV (not collected first), so the file grows holder by holder and the M2 UI can show
+# which holders are done (Overview > Archive inventory).
+$holders |
+  ForEach-Object {
+    $n++
+    Write-Progress -Activity "Listing $Root" -Status ("Holder {0} of {1}: {2}" -f $n, $holders.Count, $_.Name) `
+                   -PercentComplete ([int](100 * ($n - 1) / [Math]::Max(1, $holders.Count)))
+    Write-Host ("[{0}/{1}] {2}" -f $n, $holders.Count, $_.Name)
+    Get-ChildItem -LiteralPath $_.FullName -Recurse -File -Force -ErrorAction SilentlyContinue } |
   Where-Object { $_.Name -notin @('Thumbs.db', 'desktop.ini') -and -not $_.Name.StartsWith('~$') -and
                  $_.Extension -ne '.lnk' } |
   Select-Object @{n = 'Path'; e = { $_.FullName.Substring($drive.Length).TrimStart('\') } },
                 Length,
-                @{n = 'Modified'; e = { $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm') } }
-$rows | Export-Csv -LiteralPath $Out -NoTypeInformation -Encoding UTF8
-$folders = ($rows | ForEach-Object { ($_.Path -split '\\')[0..1] -join '\' } | Sort-Object -Unique).Count
-Write-Host ("{0} files in {1} folders -> {2}" -f $rows.Count, $folders, $Out)
+                @{n = 'Modified'; e = { $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm') } } |
+  ForEach-Object { $script:count++; $_ } |
+  Export-Csv -LiteralPath $Out -NoTypeInformation -Encoding UTF8
+Write-Progress -Activity "Listing $Root" -Completed
+Write-Host ("{0} files in {1} holder folders -> {2}" -f $script:count, $holders.Count, $Out)

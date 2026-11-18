@@ -160,6 +160,10 @@ padding ignored), the folder above it is kept as the holder's archive. Rules: `A
 folders), `ARCHIVE_NO_FOLDER` (mandates with no archive folder). The AI assistant then types the documents and lists
 the clients missing KYC documents.
 
+While the Windows script writes the inventory, **Overview › Archive inventory** shows a progress bar of the mandate holders
+done, being listed and waiting (from `archive_holders.txt` beside the CSV), and *Run migration* asks before running on an
+unfinished listing.
+
 ## n8n workflows
 
 `n8n/m2-n8n.sh install|start|stop|status|import|run-report` runs n8n locally (127.0.0.1, port 5678 or the next free

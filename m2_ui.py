@@ -456,6 +456,81 @@ def latest_run():
     return runs[0]
 
 
+# -- archive inventory being written (PowerShell on the Windows side appends to the CSV, holder after holder) ----
+INVENTORY_CACHE = {}        # path -> {'offset', 'mtime', 'counts', 'folders', 'order', 'size'}
+INVENTORY_IDLE = 120        # seconds without a write after which the listing is taken as ended
+
+
+def _squash(name):
+    return re.sub(r'[\s_-]+', '', name).upper()
+
+
+def _inventory_read(path):
+    """Counts per top folder, reading only what was appended since the last call."""
+    st = path.stat()
+    c = INVENTORY_CACHE.get(str(path))
+    if not c or st.st_size < c['offset'] or st.st_mtime < c['mtime'] - 1:
+        c = INVENTORY_CACHE[str(path)] = {'offset': 0, 'mtime': 0, 'counts': {}, 'folders': {}, 'order': []}
+    with path.open('rb') as fh:
+        fh.seek(c['offset'])
+        chunk = fh.read()
+    end = chunk.rfind(b'\n') + 1                   # a line still being written is read next time
+    for line in chunk[:end].decode('utf-8-sig', errors='replace').splitlines():
+        if not line.startswith('"') or line.startswith('"Path"'):
+            continue
+        parts = line[1:].split('","', 1)[0].split('\\')
+        if len(parts) < 2:
+            continue
+        top = parts[0]
+        if top not in c['counts']:
+            c['counts'][top] = 0
+            c['folders'][top] = set()
+            c['order'].append(top)
+        c['counts'][top] += 1
+        if len(parts) > 2:
+            c['folders'][top].add(parts[1])
+    c['offset'] += end
+    c['mtime'] = st.st_mtime
+    c['size'] = st.st_size
+    return c
+
+
+def api_inventory(params):
+    """Progress of the archive inventory in `folder` (default: the source folder): per mandate holder of
+    archive_holders.txt done, being listed or waiting, with files and mandate folders so far."""
+    folder = Path(params.get('folder') or ui_settings().get('source') or '').expanduser()
+    if not str(folder) or not folder.is_dir():
+        return {'file': None}
+    found = sorted((p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == '.csv'
+                    and re.search(r'inventory|inventar|dateiliste|file ?list', p.name, re.I)),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    if not found:
+        return {'file': None}
+    path = found[0]
+    c = _inventory_read(path)
+    idle = max(0, int(datetime.datetime.now().timestamp() - c['mtime']))
+    listed = folder / 'archive_holders.txt'
+    expected = [x.strip() for x in listed.read_text(encoding='utf-8-sig').splitlines()
+                if x.strip() and not x.lstrip().startswith('#')] if listed.is_file() else []
+    by_key = {_squash(t): t for t in c['order']}
+    current = c['order'][-1] if c['order'] else None
+    writing = idle < INVENTORY_IDLE
+    holders = []
+    for name in expected or c['order']:
+        top = by_key.get(_squash(name))
+        files = c['counts'].get(top, 0) if top else 0
+        state = 'waiting' if not files else 'listing' if writing and top == current else 'done'
+        holders.append({'name': name, 'state': state, 'files': files,
+                        'folders': len(c['folders'].get(top, ())) if top else 0})
+    extra = [t for t in c['order'] if expected and _squash(t) not in {_squash(x) for x in expected}]
+    done = sum(h['state'] == 'done' for h in holders)
+    state = 'writing' if writing else 'complete' if all(h['files'] for h in holders) else 'stopped'
+    return {'file': path.name, 'others': [p.name for p in found[1:]], 'state': state, 'idle': idle,
+            'size': c['size'], 'files': sum(c['counts'].values()), 'holders': holders, 'extra': extra,
+            'done': done, 'total': len(holders), 'listing': next((h['name'] for h in holders if h['state'] == 'listing'),
+                                                                   None), 'expected_list': bool(expected)}
+
+
 def api_health():
     """No token, no data: whether a run goes and how the last one ended (for Portwatch)."""
     running = next((j['id'] for j in JOBS.values() if j['state'] == 'running'), None)
@@ -565,7 +640,7 @@ def api_routes(_params):
 
 ROUTES = {
     ('GET', '/api/state'): api_state, ('GET', '/api/events'): api_events, ('GET', '/api/runs'): api_runs,
-    ('GET', '/api/browse'): api_browse,
+    ('GET', '/api/browse'): api_browse, ('GET', '/api/inventory'): api_inventory,
     ('POST', '/api/run'): start_run, ('POST', '/api/config'): api_config, ('POST', '/api/decide'): api_decide,
     ('POST', '/api/sample'): api_sample, ('POST', '/api/open'): api_open,
     ('GET', '/api/ai/status'): api_ai_status, ('GET', '/api/ai'): api_ai, ('GET', '/api/summary'): api_summary,

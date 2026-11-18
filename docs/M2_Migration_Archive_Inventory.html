@@ -22,6 +22,14 @@ loose files of the root (such as the <i>Archive (L) - Verknüpfung</i> shortcut)
 one mandate holder per line (lines starting with <code>#</code> are comments; spaces and hyphens are ignored, so
 <code>NOVA-PH2</code> matches the folder <code>NOVA-PH 2</code>). The run then warns about every holder the inventory lacks.
 The file stays with the data, outside the repository.</p>
+<p><b>Watching the listing.</b> The script writes rows straight into the CSV, holder after holder, and shows a progress bar
+per holder in the PowerShell window. In the UI, <b>Overview › Archive inventory</b> follows the CSV of the source folder
+every 5 seconds: a bar of the holders done, then one chip per holder of <code>archive_holders.txt</code>, done (tick, files),
+being listed (spinner, files so far) or waiting, the files in all and the time of the last write. When nothing has been
+written for two minutes the card says <i>complete</i>, or <i>stopped</i> when holders are still missing. It warns about a
+second inventory CSV in the folder (holders counted twice), and <b>Run migration</b> asks before starting while the listing
+is still running. Writing to <code>\\tsclient\…</code> over the remote desktop is slow; for speed, write to a local disk
+and copy the finished CSV (the card then only shows the end).</p>
 <p>Without the script, the same in one line:</p>
 <pre>Get-ChildItem 'Z:\NOVA-PH' -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Substring(3)}}, Length, @{n='Modified';e={$_.LastWriteTime.ToString('yyyy-MM-dd HH:mm')}} | Export-Csv "$env:USERPROFILE\Documents\M2 Archive inventory.csv" -NoTypeInformation -Encoding UTF8</pre>
 <h2>2. Use it</h2>

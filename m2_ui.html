@@ -215,6 +215,14 @@ details.card[open] > summary > .ic:first-child { transform: rotate(90deg); }
 details.card[open] > summary { margin-bottom: 10px; }
 details.card > summary .muted { font-weight: 400; }
 .ptitle { font-size: 20px; font-weight: 700; margin: 0 0 12px; letter-spacing: -.2px; }
+.inv h2 .pill { font-size: 12px; }
+.holders { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.hold { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px;
+  padding: 2px 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.hold b { font-weight: 600; } .hold .ic { width: 14px; height: 14px; }
+.hold.done { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.hold.listing { color: var(--info-fg); border-color: var(--info); background: color-mix(in srgb, var(--info) 8%, var(--surface)); }
+.hold.waiting { color: var(--text-muted); border-style: dashed; }
 .pagehead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .pagehead h2 { margin: 0; font-size: 18px; flex: 1; min-width: 200px; }
 .pagehead p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); font-weight: 400; }
@@ -520,6 +528,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
     <main id="main" tabindex="-1">
       <h1 class="ptitle" id="ptitle">Overview</h1>
       <div id="banner"></div>
+      <div id="invprog"></div>
       <section class="panel" data-tab="overview"></section>
       <section class="panel" data-tab="decide"></section>
       <section class="panel" data-tab="ai"></section>
@@ -730,7 +739,7 @@ function renderShell() {
     <span class="mono">${esc(S.info.home || '')}</span><a href="#docs">Docs</a><a href="#docs/ref-api">API</a>` : '';
   $('#ver').textContent = S.info?.version ? 'v' + S.info.version : '';
 }
-function render() { renderShell(); (RENDER[S.tab] || (() => {}))(); labelScrollers(); }
+function render() { renderShell(); (RENDER[S.tab] || (() => {}))(); renderInventory(); labelScrollers(); }
 /* a box that scrolls on its own must be reachable and named for keyboard and screen-reader users */
 function labelScrollers() {
   $$('main .tablewrap, main .list, main #jwrap, main .free').forEach(el => { if (el.hasAttribute('tabindex')) return;
@@ -1344,9 +1353,42 @@ async function poll() {
   try { S.info = await api('/api/state', undefined, {quiet: true}); } catch (e) { /* keeps the last settings */ }
   render(); loadAI();
 }
+// ---------- archive inventory being written (Windows PowerShell appends to the CSV in the source folder) ----------
+async function loadInventory() {
+  clearTimeout(S.invTimer);
+  const folder = ($('#source')?.value || '').trim();
+  try { S.inv = await api('/api/inventory' + (folder ? '?folder=' + encodeURIComponent(folder) : ''), undefined, {quiet: true}); }
+  catch (e) { /* offline: the banner says so; keep the last state */ }
+  renderInventory();
+  S.invTimer = setTimeout(loadInventory, S.inv?.state === 'writing' ? 5000 : 60000);
+}
+function renderInventory() {
+  const el = $('#invprog'); if (!el) return; const v = S.inv;
+  if (S.tab !== 'overview' || !v?.file) { el.innerHTML = ''; return; }
+  const pct = v.total ? Math.round(100 * v.done / v.total) : 0;
+  const label = {writing: 'listing', complete: 'complete', stopped: 'stopped'}[v.state];
+  const cur = v.holders.find(h => h.state === 'listing');
+  const ago = v.idle < 90 ? `${v.idle} s ago` : `${Math.round(v.idle / 60)} min ago`;
+  const line = v.state === 'writing'
+    ? `${v.done} of ${v.total} mandate holders done${cur ? `, listing ${esc(cur.name)} (${fmt(cur.files)} files so far)` : ''}. ${fmt(v.files)} files in all; last write ${ago}.`
+    : v.state === 'complete' ? `All ${v.total} mandate holders listed: ${fmt(v.files)} files. The inventory is ready for a run.`
+    : `The file has not changed for ${ago} and ${v.total - v.done} holder(s) have no files: the listing stopped early or covered only part of the drive.`;
+  const icon = {done: ic('check'), listing: '<span class="spin" style="width:12px;height:12px"></span>', waiting: ''};
+  el.innerHTML = `<div class="card inv"><h2>${ic('folder')}Archive inventory <span class="mono small muted" style="font-weight:400">${esc(v.file)}</span>
+      <span class="grow"></span><span class="pill ${v.state === 'writing' ? 'running' : v.state === 'complete' ? 'done' : 'failed'}">${label}</span></h2>
+    <div class="bar tall" role="progressbar" aria-label="Mandate holders listed" aria-valuemin="0" aria-valuemax="${v.total}" aria-valuenow="${v.done}"
+      aria-valuetext="${v.done} of ${v.total} holders"><i style="width:${pct}%;background:var(--${v.state === 'stopped' ? 'warn' : 'ok'})"></i></div>
+    <p class="small" style="margin:8px 0 0">${line}</p>
+    ${v.others.length ? `<p class="small" style="margin:6px 0 0;color:var(--warn-fg)">${ic('warn')} Also in the folder: ${v.others.map(x => `<span class="mono">${esc(x)}</span>`).join(', ')}. Move ${v.others.length === 1 ? 'it' : 'them'} aside before the run, or those holders are counted twice.</p>` : ''}
+    ${v.expected_list ? '' : '<p class="small muted" style="margin:6px 0 0">No archive_holders.txt beside the CSV: the holders below are the ones found so far, not the full list.</p>'}
+    <div class="holders">${v.holders.map(h => `<span class="hold ${h.state}" title="${esc(h.name)}: ${h.state}${h.files ? `, ${fmt(h.files)} files in ${fmt(h.folders)} mandate folders` : ''}">${icon[h.state]}${esc(h.name)}${h.files ? ` <b>${fmt(h.files)}</b>` : ''}<span class="sr">, ${h.state}</span></span>`).join('')}</div>
+    ${v.extra.length ? `<p class="small muted" style="margin:8px 0 0">Also on the drive, not in archive_holders.txt: ${v.extra.map(esc).join(', ')}</p>` : ''}</div>`;
+}
+
 async function startRun() {
   const source = $('#source').value.trim();
   if (!source) { toast('Choose the folder with the M2 exports first.', {type: 'warn', action: {label: 'Browse…', fn: () => browse()}}); $('#source').focus(); return; }
+  if (S.inv?.state === 'writing' && !confirm(`The archive inventory is still being written: ${S.inv.done} of ${S.inv.total} mandate holders done. A run now sees only part of the archive. Run anyway?`)) return;
   if (S.starting) return; S.starting = true; renderShell();
   try { const r = await api('/api/run', {source}); loadRuns(r.run).catch(() => {}); S.filter.follow = true; go('journal'); await openRun(r.run, true); }
   catch (e) { toast(e.message, {type: 'error'}); }
@@ -1450,10 +1492,11 @@ $('#dprev').onclick = () => stepEvent(-1); $('#dnext').onclick = () => stepEvent
 $('#dcopy').onclick = () => { const e = S.events.find(x => x.seq === S.drawerSeq); if (e) copy(JSON.stringify(e, null, 2), 'Event copied as JSON'); };
 $('#run').onclick = startRun;
 $('#source').onkeydown = ev => { if (ev.key === 'Enter') startRun(); };
+$('#source').onchange = () => loadInventory();
 $('#runs').onchange = ev => { if (ev.target.value) openRun(ev.target.value); };
 $('#browse').onclick = () => browse();
 $('#pclose').onclick = () => $('#picker').classList.remove('on');
-$('#puse').onclick = () => { $('#source').value = S.browsePath; $('#picker').classList.remove('on'); toast('Folder chosen', {type: 'success', ms: 5000, detail: S.browsePath, action: {label: 'Run migration', fn: startRun}}); };
+$('#puse').onclick = () => { $('#source').value = S.browsePath; $('#picker').classList.remove('on'); loadInventory(); toast('Folder chosen', {type: 'success', ms: 5000, detail: S.browsePath, action: {label: 'Run migration', fn: startRun}}); };
 $('#sample-en').onclick = () => sample(true);
 $('#sample').onclick = () => sample(false);
 window.M2 = {S, go, api, toast, render};   // for the browser console and for agents driving the page
@@ -1462,6 +1505,7 @@ window.M2 = {S, go, api, toast, render};   // for the browser console and for ag
 (async () => {
   setTheme(store.get('m2theme', 'auto')); setPalette(store.get('m2palette', 'aubergine')); if (store.get('m2rail', '')) $('#app').classList.add('rail');
   new MutationObserver(labelScrollers).observe($('main'), {childList: true, subtree: true});   // also boxes drawn later
+  loadInventory();
   if (!fromHash()) { S.tab = store.get('m2tab', 'overview'); if (!RENDER[S.tab]) S.tab = 'overview'; }
   render();
   try {

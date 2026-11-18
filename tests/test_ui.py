@@ -3,6 +3,7 @@
     .venv/bin/python -m unittest discover -s tests -v
 """
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -146,6 +147,26 @@ class TestServer(unittest.TestCase):
         self.assertEqual(self.get('/api/doc-file?name=M2_Migration_Running_and_UI.pdf')[:2], (200, 'application/pdf'))
         self.assertEqual(self.get('/api/doc-file?name=../m2_config.json')[0], 404)
         self.assertEqual(self.get('/api/doc-file?name=M2_Migration_Running_and_UI.pdf', token=False)[0], 403)
+
+    def test_inventory_progress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp, 'M2 Archive inventory.csv')
+            csv_path.write_text('"Path","Length","Modified"\r\n"NOVA-PH\\KP-00001-ENT\\a.pdf","1","2024-01-01 10:00"\r\n'
+                                '"NOVA-PH 2\\NOVA-PH\\KP-00002-CON\\b.pdf","1","2024-01-01 10:00"\r\n"NOVA-PH 2\\NOVA-PH\\KP-00002',
+                                encoding='utf-8-sig')                  # the last line is still being written
+            Path(tmp, 'archive_holders.txt').write_text('# holders\nNOVA-PH\nNOVA-PH2\nNOVA-DUBAI\n', encoding='utf-8')
+            r = m2_ui.api_inventory({'folder': tmp})
+            self.assertEqual((r['state'], r['done'], r['total'], r['files'], r['listing']), ('writing', 1, 3, 2, 'NOVA-PH2'))
+            self.assertEqual([h['state'] for h in r['holders']], ['done', 'listing', 'waiting'])
+            with csv_path.open('a', encoding='utf-8') as fh:            # the line completes, the next holder starts
+                fh.write('\\c.pdf","1","2024-01-01 10:00"\r\n"NOVA-DUBAI\\KP-00003-ENT\\d.pdf","1","2024-01-01 10:00"\r\n')
+            r = m2_ui.api_inventory({'folder': tmp})
+            self.assertEqual((r['done'], r['files'], r['listing']), (2, 4, 'NOVA-DUBAI'))
+            self.assertEqual(r['holders'][1]['folders'], 1)
+            old = csv_path.stat().st_mtime - 3600                        # no write for an hour: complete
+            os.utime(csv_path, (old, old)); m2_ui.INVENTORY_CACHE.clear()
+            r = m2_ui.api_inventory({'folder': tmp})
+            self.assertEqual((r['state'], r['done']), ('complete', 3))
 
     def test_routes_are_described(self):
         routes = json.loads(self.get('/api/routes')[2])['routes']
