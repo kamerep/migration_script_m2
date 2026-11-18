@@ -10,7 +10,7 @@ signatories, contact persons, Fees, open items) export the list to Excel or CSV 
 report titles above them are fine.</p>
 <p>With the English M2 interface (<i>Infosystem › Mandate info</i>) the grid titles are read as they are: Mandate overview,
 Address, Detail addr., Bank / Account / Authorized to sign, Fees, Invoice, Compliance, Document. A grid exported for one
-mandate has no mandate column: name the file after the mandate, e.g. <code>AP-482-ACC Detail addr.xlsx</code>. Copy M2's document
+mandate has no mandate column: name the file after the mandate, e.g. <code>KP-482-ACC Detail addr.xlsx</code>. Copy M2's document
 folders (named after the mandate number) next to the exports to have the files indexed per client.</p>
 <h2>2. Start the tool</h2><p><code>.venv/bin/python m2_ui.py</code> opens <code>http://127.0.0.1:8796</code> (the next free port when it is taken).
 Choose the folder with <b>Browse…</b> (the picker shows how many export files a folder holds), or open <b>Sample data</b> and pick <i>German headers</i> or <i>English M2 grids</i> to try it with fictitious exports, then press <b>Run migration</b> (<code>Ctrl+Enter</code>).</p>
@@ -37,7 +37,11 @@ every load an update.</p>
 <h2>7. Finding your way in the page</h2>
 <table><tr><th>Where</th><th>What it is for</th></tr>
 <tr><td>Side bar</td><td>The sections in three groups: <i>Run</i> (Overview, Needs decision, AI assistant), <i>Inspect</i> (Journal, Records, Files &amp; columns, Review rows,
-Changes &amp; not loaded, Finance) and <i>Configure</i> (Settings, Docs). The button at its foot folds it to icons.</td></tr>
+Changes &amp; not loaded, Finance) and <i>Configure</i> (Settings, Docs). The button at its foot folds it to icons.
+On a phone or a window narrower than 900 px the side bar becomes a top bar: the button with the current section's name opens every section as a list.</td></tr>
+<tr><td>Needs decision count</td><td>Red: decisions you can save here (company, employee, file kind, column, type code) that are not saved yet.
+Grey: nothing to save, only items fixed at the source (in M2 or in the review file, then run again). The Overview says both, e.g. <i>Needs decision: 2 decisions to save, 194 to fix at the source</i>.</td></tr>
+<tr><td>Tool decisions</td><td>The card and the count in the run bar: choices the migration made by itself and wrote to the journal (level <i>decision</i>), e.g. an archive folder linked to a client. Nothing to do; open them to check.</td></tr>
 <tr><td>Search and commands (<code>Ctrl+K</code>)</td><td>Type a section, a mandate number or name, a rule, a guide or a command (Run migration, Switch theme, Download…) and press Enter.</td></tr>
 <tr><td>Messages (bottom right)</td><td>Green: done. Amber: needs your attention. Red: failed, and stays until closed. A message about a saved decision carries <b>Undo</b>.</td></tr>
 <tr><td>Loading</td><td>A thin bar at the very top while the tool is asked something, grey placeholders while a section loads, a spinner on the button that is working.
@@ -45,9 +49,10 @@ If the tool stops answering, a banner says so and the page reconnects by itself.
 <tr><td>Docs</td><td>These guides inside the tool, with search, plus reference pages built from the code: HTTP API, MCP tools, command line, keyboard and links.</td></tr>
 <tr><td>Theme and colours</td><td>Light, dark or as the system, and five colour palettes (Aubergine &amp; lavender, Mauve &amp; sage, Forest green, Lime &amp; indigo, Rose &amp; sky): the buttons at the foot of the side bar, or Settings › This browser. The side bar, the count cards, the buttons and the tab icon follow the palette; the level colours (error, review, warning…) stay the same in all of them.</td></tr></table>
 <p>Keys: <code>/</code> focuses the search of the section, <code>[</code> and <code>]</code> move between sections, <code>1</code>–<code>0</code> jump to one,
-<code>↑</code> <code>↓</code> step through events while the details are open, <code>Esc</code> closes, <code>?</code> lists them all.</p>
+<code>↑</code> <code>↓</code> step through events while the details are open, <code>Esc</code> closes, <code>?</code> lists them all.
+The first <code>Tab</code> on the page offers <b>Skip to content</b>.</p>
 <h2>Files of a run</h2><p>Each run is kept in <code>runs/&lt;stamp&gt;/</code>: the two workbooks, <code>journal.jsonl</code>, <code>summary.json</code>,
-<code>run.log</code> and the <code>config.json</code> it ran with. Earlier runs open from the run selector.</p>
+<code>run.log</code> and the <code>config.json</code> it ran with, plus <code>brief.json</code> (totals and levels for the run selector, so the list opens at once even when a summary is tens of MB). Earlier runs open from the run selector.</p>
 <h2>Terminal</h2><p><code>.venv/bin/python migration_script_m2_odoo.py &lt;folder&gt; [&lt;output&gt;] [--config m2_config.json] [--quiet]</code>
 prints the same journal; the exit code is 1 when there are errors.</p><h2>Portwatch: deploy and monitoring</h2><p>The UI is watched by Portwatch as <b>M2 → CSP Migration</b> (port 8796, group Tools):
 a health check on <code>/health</code>, the server log <code>logs/m2_ui.log</code> (UI start, every run start and result, failed requests), Start / Stop / Restart,

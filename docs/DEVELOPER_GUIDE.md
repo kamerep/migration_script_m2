@@ -119,7 +119,8 @@ Colours are CSS variables only. Never write a hex value in a rule or in script.
 | `--link` | Accent as text: links, M2 keys, focus ring |
 | `--side-bg`, `--side-text` | Side bar; everything in it is mixed from `--side-text` |
 | `--k1`…`--k4`, `--k1t`…`--k4t` | The four tones of the count cards and their text colour |
-| `--danger`, `--orange`, `--warn`, `--info`, `--violet`, `--ok` | Levels: error, review, warning, decision, change, done. **Same in every palette** |
+| `--danger`, `--orange`, `--warn`, `--info`, `--violet`, `--ok` | Levels: error, review, warning, decision, change, done. **Same in every palette**. For fills, bars and dots |
+| `--danger-fg` … `--ok-fg` | The same levels as **text**: mixed 32 % toward `--text`, so they keep 4.5 : 1 on their own tints in every palette, light and dark. Use these for any coloured text |
 
 Five palettes: `aubergine` (default, in `:root`), `mauve`, `forest`, `lime`, `rose`. The choice is stored per
 browser (`localStorage.m2palette`) and set as `data-palette` on `<html>`; `data-theme` is always `light` or `dark`.
@@ -211,7 +212,8 @@ Walk this once in the browser after a deploy:
 - [ ] AI assistant: Ollama shows ready; Run all shows a progress bar per task, then suggestions with Accept
 - [ ] Docs: five guides and four reference pages; search highlights; PDF opens
 - [ ] Settings › This browser: each of the five palettes in light and in dark
-- [ ] `Ctrl+K`, `?`, `[` `]`, `/` work; fold the side bar; narrow the window below 900 px
+- [ ] `Ctrl+K`, `?`, `[` `]`, `/` work; fold the side bar; narrow the window below 900 px: the section button opens every section, Esc closes it
+- [ ] First `Tab` shows "Skip to content"
 - [ ] Stop the tool (`bin/m2ctl.sh stop`): banner "Connection lost"; start it: "Connected again"
 
 ---
@@ -223,6 +225,10 @@ Walk this once in the browser after a deploy:
 * The assistant's progress bar was exercised on its start and failure paths only (no Ollama in the build workspace).
 * The Journal renders the last 1,500 matching events with "Show more"; it is not virtualised.
 * On the Rose & sky palette the accent red sits close to the error red.
+* UI review against the Interface Craft Playbook (18 Nov 2026): contrast measured on every visible text in the 5 palettes × light/dark
+  (0 failures), 11 sections at 360/390/768/1024/1440 px with no overflow and 44 px targets on touch, skip link, no section fade,
+  hover lift and tracked capitals removed. Written waivers: the pulsing dot of the running status (live state, text says it, off
+  under reduced motion) and the middle dots of the run selector (an `<option>` holds plain text only).
 * Records, Finance and Changes & not loaded were restyled, not redesigned.
 
 ---

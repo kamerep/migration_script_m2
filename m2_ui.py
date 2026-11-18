@@ -195,6 +195,25 @@ def api_events(params):
             'trace': job.get('trace'), 'source': job.get('source'), 'started': job.get('started')}
 
 
+def run_brief(path):
+    """Totals, levels and source of a run without parsing its summary each time: summary.json of an archive run is
+    tens of MB, so brief.json (written once beside it, rebuilt when the summary is newer) is read instead."""
+    summary, brief = path / 'summary.json', path / 'brief.json'
+    try:
+        if brief.stat().st_mtime >= summary.stat().st_mtime:
+            return read_json(brief) or {}
+    except OSError:
+        pass
+    data = read_json(summary) or {}
+    out = {k: data.get(k) for k in ('totals', 'levels', 'source')} if data else {}
+    if out:
+        try:
+            brief.write_text(json.dumps(out), encoding='utf-8')
+        except OSError:
+            pass
+    return out
+
+
 def api_runs(_params):
     """The last 60 runs: id, state, source folder, totals and level counts."""
     runs = []
@@ -202,7 +221,7 @@ def api_runs(_params):
         for path in sorted(RUNS.iterdir(), reverse=True)[:60]:
             if not path.is_dir():
                 continue
-            summary = read_json(path / 'summary.json') or {}
+            summary = run_brief(path)
             state = read_json(path / 'state.json') or {}
             running = JOBS.get(path.name, {}).get('state') == 'running'
             runs.append({'id': path.name, 'state': 'running' if running else state.get('state') or

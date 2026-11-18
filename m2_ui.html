@@ -46,6 +46,11 @@
   --ok: #3fb950; --warn: #d29922; --danger: #f85149; --info: #58a6ff; --violet: #bc8cff; --orange: #f0883e;
   --shadow: 0 8px 24px rgba(0,0,0,.5); --shadow-sm: none; color-scheme: dark;
 }
+/* Level colours as text: mixed toward the theme's text colour so that they keep 4.5:1 on their own tints in every
+   palette, light and dark (the fills, bars and dots keep the pure level colour). */
+:root { --ok-fg: color-mix(in srgb, var(--ok) 68%, var(--text)); --warn-fg: color-mix(in srgb, var(--warn) 68%, var(--text));
+  --danger-fg: color-mix(in srgb, var(--danger) 68%, var(--text)); --info-fg: color-mix(in srgb, var(--info) 68%, var(--text));
+  --violet-fg: color-mix(in srgb, var(--violet) 68%, var(--text)); --orange-fg: color-mix(in srgb, var(--orange) 68%, var(--text)); }
 /* ---------- palettes (Settings > This browser); the default, aubergine, is in :root above ---------- */
 [data-palette="mauve"] { --accent: #4d3d47; --accent-hover: #3d2f38; --accent-contrast: #ffffff; --link: #6a4f60; --side-bg: #4d3d47; --side-text: #ffffff;
   --k1: #6b6062; --k1t: #ffffff; --k2: #9a968c; --k2t: #1c1a17; --k3: #cdd0b0; --k3t: #1f1f14; --k4: #e0d7de; --k4t: #2a1f27; }
@@ -74,7 +79,13 @@ h3, h4 { text-wrap: balance; }
 .muted { color: var(--text-muted); }
 .small { font-size: 12.5px; }
 .mono { font-family: var(--mono); font-size: 12.5px; }
-.grow { flex: 1; min-width: 0; }
+.grow { flex: 1; min-width: 0; } .toolbar > .grow { flex: 1 1 260px; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 200; padding: 12px 16px; min-height: 44px; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--accent-contrast); font-weight: 600; text-decoration: none; }
+.skip:focus { top: 10px; }
+main:focus { outline: none; }
+.side .navbtn { display: none; }
+code { background: var(--surface-2); padding: 0 5px; border-radius: 4px; font: 12px var(--mono); overflow-wrap: anywhere; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 kbd { font: 11.5px/16px var(--mono); background: var(--surface-2); border: 1px solid var(--border-strong); border-bottom-width: 2px;
   border-radius: 4px; padding: 0 5px; white-space: nowrap; }
@@ -119,20 +130,20 @@ input[type=checkbox].sw:checked::after { transform: translateX(14px); }
 .brand svg { width: 32px; height: 32px; flex: none; }
 .brand .m1 { fill: var(--side-text); } .brand .m2 { fill: var(--side-bg); } .brand .m3 { fill: none; stroke: var(--side-bg); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; }
 .brand b { font-size: 15px; font-weight: 700; letter-spacing: -.2px; display: block; line-height: 17px; }
-.brand b i { font-style: normal; opacity: .7; }
-.brand small { font-size: 10.5px; letter-spacing: 1.8px; opacity: .7; text-transform: uppercase; font-weight: 600; }
+.brand b i { font-style: normal; opacity: .85; }
+.brand small { font-size: 11.5px; opacity: .85; font-weight: 600; }
 .nav { flex: 1; overflow: auto; padding: 8px; }
-.nav h6 { margin: 12px 8px 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--side-text) 62%, transparent); font-weight: 600; }
+.nav h6 { margin: 12px 8px 4px; font-size: 12px; color: color-mix(in srgb, var(--side-text) 76%, transparent); font-weight: 600; }
 .nav h6:first-child { margin-top: 4px; }
 .tab { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; background: none; cursor: pointer;
-  border-radius: var(--radius-sm); color: color-mix(in srgb, var(--side-text) 82%, transparent); text-align: left; white-space: nowrap; position: relative; }
+  border-radius: var(--radius-sm); color: color-mix(in srgb, var(--side-text) 90%, transparent); text-align: left; white-space: nowrap; position: relative; }
 .tab:hover { background: color-mix(in srgb, var(--side-text) 10%, transparent); color: var(--side-text); }
 .tab.on { background: color-mix(in srgb, var(--side-text) 17%, transparent); color: var(--side-text); font-weight: 600; }
 .tab .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.tab .n { font-size: 11.5px; font-weight: 600; background: color-mix(in srgb, var(--side-text) 14%, transparent); border-radius: 999px; padding: 0 7px; font-variant-numeric: tabular-nums; }
-.tab .n.hot { background: var(--danger); color: #fff; }
+.tab .n { color: var(--side-text); font-size: 11.5px; font-weight: 600; background: color-mix(in srgb, var(--side-text) 9%, transparent); border-radius: 999px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+.tab .n.hot { background: color-mix(in srgb, var(--danger) 78%, black); color: white; }   /* darkened so white keeps 4.5:1 in dark */
 .side-foot { border-top: 1px solid color-mix(in srgb, var(--side-text) 14%, transparent); padding: 8px; display: flex; gap: 4px; align-items: center; }
-.side-foot .ver { margin-left: auto; font-size: 11.5px; opacity: .65; padding-right: 6px; }
+.side-foot .ver { margin-left: auto; font-size: 11.5px; opacity: .8; padding-right: 6px; }
 .side-foot .btn { color: color-mix(in srgb, var(--side-text) 80%, transparent); } .side-foot .btn:hover { background: color-mix(in srgb, var(--side-text) 12%, transparent); color: var(--side-text); }
 .side :focus-visible { outline-color: var(--side-text); }
 @media (min-width: 901px) {
@@ -152,9 +163,10 @@ input[type=checkbox].sw:checked::after { transform: translateX(14px); }
 .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600;
   border: 1px solid var(--border); white-space: nowrap; }
 .pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.pill.running { color: var(--info); border-color: var(--info); } .pill.running::before { animation: pulse 1s ease-in-out infinite; }
-.pill.done { color: var(--ok); border-color: var(--ok); }
-.pill.failed, .pill.offline { color: var(--danger); border-color: var(--danger); }
+/* Waiver (playbook I1, pulsing dot): it shows a live state, the text says "running n%", and reduced motion stops it. */
+.pill.running { color: var(--info-fg); border-color: var(--info); } .pill.running::before { animation: pulse 1s ease-in-out infinite; }
+.pill.done { color: var(--ok-fg); border-color: var(--ok); }
+.pill.failed, .pill.offline { color: var(--danger-fg); border-color: var(--danger); }
 .pill.idle, .pill.loading { color: var(--text-muted); }
 @keyframes pulse { 50% { opacity: .25; } }
 .menu { position: relative; }
@@ -165,16 +177,17 @@ input[type=checkbox].sw:checked::after { transform: translateX(14px); }
 .menu .pop button:hover { background: var(--surface-2); }
 .menu .pop span { display: block; font-size: 12px; color: var(--text-muted); white-space: normal; }
 /* run strip: stages, live counts, progress */
-.runbar { display: flex; gap: 6px; padding: 6px 16px 8px; align-items: center; overflow-x: auto; position: relative; }
+.runbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 16px 8px; align-items: center; position: relative; }
 .runbar:empty { display: none; }
 .stage { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--surface-2);
   color: var(--text-muted); white-space: nowrap; }
 .stage .ic { width: 12px; height: 12px; stroke-width: 3; }
-.stage.on { background: color-mix(in srgb, var(--info) 18%, var(--surface)); color: var(--info); font-weight: 600; }
-.stage.past { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
-.stage.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.stage.on { background: color-mix(in srgb, var(--info) 18%, var(--surface)); color: var(--info-fg); font-weight: 600; }
+.stage.past { color: var(--ok-fg); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
+.stage.bad { color: var(--danger-fg); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
 .runmeta { font-size: 12px; color: var(--text-muted); white-space: nowrap; margin-left: 4px; font-variant-numeric: tabular-nums; }
-.counts { margin-left: auto; display: flex; gap: 6px; padding-left: 10px; }
+.counts { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; padding-left: 10px; }
+@media (max-width: 900px) { .counts { margin-left: 0; padding-left: 0; } }
 .counts .lv { cursor: pointer; }
 .runline { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: transparent; }
 .runline i { display: block; height: 100%; background: var(--info); transition: width .3s; }
@@ -185,7 +198,7 @@ input[type=checkbox].sw:checked::after { transform: translateX(14px); }
 .topprog i { position: absolute; top: 0; bottom: 0; width: 35%; background: var(--accent); border-radius: 3px; animation: slide 1.1s ease-in-out infinite; }
 @keyframes slide { from { left: -35%; } to { left: 100%; } }
 main { padding: 16px; max-width: 1560px; width: 100%; margin: 0 auto; flex: 1; }
-.panel { display: none; } .panel.on { display: block; animation: fade .14s ease-out; }
+.panel { display: none; } .panel.on { display: block; }   /* no fade: sections switch many times a day, often by key */
 @keyframes fade { from { opacity: 0; transform: translateY(3px); } }
 .foot { padding: 10px 16px 14px; font-size: 12px; color: var(--text-muted); display: flex; gap: 14px; flex-wrap: wrap; }
 .foot a { color: inherit; }
@@ -207,10 +220,11 @@ details.card > summary .muted { font-weight: 400; }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 @media (max-width: 700px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kpi { background: var(--kb, var(--surface)); color: var(--kt, var(--text)); border: 0; border-radius: var(--radius); padding: 12px 16px; cursor: pointer; text-align: left;
-  transition: transform .1s, box-shadow .1s; }
+  transition: transform .1s cubic-bezier(0.23, 1, 0.32, 1), box-shadow .15s; }
 .kpi:nth-child(4n+1) { --kb: var(--k1); --kt: var(--k1t); } .kpi:nth-child(4n+2) { --kb: var(--k2); --kt: var(--k2t); }
 .kpi:nth-child(4n+3) { --kb: var(--k3); --kt: var(--k3t); } .kpi:nth-child(4n+4) { --kb: var(--k4); --kt: var(--k4t); }
-.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+@media (hover: hover) and (pointer: fine) { .kpi:hover { box-shadow: var(--shadow); } }
+.kpi:active { transform: scale(.97); }
 .kpi b { display: block; font-size: 28px; line-height: 34px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
 .kpi.zero b { opacity: .55; }
@@ -237,17 +251,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.wide { min-width: 260px; } td.mid { min-width: 200px; }
 .tablewrap { overflow: auto; max-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .tablewrap.free { max-height: none; }
-.fixtext { color: var(--ok); font-size: 12.5px; }
-.lv { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; text-transform: uppercase; white-space: nowrap;
-  letter-spacing: .02em; line-height: 18px; }
-.lv.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger); }
-.lv.review { background: color-mix(in srgb, var(--orange) 18%, var(--surface)); color: var(--orange); }
-.lv.warning { background: color-mix(in srgb, var(--warn) 18%, var(--surface)); color: var(--warn); }
-.lv.decision { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info); }
-.lv.change { background: color-mix(in srgb, var(--violet) 15%, var(--surface)); color: var(--violet); }
+.fixtext { color: var(--ok-fg); font-size: 12.5px; }
+.lv { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; white-space: nowrap;
+  line-height: 18px; }
+.lv.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger-fg); }
+.lv.review { background: color-mix(in srgb, var(--orange) 18%, var(--surface)); color: var(--orange-fg); }
+.lv.warning { background: color-mix(in srgb, var(--warn) 18%, var(--surface)); color: var(--warn-fg); }
+.lv.decision { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info-fg); }
+.lv.change { background: color-mix(in srgb, var(--violet) 15%, var(--surface)); color: var(--violet-fg); }
 .lv.not_loaded { background: var(--surface-3); color: var(--text-muted); }
 .lv.info { background: var(--surface-2); color: var(--text-muted); }
-.lv.ok { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); color: var(--ok); }
+.lv.ok { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); color: var(--ok-fg); }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .chip { border: 1px solid var(--border-strong); border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 12.5px; background: var(--surface);
   user-select: none; color: var(--text); text-decoration: none; }
@@ -273,11 +287,11 @@ td.wide { min-width: 260px; } td.mid { min-width: 200px; }
 .banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: var(--radius); margin-bottom: 14px; border: 1px solid; }
 .banner > .ic { margin-top: 2px; } .banner > div { flex: 1; min-width: 0; }
 .banner.err { border-color: color-mix(in srgb, var(--danger) 60%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
-.banner.err > .ic { color: var(--danger); }
+.banner.err > .ic { color: var(--danger-fg); }
 .banner.ok { border-color: color-mix(in srgb, var(--ok) 60%, var(--border)); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
-.banner.ok > .ic { color: var(--ok); }
+.banner.ok > .ic { color: var(--ok-fg); }
 .banner.warn { border-color: color-mix(in srgb, var(--warn) 60%, var(--border)); background: color-mix(in srgb, var(--warn) 8%, var(--surface)); }
-.banner.warn > .ic { color: var(--warn); }
+.banner.warn > .ic { color: var(--warn-fg); }
 .sk { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
   background-size: 200% 100%; animation: shimmer 1.2s linear infinite; height: 14px; margin: 8px 0; }
 .sk.kpi-sk { height: 66px; margin: 0; border-radius: var(--radius); } .sk.block { height: 180px; border-radius: var(--radius); }
@@ -308,7 +322,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   font: 12px/17px var(--mono); margin: 0; }
 .fix { display: flex; gap: 8px; border-left: 3px solid var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); padding: 8px 10px;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 10px 0; }
-.fix .ic { color: var(--ok); margin-top: 2px; }
+.fix .ic { color: var(--ok-fg); margin-top: 2px; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding-top: 10vh; }
 .modal.on { display: flex; animation: fade .12s ease-out; }
 .modal .box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: min(660px, 94vw); max-height: 76vh;
@@ -331,15 +345,15 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 .decide .ctl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
 .decide.done { opacity: .78; } .decide.done:hover, .decide.done:focus-within { opacity: 1; }
 @media (max-width: 760px) { .decide { grid-template-columns: 1fr; } .decide .ctl { justify-content: flex-start; } }
-.saved { display: inline-flex; gap: 5px; align-items: center; color: var(--ok); font-size: 12.5px; font-weight: 600; }
+.saved { display: inline-flex; gap: 5px; align-items: center; color: var(--ok-fg); font-size: 12.5px; font-weight: 600; }
 .aihint { display: inline-flex; gap: 6px; align-items: center; padding: 2px 4px 2px 9px; border-radius: 999px; border: 1px dashed var(--violet);
-  color: var(--violet); font-size: 12.5px; }
+  color: var(--violet-fg); font-size: 12.5px; }
 .aihint b { color: var(--text); }
 .conf { font-variant-numeric: tabular-nums; opacity: .85; }
 .meter { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .meter .bar { width: 46px; min-width: 46px; }
 .tag { font-size: 11px; font-weight: 600; border: 1px solid var(--border-strong); border-radius: 999px; padding: 0 8px; line-height: 18px; color: var(--text-muted); white-space: nowrap; }
-.tag.block { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 50%, var(--border)); }
+.tag.block { color: var(--orange-fg); border-color: color-mix(in srgb, var(--orange) 50%, var(--border)); }
 .progress-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .progress-row .bar { flex: 1 1 200px; }
 /* ---------- records ---------- */
@@ -364,9 +378,10 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 .sheetname { font-weight: 600; }
 /* ---------- docs ---------- */
 .docs { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 900px) { .docs { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .docs { grid-template-columns: minmax(0, 1fr); } }
+.doc pre, .doc table { max-width: 100%; overflow-x: auto; } .doc table { display: block; }
 .doclist { position: sticky; top: calc(var(--head-h) + 60px); }
-.doclist h6 { margin: 14px 4px 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.doclist h6 { margin: 14px 4px 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .doclist button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px;
   border-radius: var(--radius-sm); cursor: pointer; color: var(--text-muted); }
 .doclist button:hover { background: var(--surface-2); color: var(--text); }
@@ -388,15 +403,28 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
   .app, .app.rail { display: block; --side-w: 0px; }
   .side { position: static; height: auto; flex-direction: row; align-items: center; }
   .brand { border-bottom: 0; } .brand span, .nav h6, .side-foot .ver, #railbtn { display: none; }
-  .nav { display: flex; gap: 2px; overflow-x: auto; padding: 6px; } .tab { width: auto; gap: 6px; } .side-foot { border-top: 0; }
+  /* every section stays visible: a "Sections" button opens them as a list instead of a sideways strip */
+  .side { position: sticky; top: 0; } .side-foot { border-top: 0; margin-left: auto; }
+  .side .navbtn { display: inline-flex; color: var(--side-text); font-weight: 600; min-height: 44px; }
+  .nav { display: none; position: absolute; left: 0; right: 0; top: 100%; max-height: calc(100vh - 60px); overflow: auto;
+    overscroll-behavior: contain; background: var(--side-bg); box-shadow: var(--shadow); padding: 8px 12px 12px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 2px 8px; }
+  .side.open .nav { display: grid; } .side.open .nav h6 { display: block; grid-column: 1 / -1; }
+  .tab, .doclist button, .doclist input { min-height: 44px; }
   .side-foot .hide-rail { display: none; }
   .doclist { position: static; }
+}
+@media (max-width: 900px), (pointer: coarse) {
+  .btn, .btn.small, select, .chip, input:not([type=checkbox]):not([type=radio]), details > summary, .crumbs button { min-height: 44px; }
+  details > summary { display: flex; align-items: center; } .btn.icon { min-width: 44px; justify-content: center; }
+  .chip { display: inline-flex; align-items: center; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; } }
 @media print { .side, .head, .toasts, .foot { display: none !important; } .app { display: block; } .tablewrap { max-height: none; } }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h13l-2.5 4.5L18 13H5"/></symbol>
@@ -437,6 +465,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 <div class="app" id="app">
   <aside class="side">
     <a class="brand" href="#overview" title="M2 → CSP Migration"><svg viewBox="0 0 64 64" aria-hidden="true"><rect class="m1" width="64" height="64" rx="14"/><g class="m2"><rect x="9" y="18" width="13.5" height="6" rx="3"/><rect x="9" y="29" width="9" height="6" rx="3"/><rect x="9" y="40" width="16" height="6" rx="3"/><rect x="42" y="17" width="14" height="30" rx="4"/></g><path class="m3" d="M25.5 21l11 11-11 11"/><g class="m1"><rect x="45.5" y="23" width="7" height="3.6" rx="1.8"/><rect x="45.5" y="30.2" width="7" height="3.6" rx="1.8"/><rect x="45.5" y="37.4" width="7" height="3.6" rx="1.8"/></g></svg><span><b>M2 <i>→</i> CSP</b><small>Migration</small></span></a>
+    <button class="btn ghost navbtn" id="navbtn" aria-expanded="false" aria-controls="nav"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span id="navcur">Sections</span></button>
     <nav class="nav" id="nav" aria-label="Sections"></nav>
     <div class="side-foot">
       <button class="btn ghost icon" id="themebtn" title="Theme"></button>
@@ -466,7 +495,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
       </div>
       <div class="runbar" id="runbar"></div>
     </div>
-    <main id="main">
+    <main id="main" tabindex="-1">
       <div id="banner"></div>
       <section class="panel" data-tab="overview"></section>
       <section class="panel" data-tab="decide"></section>
@@ -503,7 +532,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: var(--surface-2
 'use strict';
 const TOKEN = '__TOKEN__';
 const LEVELS = ['error', 'review', 'warning', 'decision', 'change', 'not_loaded', 'info'];
-const LEVEL_LABEL = {error: 'Errors', review: 'To review', warning: 'Warnings', decision: 'Decisions', change: 'Changes',
+const LEVEL_LABEL = {error: 'Errors', review: 'To review', warning: 'Warnings', decision: 'Tool decisions', change: 'Changes',
   not_loaded: 'Not loaded', info: 'Info'};
 const LEVEL_COLOR = {error: 'var(--danger)', review: 'var(--orange)', warning: 'var(--warn)', decision: 'var(--info)', change: 'var(--violet)',
   not_loaded: 'var(--border-strong)', ok: 'var(--ok)'};
@@ -622,6 +651,11 @@ function decided(type, key, kind) {
   return '';
 }
 function kindOfFile(file) { return (S.summary?.files || []).find(f => f.file === file)?.kind; }
+// "3 decisions to save, 194 to fix at the source": the two kinds of open items, named for what the person does
+function openWording(p = decisionProgress()) { const left = p.open - p.done; const parts = [];
+  if (left) parts.push(`${fmt(left)} decision${left === 1 ? '' : 's'} to save`);
+  if (p.other) parts.push(`${fmt(p.other)} to fix at the source`);
+  return parts.join(', '); }
 function decisionProgress(g = decisionsNeeded()) {
   let open = 0, done = 0; const add = v => { open++; if (v) done++; };
   g.company.forEach((_, h) => { if (h) add(decided('company', h)); });
@@ -645,26 +679,28 @@ function renderShell() {
   $('#runbar').innerHTML = S.run ? (compact ? `<span class="stage past" title="${STAGES.map(s => s[1]).join(' → ')}">${ic('check')} All ${STAGES.length} stages done</span>` : STAGES.map(([k, l], i) => { const cls = running && i === idx ? 'on' : (i < idx || (!running && idx >= 0 && i <= idx)) ?
       (S.state === 'failed' && i === idx ? 'bad' : 'past') : '';
       return `<span class="stage ${cls}">${cls === 'on' ? '<span class="spin" style="width:10px;height:10px"></span>' : cls === 'past' ? ic('check') : cls === 'bad' ? ic('x') : `${i + 1}.`} ${l}</span>`; }).join('')) +
-    `<span class="runmeta">${running ? `stage ${Math.max(idx + 1, 1)} of ${STAGES.length} · ${fmt(S.events.length)} events · ${secs(t)}` : S.events.length ? `${fmt(S.events.length)} events in ${secs(t)}` : ''}</span>
+    `<span class="runmeta">${running ? `stage ${Math.max(idx + 1, 1)} of ${STAGES.length}, ${fmt(S.events.length)} events, ${secs(t)}` : S.events.length ? `${fmt(S.events.length)} events in ${secs(t)}` : ''}</span>
     <span class="counts">${LEVELS.filter(l => l !== 'info').map(l => `<span class="lv ${l}" data-lv="${l}" title="Show in the journal">${LEVEL_LABEL[l]} ${fmt(c[l])}</span>`).join('')}</span>
     <div class="runline ${S.state}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
   $$('#runbar [data-lv]').forEach(x => x.onclick = () => { S.filter.levels = new Set([x.dataset.lv]); S.filter.code = ''; go('journal'); });
   const st = $('#status'); const label = S.offline ? 'offline' : S.state;
-  st.className = 'pill ' + label; st.textContent = running && !S.offline ? `running · ${pct}%` : label;
-  const dn = decisionsNeeded().total; const nsug = (S.ai?.suggestions || []).length;
+  st.className = 'pill ' + label; st.textContent = running && !S.offline ? `running ${pct}%` : label;
+  const dn = decisionsNeeded().total; const dpn = decisionProgress(); const nsug = (S.ai?.suggestions || []).length;
   $('#nav').innerHTML = NAV.map(([group, tabs]) => `<h6>${group}</h6>` + tabs.map(([k, l, icon]) => {
     let n = '';
-    if (k === 'decide' && dn) n = `<span class="n hot">${dn}</span>`;
+    if (k === 'decide' && dn) n = dpn.open > dpn.done ? `<span class="n hot" title="${openWording(dpn)}">${fmt(dpn.open - dpn.done)}</span>`
+      : `<span class="n" title="${openWording(dpn)}">${fmt(dpn.other)}</span>`;
     if (k === 'ai' && nsug) n = `<span class="n">${nsug}</span>`;
     if (k === 'journal' && S.events.length) n = `<span class="n">${fmt(S.events.length)}</span>`;
     if (k === 'review' && S.summary?.totals.review) n = `<span class="n">${fmt(S.summary.totals.review)}</span>`;
+    if (S.tab === k) $('#navcur').textContent = l;
     return `<button class="tab ${S.tab === k ? 'on' : ''}" data-k="${k}" title="${l}" ${S.tab === k ? 'aria-current="page"' : ''}>${ic(icon)}<span class="lbl">${l}</span>${n}</button>`; }).join('')).join('');
   $$('.panel').forEach(p => p.classList.toggle('on', p.dataset.tab === S.tab));
   const going = running || S.starting; $('#run').disabled = going; if (going) $('#run').setAttribute('aria-busy', 'true'); else $('#run').removeAttribute('aria-busy');
   const crash = S.events.find(e => e.code === 'CRASH');
   $('#banner').innerHTML = (S.offline ? `<div class="banner warn">${ic('warn')}<div><b>Connection to the tool lost.</b> Retrying… Start it again with <span class="mono">bin/m2ctl.sh start</span> if it stopped.</div></div>` : '') +
     (crash ? `<div class="banner err">${ic('alert')}<div><b>The run stopped:</b> ${esc(crash.message)}<details><summary>Traceback</summary><pre>${esc(crash.trace || S.trace || '')}</pre></details></div></div>` : '');
-  document.title = (running ? `${pct}% · ` : dn ? `(${dn}) ` : '') + 'M2 Migration';
+  document.title = (running ? `${pct}% – ` : dn ? `(${dn}) ` : '') + 'M2 Migration';
   $('#foot').innerHTML = S.info ? `<span>M2 → CSP Migration ${esc(S.info.version || '')}</span><span>Nothing is written to Odoo: runs produce files.</span>
     <span class="mono">${esc(S.info.home || '')}</span><a href="#docs">Docs</a><a href="#docs/ref-api">API</a>` : '';
   $('#ver').textContent = S.info?.version ? 'v' + S.info.version : '';
@@ -693,11 +729,11 @@ function renderOverview() {
     return; }
   const dn = decisionsNeeded(); const dp = decisionProgress(dn); const running = S.state === 'running'; const {idx, pct} = runProgress();
   let hero;
-  if (running) hero = ['info', '<span class="spin" style="width:22px;height:22px"></span>', `Running: ${esc(STAGES[Math.max(idx, 0)][1])}`, `${pct}% · ${fmt(S.events.length)} events so far`,
+  if (running) hero = ['info', '<span class="spin" style="width:22px;height:22px"></span>', `Running: ${esc(STAGES[Math.max(idx, 0)][1])}`, `${pct}%, ${fmt(S.events.length)} events so far`,
     `<button class="btn" data-go="journal">${ic('list')}Follow the journal</button>`];
   else if (S.state === 'failed') hero = ['error', ic('alert', 'lg'), 'The run stopped before the files were written', 'The traceback is above and in run.log.', `<a class="btn" href="${dl('run.log')}">${ic('download')}run.log</a>`];
   else if (dn.total) hero = ['review', ic('flag', 'lg'), `${fmt(sm?.totals.import)} row(s) ready, ${fmt(sm?.totals.review)} wait in review`,
-    `${dn.total} item(s) need a decision${dp.done ? ` · ${dp.done} already saved for the next run` : ''}.`,
+    `Needs decision: ${openWording(dp)}${dp.done ? `; ${fmt(dp.done)} saved for the next run` : ''}.`,
     `<button class="btn primary" data-go="decide">${ic('flag')}Open Needs decision</button>${dp.done ? ` <button class="btn" data-rerun>${ic('refresh')}Run again</button>` : ''}`];
   else if (!c.error && !sm?.totals.review) hero = ['ok', ic('check', 'lg'), 'Clean run: every row is in the import file', 'Load it in Contacts › Configuration › Client Import (Check, then Import).',
     `<a class="btn primary" href="${dl('CSP_Import_M2.xlsx')}">${ic('download')}CSP_Import_M2.xlsx</a>`];
@@ -706,7 +742,7 @@ function renderOverview() {
   let html = `<div class="card hero" style="--c:${LEVEL_COLOR[hero[0]] || 'var(--info)'}"><div class="badge">${hero[1]}</div><div><h3>${hero[2]}</h3><p class="muted">${hero[3]}</p>
     ${running ? `<div class="bar tall" style="margin-top:8px;max-width:520px"><i style="width:${pct}%;background:var(--info)"></i></div>` : ''}</div><div class="acts">${hero[4]}</div></div>`;
   const kp = [['To import', sm?.totals.import, 'ok', 'review'], ['To review', sm?.totals.review, 'review', 'review'], ['Errors', c.error, 'error'],
-    ['Warnings', c.warning, 'warning'], ['Decisions', c.decision, 'decision'], ['Values changed', c.change, 'change'],
+    ['Warnings', c.warning, 'warning'], ['Tool decisions', c.decision, 'decision'], ['Values changed', c.change, 'change'],
     ['Not loaded', c.not_loaded, 'not_loaded'], ['Closed mandates', sm?.totals.closed, 'decision', 'review']];
   html += `<div class="kpis">${kp.map(([l, v, lv, tab]) => `<button class="kpi ${v ? '' : 'zero'}" data-lv="${lv}" data-tab-go="${tab || ''}"><span>${l}</span><b>${v === undefined ? '…' : fmt(v)}</b></button>`).join('')}</div>`;
   if (S.ai?.summary) html += `<div class="card"><h3><span class="dot ${esc(S.ai.summary.status)}"></span>AI summary: ${esc(S.ai.summary.headline)} <span class="tag">local model</span></h3>${(S.ai.summary.actions || []).length ? `<ol class="small" style="margin:0;padding-left:20px">${S.ai.summary.actions.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}</div>`;
@@ -717,7 +753,7 @@ function renderOverview() {
       <p class="small muted" style="margin:8px 0 0"><span class="dot" style="background:var(--accent)"></span> to import &nbsp; <span class="dot" style="background:var(--orange)"></span> to review</p></div>
       <div class="card"><h3>Files of this run</h3><div class="toolbar">${sm.outputs.map((f, i) => `<a class="btn ${i ? '' : 'primary'}" href="${dl(f)}">${ic('download')}${esc(f)}</a>`).join('')}
       <a class="btn" href="${dl('run.log')}">${ic('download')}run.log</a><button class="btn ghost" id="openfolder">${ic('open')}Open folder</button></div>
-      <p class="muted small" style="margin:0">Source <span class="mono">${esc(sm.source)}</span> · finished ${esc(sm.finished)} · run folder <span class="mono">runs/${esc(S.run)}</span></p></div>`;
+      <p class="muted small" style="margin:0">Source <span class="mono">${esc(sm.source)}</span>, finished ${esc(sm.finished)}, run folder <span class="mono">runs/${esc(S.run)}</span></p></div>`;
   } else if (running) html += '<div class="sk block"></div>';
   const codes = {}; S.events.forEach(e => { if (e.level !== 'info') codes[e.code + '|' + e.level] = (codes[e.code + '|' + e.level] || 0) + 1; });
   const top = Object.entries(codes).sort((a, b) => b[1] - a[1]).slice(0, 25);
@@ -761,31 +797,31 @@ function renderDecide() {
   const sections = [
     sec('company', g.company.size, 'Operating company of a mandate holder', 'block', 'Each M2 mandate holder (trust-mandate code) is one of our operating companies. Its mandates wait in review until you name it: never a default company.',
       `<datalist id="companies">${companies.map(c => `<option value="${esc(c)}">`).join('')}</datalist>` + [...g.company].map(([holder, d]) => { const v = decided('company', holder);
-        return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(holder || '(no holder)')}</b> · ${d.keys.length} mandate(s) ${keyLinks(d.keys)}</div>
+        return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(holder || '(no holder)')}</b>, ${d.keys.length} mandate(s) ${keyLinks(d.keys)}</div>
         <div class="ctl">${holder ? `${savedChip('company', holder)}<input list="companies" placeholder="Odoo company name" value="${esc(v)}" data-in="company" data-key="${esc(holder)}"><button class="btn small primary" data-save="company" data-key="${esc(holder)}">Save</button>` :
         '<span class="muted small">Fill the holder in M2 or Operating Company in the review file</span>'}${aiHint('company', holder)}</div></div>`; }).join('')),
     sec('func', g.funcs.size, 'M2 type codes / officer functions not known', 'block', 'M2 Detail addr. rows carry a Type code (e.g. DIR, BO, CP). Say which register sheet each code fills.',
-      [...g.funcs].map(([fn, evs]) => { const v = decided('officer_type', fn); return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(fn)}</b> · ${evs.length} row(s) ${keyLinks(evs.map(e => e.key), 10)}
+      [...g.funcs].map(([fn, evs]) => { const v = decided('officer_type', fn); return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(fn)}</b>, ${evs.length} row(s) ${keyLinks(evs.map(e => e.key), 10)}
         <div class="small muted">${esc(evs[0].file || '')}</div></div>
         <div class="ctl">${fn !== '?' ? `${savedChip('officer_type', fn)}<select data-in="officer_type" data-key="${esc(fn)}"><option value="">Load as…</option>${OFFICER_SHEETS.map(([k, t]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
         <button class="btn small primary" data-save="officer_type" data-key="${esc(fn)}">Save</button>${aiHint('officer_type', fn)}` : ''}</div></div>`; }).join('')),
     sec('kind', g.kind.length, 'Files not recognised, or a close call', g.kind.some(e => e.code === 'KIND_UNKNOWN') ? 'block' : 'worth a check', '',
       g.kind.map(e => { const f = cleanFile(e.file); const v = decided('file_kind', f); return `<div class="decide ${v ? 'done' : ''}"><div><b>${esc(e.file)}</b> <span class="lv ${e.level}">${e.level}</span><div class="small muted">${esc(e.message)}</div>
-        ${e.scores ? `<div class="small mono muted">${Object.entries(e.scores).map(([k, s]) => `${k} ${s}`).join(' · ')}</div>` : ''}</div>
+        ${e.scores ? `<div class="small mono muted">${Object.entries(e.scores).map(([k, s]) => `${k} ${s}`).join(', ')}</div>` : ''}</div>
         <div class="ctl">${savedChip('file_kind', f)}<select data-in="file_kind" data-key="${esc(f)}"><option value="">Read as…</option>${kinds.map(([k, t]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}<option value="ignore" ${v === 'ignore' ? 'selected' : ''}>Ignore this file</option></select>
         <button class="btn small primary" data-save="file_kind" data-key="${esc(f)}">Save</button>${aiHint('file_kind', f)}</div></div>`; }).join('')),
     sec('notfound', g.notfound.length, 'Register rows whose client was not found', 'block', 'Fix the client reference in the M2 export (or in the review file), or exclude the key.',
-      g.notfound.map(e => `<div class="decide"><div><span class="lv review">review</span> ${esc(e.message)}${e.alternatives?.length ? `<div class="small">Close: ${e.alternatives.map(esc).join(' · ')}</div>` : ''}</div>
+      g.notfound.map(e => `<div class="decide"><div><span class="lv review">review</span> ${esc(e.message)}${e.alternatives?.length ? `<div class="small">Close: ${e.alternatives.map(x => `<code>${esc(x)}</code>`).join(' ')}</div>` : ''}</div>
         <div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}</div></div>`).join('')),
     sec('employee', g.employee.size, 'Employees not in the employee map', 'checked at import', "M2 stores the employee abbreviation; Odoo needs the employee's name.",
-      [...g.employee].map(([abbr, keys]) => { const v = decided('employee', abbr); return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(abbr)}</b> · on ${keys.length} mandate(s) ${keyLinks(keys, 10)}</div>
+      [...g.employee].map(([abbr, keys]) => { const v = decided('employee', abbr); return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(abbr)}</b>, on ${keys.length} mandate(s) ${keyLinks(keys, 10)}</div>
         <div class="ctl">${savedChip('employee', abbr)}<input placeholder="Employee name in Odoo" value="${esc(v)}" data-in="employee" data-key="${esc(abbr)}"><button class="btn small primary" data-save="employee" data-key="${esc(abbr)}">Save</button></div></div>`; }).join('')),
     sec('legal', g.legal.size, 'Legal forms not known', 'optional', 'Entity Type is left empty: fill it in the import file.',
       [...g.legal].map(([lf, keys]) => `<div class="decide"><div><b class="mono">${esc(lf)}</b> on ${keyLinks(keys)}</div><div class="ctl">${aiHint('legal_form', lf)}</div></div>`).join('')),
     sec('column', g.column.length, 'Columns with no CSP field', 'optional', "Nothing is lost: their values are kept in the review file and the client's Notes. If one is really a CSP field under another name, map it.",
       g.column.map(e => { const kind = kindOfFile(e.file); const v = kind ? decided('alias', e.column, kind) : '';
         return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(e.column)}</b> in ${esc(e.file)} <span class="muted small">(${esc(S.info?.kinds?.[kind] || kind || '')})</span>
-        <div class="small muted">e.g. ${(e.samples || []).map(esc).join(' · ') || 'empty column'}</div></div>
+        <div class="small muted">e.g. ${(e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ') || 'empty column'}</div></div>
         <div class="ctl">${kind ? `${savedChip('alias', e.column, kind)}<select data-in="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}"><option value="">Load into…</option>${(S.info?.kind_fields?.[kind] || []).map(f => `<option ${f === v ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
         <button class="btn small primary" data-save="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>${aiHint('alias', e.column, kind)}` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')),
     sec('other', g.other.length, 'Other errors and checks', 'fix at the source', '',
@@ -793,8 +829,8 @@ function renderDecide() {
         ${e.fix ? `<div class="fixtext">Fix: ${esc(e.fix)}</div>` : ''}</div><div class="ctl">${e.key ? `<span class="key" data-key="${esc(e.key)}">trail</span>` : ''}</div></div>`).join(''))];
   const navs = [['company', 'Companies', g.company.size], ['func', 'Type codes', g.funcs.size], ['kind', 'Files', g.kind.length], ['notfound', 'Clients not found', g.notfound.length],
     ['employee', 'Employees', g.employee.size], ['legal', 'Legal forms', g.legal.size], ['column', 'Columns', g.column.length], ['other', 'Other checks', g.other.length]].filter(x => x[2]);
-  el.innerHTML = `<div class="card"><div class="toolbar"><div class="grow"><b>${p.done} of ${p.open} decisions saved</b>
-      <div class="small muted">Saved to the settings (m2_config.json); they apply on the next run.${p.other ? ` ${p.other} more item(s) are fixed in M2 or in the review file.` : ''}</div></div>
+  el.innerHTML = `<div class="card"><div class="toolbar"><div class="grow"><b>${p.open ? `${p.done} of ${p.open} decisions saved` : 'No decisions to save in this run'}</b>
+      <div class="small muted">Saved to the settings (m2_config.json); they apply on the next run.${p.other ? ` ${fmt(p.other)} item(s) below are fixed at the source: in M2 or in the review file, then run again.` : ''}</div></div>
     <button class="btn" id="askai" ${aiBusy ? 'aria-busy="true"' : ''} title="The local model (Ollama) proposes a decision for each item; nothing is applied until you accept it">${ic('spark')}${aiBusy ? 'AI is thinking…' : 'Ask AI'}</button>
     <button class="btn primary" id="rerun">${ic('refresh')}Run again${p.done ? ` with ${p.done} decision(s)` : ''}</button></div>
     <div class="bar tall" role="progressbar" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
@@ -854,7 +890,7 @@ function renderJournal() {
   $('#jfile').innerHTML = `<option value="">All files</option>` + files.map(x => `<option ${x === f.file ? 'selected' : ''}>${esc(x)}</option>`).join('');
   $('#jclear').style.display = f.q || f.stage || f.code || f.file ? '' : 'none';
   const rows = filtered(); const shown = rows.slice(-f.limit);
-  $('#jcount').textContent = `${fmt(rows.length)} of ${fmt(S.events.length)} events` + (rows.length > shown.length ? ` · last ${fmt(shown.length)} shown` : '');
+  $('#jcount').textContent = `${fmt(rows.length)} of ${fmt(S.events.length)} events` + (rows.length > shown.length ? `, last ${fmt(shown.length)} shown` : '');
   $('#jmore').style.display = rows.length > shown.length ? '' : 'none';
   $('#jdl').href = S.run ? dl('journal.jsonl') : '#';
   $('#jbody').innerHTML = shown.map(e => `<tr class="click" data-seq="${e.seq}"><td class="num muted small">${e.seq}</td><td class="num muted small">${e.t.toFixed(2)}</td>
@@ -902,13 +938,13 @@ function renderRecords() {
   const lvCount = {}; ev.forEach(e => lvCount[e.level] = (lvCount[e.level] || 0) + 1);
   el.innerHTML = `<div class="grid2"><div><div class="toolbar"><input type="search" id="rq" placeholder="Mandate number or name  ( / )" value="${esc(S.recQ)}"></div>
     <div class="list">${keys.map(k => `<div data-k="${esc(k)}" class="${k === S.record ? 'on' : ''}"><span class="lv ${sev(k)}">${sev(k).slice(0, 3)}</span><span class="mono">${esc(k)}</span><span class="grow muted small">${esc(nameOf(k))}</span><span class="small muted">${m.get(k).length}</span></div>`).join('') || '<div class="muted" style="cursor:default">No record matches.</div>'}</div>
-    <p class="small muted">${fmt(keys.length)} of ${fmt(m.size)} records · most serious first</p></div>
+    <p class="small muted">${fmt(keys.length)} of ${fmt(m.size)} records, most serious first</p></div>
     <div>${S.record ? `<div class="card"><h3>Decision trail of <span class="mono">${esc(S.record)}</span> <span class="muted">${esc(nameOf(S.record))}</span>
         <span class="grow"></span><button class="btn ghost small" id="reclink" title="Copy a link to this record">${ic('copy')}Link</button></h3>
       <p class="small muted">Every event that touched this M2 record, in the order the migration took it: where it was read, how it was linked, what was changed, and why it was loaded or left out.</p>
       <div class="chips">${LEVELS.filter(l => lvCount[l]).map(l => `<span class="lv ${l}">${LEVEL_LABEL[l]} ${lvCount[l]}</span>`).join('')}</div>
-      ${client ? `<div class="banner ok">${ic('check')}<div><b>Loaded as client:</b> ${esc(client.name)} · ${esc(client.type)} · company ${esc(client.company || '—')}</div></div>` : ''}
-      ${reviews.map(r => `<div class="banner err">${ic('alert')}<div><b>In review (${esc(S.summary.sheets[r.sheet].title)}):</b> ${esc(r.reason)} <div class="small">Fix: ${esc(r.fix || '')} · ${esc(r.where)}</div></div></div>`).join('')}
+      ${client ? `<div class="banner ok">${ic('check')}<div><b>Loaded as client:</b> ${esc(client.name)}, ${esc(client.type)}, company ${esc(client.company || '—')}</div></div>` : ''}
+      ${reviews.map(r => `<div class="banner err">${ic('alert')}<div><b>In review (${esc(S.summary.sheets[r.sheet].title)}):</b> ${esc(r.reason)} <div class="small">Fix: ${esc(r.fix || '')}, ${esc(r.where)}</div></div></div>`).join('')}
       <ul class="trail">${ev.map(e => `<li class="${e.level}" data-seq="${e.seq}"><span class="lv ${e.level}">${e.level.replace('_', ' ')}</span> <span class="mono small muted">${e.code}</span>
         <div>${esc(e.message)}</div>${e.fix ? `<div class="fixtext">Fix: ${esc(e.fix)}</div>` : ''}</li>`).join('')}</ul></div>
       ${client ? `<div class="card"><h3>Row in the import file (Clients)</h3><dl class="kv">${Object.entries(client).filter(([, v]) => v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}` :
@@ -936,13 +972,13 @@ function renderFiles() {
     <label class="tog small" style="padding:0"><input type="checkbox" class="sw" id="funm" ${S.filesUnmapped ? 'checked' : ''}> only files with columns not loaded</label>
     <span class="grow"></span><span class="muted small">${shown.length} of ${files.length} files</span><button class="btn ghost small" id="fall">Expand all</button><button class="btn ghost small" id="fnone">Collapse all</button></div>`;
   html += shown.map(f => { const max = Math.max(...Object.values(f.scores), 1); const nmap = Object.keys(f.mapping).length;
-    return `<details class="card" ${shown.length <= 3 || q ? 'open' : ''}><summary>${ic('chev')}${ic('file')}${esc(f.file)} <span class="muted small">→ ${esc(S.info?.kinds?.[f.kind] || f.kind)} · ${fmt(f.rows)} rows · ${esc(f.note)}</span>
+    return `<details class="card" ${shown.length <= 3 || q ? 'open' : ''}><summary>${ic('chev')}${ic('file')}${esc(f.file)} <span class="muted small">→ ${esc(S.info?.kinds?.[f.kind] || f.kind)}, ${fmt(f.rows)} rows, ${esc(f.note)}</span>
       <span class="grow"></span><span class="lv ok">${nmap} read</span>${f.unused.length ? `<span class="lv not_loaded">${f.unused.length} not loaded</span>` : ''}</summary>
     <div class="small muted" style="margin-bottom:8px">Why this kind: score per candidate (header names matched, key columns ×3, words in the file name +4)</div>
     <div class="scores">${Object.entries(f.scores).map(([k, s]) => `<span class="small ${k === f.kind ? '' : 'muted'}">${esc(S.info?.kinds?.[k] || k)}</span><div class="bar"><i class="${k === f.kind ? '' : 'dim'}" style="width:${100 * s / max}%"></i></div><span class="small num">${s}</span>`).join('')}</div>
     <div class="tablewrap" style="max-height:340px"><table><tr><th>M2 column</th><th>Read as</th><th>Sample values</th></tr>
     ${Object.entries(f.mapping).map(([field, col]) => `<tr><td>${esc(col)}</td><td class="mono small">${esc(field)}</td><td></td></tr>`).join('')}
-    ${f.unused.map(u => `<tr><td>${esc(u.column)}</td><td><span class="lv not_loaded">not loaded</span></td><td class="small muted">${(u.samples || []).map(esc).join(' · ') || 'empty column'}</td></tr>`).join('')}
+    ${f.unused.map(u => `<tr><td>${esc(u.column)}</td><td><span class="lv not_loaded">not loaded</span></td><td class="small muted">${(u.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ') || 'empty column'}</td></tr>`).join('')}
     </table></div></details>`; }).join('') || empty('search', 'No file matches');
   el.innerHTML = html;
   $('#fq').oninput = ev => { S.filesQ = ev.target.value; const pos = ev.target.selectionStart; renderFiles(); const i = $('#fq'); i.focus(); i.setSelectionRange(pos, pos); };
@@ -965,7 +1001,7 @@ function renderReview() {
     <tr><th>Source</th><th>M2 key</th><th>Reason</th><th>Fix</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
     ${rows.map(r => `<tr><td class="small" style="white-space:nowrap">${esc(r.where)}</td><td>${r.key ? `<span class="key" data-key="${esc(r.key)}">${esc(r.key)}</span>` : ''}</td><td class="wide">${esc(r.reason)}</td>
       <td class="mid fixtext">${esc(r.fix || '')}</td>${cols.map(c => `<td class="small ${String(r.row[c] ?? '').length > 60 ? 'wide' : ''}">${esc(r.row[c] ?? '')}</td>`).join('')}</tr>`).join('')}</table></div></details>`; }).join('');
-  if (sm.closed?.length) html += `<details class="card" open><summary>${ic('chev')}Closed mandates <span class="muted">${sm.closed.length} · not loaded</span></summary><table><tr><th>Source</th><th>M2 key</th><th>Name</th><th>Why</th></tr>
+  if (sm.closed?.length) html += `<details class="card" open><summary>${ic('chev')}Closed mandates <span class="muted">${sm.closed.length}, not loaded</span></summary><table><tr><th>Source</th><th>M2 key</th><th>Name</th><th>Why</th></tr>
     ${sm.closed.map(c => `<tr><td class="small">${esc(c.where)}</td><td><span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span></td><td>${esc(c.name)}</td><td>${esc(c.why)}</td></tr>`).join('')}</table></details>`;
   el.innerHTML = html; bindKeys(el);
   $$('[data-jump]', el).forEach(a => a.onclick = ev => { ev.preventDefault(); const t = $('#' + a.dataset.jump); t.open = true; t.scrollIntoView({behavior: 'smooth', block: 'start'}); });
@@ -986,7 +1022,7 @@ function renderValues() {
     <div class="card"><h3>By column</h3><div class="chips" style="margin:0"><button class="chip ${S.valuesCol ? '' : 'on'}" data-col="">All ${all.length}</button>${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<button class="chip ${c === S.valuesCol ? 'on' : ''}" data-col="${esc(c)}">${esc(c)} ${n}</button>`).join('')}</div></div>
     <div class="tablewrap"><table><tr><th>M2 key</th><th>Column</th>${mode === 'change' ? '<th>M2 value</th><th></th><th>Import value</th>' : '<th>Value</th>'}<th>Why</th></tr>
     ${rows.map(e => `<tr class="click" data-seq="${e.seq}"><td>${e.key ? `<span class="key" data-key="${esc(e.key)}">${esc(e.key)}</span>` : ''}</td><td>${esc(e.column)}</td>
-      ${mode === 'change' ? `<td class="mono small">${esc(e.old) || '<span class="muted">(empty)</span>'}</td><td class="muted">→</td><td class="mono small"><b>${esc(e.new)}</b></td>` : `<td class="mono small">${esc(e.value ?? (e.samples || []).join(' · '))}</td>`}
+      ${mode === 'change' ? `<td class="mono small">${esc(e.old) || '<span class="muted">(empty)</span>'}</td><td class="muted">→</td><td class="mono small"><b>${esc(e.new)}</b></td>` : `<td class="mono small">${e.value != null ? esc(e.value) : (e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ')}</td>`}
       <td class="small">${esc(e.message.replace(/^.*?(not loaded\.|'\.) ?/, ''))}</td></tr>`).join('') || `<tr><td colspan="6">${empty('check', 'Nothing here')}</td></tr>`}</table></div>`;
   $$('[data-m]', el).forEach(c => c.onclick = () => { S.valuesMode = c.dataset.m; S.valuesCol = ''; renderValues(); });
   $$('[data-col]', el).forEach(c => c.onclick = () => { S.valuesCol = c.dataset.col; renderValues(); });
@@ -1005,13 +1041,13 @@ function renderFinance() {
   el.innerHTML = `<div class="card"><h3>${ic('bank')}M2 open receivables per operating company</h3><p class="small muted">The reconciliation figure: after the opening items are posted in Odoo, each company's open receivables must match. "(not assigned)" = items of a client still in review.</p>
     ${rec.length ? `<div class="tablewrap free"><table><tr><th>Operating company</th><th>Currency</th><th class="num">Open amount</th></tr>${rec.flatMap(([c, v]) => Object.entries(v).map(([cur, a]) =>
       `<tr><td>${c === '(not assigned)' ? `<span class="lv review">not assigned</span>` : esc(c)}</td><td>${esc(cur)}</td><td class="num"><b>${a.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></td></tr>`)).join('')}</table></div>` : none('No open-items export in this run.')}</div>
-    <div class="card"><h3>Fees <span class="muted small">Annual Basic Fee, Flat Fee, LEI… · ${sm.fees?.length || 0}</span></h3><p class="small muted">Not part of the client template: kept for the recurring invoices / subscriptions. The LEI fee's due date fills the client's LEI Renewal Date; a fee with a past finish date is listed as ended.</p>
+    <div class="card"><h3>Fees <span class="muted small">Annual Basic Fee, Flat Fee, LEI… (${sm.fees?.length || 0})</span></h3><p class="small muted">Not part of the client template: kept for the recurring invoices / subscriptions. The LEI fee's due date fills the client's LEI Renewal Date; a fee with a past finish date is listed as ended.</p>
     ${sm.fees?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Fee</th><th class="num">Amount</th><th>Currency</th><th>Period</th><th>Next due</th><th>Text</th><th>Billed by</th><th>Status</th><th>Client</th></tr>${sm.fees.map(f =>
       `<tr><td>${f.key ? `<span class="key" data-key="${esc(f.key)}">${esc(f.key)}</span>` : ''}</td><td>${esc(f.fee)}</td><td class="num">${esc(f.amount ?? '')}</td><td>${esc(f.currency ?? '')}</td><td>${esc(f.period)}</td><td>${esc(f.next_due ?? '')}</td><td>${esc(f.text)}</td><td>${esc(f.billed_by ?? '')}</td><td>${f.status === 'ended' ? '<span class="lv not_loaded">ended</span>' : '<span class="lv ok">active</span>'}</td><td>${f.client_found ? 'found' : '<span class="lv review">not found</span>'}</td></tr>`).join('')}</table></div>` : none('No fees export in this run.')}</div>
-    <div class="card"><h3>Compliance <span class="muted small">M2 ML-related, risk category, lock · ${sm.compliance?.length || 0}</span></h3><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
+    <div class="card"><h3>Compliance <span class="muted small">M2 ML-related, risk category, lock (${sm.compliance?.length || 0})</span></h3><p class="small muted">No column in the client template: carried as M2 has them into the client's Notes and the Compliance sheet. The risk rating is decided in Odoo by compliance, not by this tool.</p>
     ${sm.compliance?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>ML-related</th><th>Risk category</th><th>Country of max. risk</th><th>Lock</th><th>Note</th></tr>${sm.compliance.map(c =>
       `<tr><td>${c.key ? `<span class="key" data-key="${esc(c.key)}">${esc(c.key)}</span>` : ''}</td><td>${esc(c.client_state)}</td><td>${esc(c.ml_related)}</td><td>${esc(c.risk_category)}</td><td>${esc(c.risk_country)}</td><td>${c.lock === 'Yes' ? `<span class="lv warning">locked</span> ${esc(c.lock_text)}` : esc(c.lock)}</td><td>${esc(c.note)}</td></tr>`).join('')}</table></div>` : none('No compliance export in this run.')}</div>
-    <div class="card"><h3>Documents <span class="muted small">to attach in Odoo · ${sm.documents?.length || 0}</span></h3><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
+    <div class="card"><h3>Documents <span class="muted small">to attach in Odoo (${sm.documents?.length || 0})</span></h3><p class="small muted">From the M2 document export and from folders next to the exports named after the mandate number (zero padding ignored: KP-00482-ACC = KP-482-ACC).</p>
     ${sm.documents?.length ? `<div class="tablewrap"><table><tr><th>M2 key</th><th>Client</th><th>Folder</th><th>File</th><th>Description</th><th>Created</th><th>Maturity</th><th>On disk</th></tr>${sm.documents.map(d =>
       `<tr><td>${d.key ? `<span class="key" data-key="${esc(d.key)}">${esc(d.key)}</span>` : ''}</td><td>${esc(d.client_state)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.description)}</td><td style="white-space:nowrap">${esc(d.created ?? '')}</td><td style="white-space:nowrap">${esc(d.maturity ?? '')}</td><td class="small mono">${d.on_disk ? esc(d.on_disk) : '<span class="lv warning">not copied</span>'}</td></tr>`).join('')}</table></div>` : none('No document export or document folders in this run.')}</div>`;
   bindKeys(el);
@@ -1027,7 +1063,7 @@ function aiHint(type, key, kind) {
   const val = x.field || x.value; const pct = Math.round(100 * x.confidence);
   if (decided(type, key, kind) === val) return '';
   const accept = type === 'legal_form' ? '' : `<button class="btn small" data-ai-accept="${esc(JSON.stringify({type, key, kind: x.kind, value: val}))}">Accept</button>`;
-  return `<span class="aihint" title="${esc(x.reason)} · ${esc(x.provider)} ${esc(x.model || '')}">${ic('spark')}<b>${esc(val)}</b> <span class="conf">${pct}%</span> ${accept}</span>`;
+  return `<span class="aihint" title="${esc(x.reason)}, ${esc(x.provider)} ${esc(x.model || '')}">${ic('spark')}<b>${esc(val)}</b> <span class="conf">${pct}%</span> ${accept}</span>`;
 }
 function bindAI(el) {
   const b = $('#askai', el); if (b) b.onclick = () => runAI(['suggest']);
@@ -1038,7 +1074,7 @@ function bindAI(el) {
 function aiProgress() { const j = S.ai?.job; if (j?.state !== 'running') return '';
   const n = (j.tasks || []).length || 1; const d = (j.done || []).length; const el = j.started ? Math.max(0, (Date.now() - Date.parse(j.started)) / 1000) : 0;
   return `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${(j.tasks || []).map(t => `<span class="chip static ${(j.done || []).includes(t) ? 'on' : ''}">${(j.done || []).includes(t) ? ic('check') : ''} ${AI_TASK[t] || t}</span>`).join(' ')}</span>
-    <div class="bar tall ${d ? '' : 'indet'}"><i style="width:${100 * d / n}%;background:var(--violet)"></i></div><span class="small muted">${d} of ${n} · ${secs(el)} · local model</span></div>`; }
+    <div class="bar tall ${d ? '' : 'indet'}"><i style="width:${100 * d / n}%;background:var(--violet)"></i></div><span class="small muted">${d} of ${n}, ${secs(el)}, local model</span></div>`; }
 async function loadAI() {
   if (!S.run) return; const run = S.run; const was = S.ai?.job?.state;
   try { const r = await api(`/api/ai?run=${run}`, undefined, {quiet: true}); if (run !== S.run) return; S.ai = r; } catch (e) { S.ai = null; }
@@ -1067,12 +1103,12 @@ async function renderAI() {
   const ol = st.ollama || {};
   let html = `<div class="card"><h3>Models <span class="grow"></span><button class="btn ghost small" id="airecheck">${ic('refresh')}Check again</button></h3>
     ${st.error ? `<div class="banner err">${ic('alert')}<div>${esc(st.error)}</div></div>` : ''}
-    <p><span class="dot ${ol.up ? (ol.model_present ? 'green' : 'amber') : 'red'}"></span> <b>Ollama</b> <span class="mono">${esc(ol.url)}</span> · ${esc(cfg.ollama_model)} ${ol.up ? (ol.model_present ? '<span class="lv ok">ready</span>' : '<span class="lv warning">model not pulled</span>') : `<span class="lv error">not answering</span> <span class="small muted">${esc(ol.error)}</span>`}
-      · embeddings ${esc(cfg.embed_model)}</p>
-    <p><span class="dot ${cfg.allow_cloud && st.claude?.key ? 'green' : 'grey'}"></span> <b>Claude</b> ${esc(cfg.claude_model)} · ${cfg.allow_cloud ? 'cloud allowed for headers and codes' : 'cloud off'}${cfg.allow_cloud && !st.claude?.key ? ' <span class="lv warning">no ANTHROPIC_API_KEY</span>' : ''}</p>
+    <p><span class="dot ${ol.up ? (ol.model_present ? 'green' : 'amber') : 'red'}"></span> <b>Ollama</b> <span class="mono">${esc(ol.url)}</span>, ${esc(cfg.ollama_model)} ${ol.up ? (ol.model_present ? '<span class="lv ok">ready</span>' : '<span class="lv warning">model not pulled</span>') : `<span class="lv error">not answering</span> <span class="small muted">${esc(ol.error)}</span>`}
+      , embeddings ${esc(cfg.embed_model)}</p>
+    <p><span class="dot ${cfg.allow_cloud && st.claude?.key ? 'green' : 'grey'}"></span> <b>Claude</b> ${esc(cfg.claude_model)}, ${cfg.allow_cloud ? 'cloud allowed for headers and codes' : 'cloud off'}${cfg.allow_cloud && !st.claude?.key ? ' <span class="lv warning">no ANTHROPIC_API_KEY</span>' : ''}</p>
     <p class="small muted">Mode <b>${esc(cfg.provider)}</b>. The assistant reads a finished run and proposes decisions; it never changes a run or the settings by itself. Client names, file names, sample values and documents stay on this machine.</p></div>`;
   if (!S.run) { el.innerHTML = html + empty('spark', 'Open or start a run first', 'The assistant works on a finished run.') + aiSettingsCard(cfg); bindAISettings(el); $('#airecheck').onclick = () => { S.aiStatus = null; renderAI(); }; return; }
-  html += `<div class="card"><div class="toolbar" style="margin:0"><b class="grow">Run <span class="mono">${esc(S.run)}</span> <span class="muted small" style="font-weight:400">${!busyNow && a.updated ? `· last answer ${esc(a.updated)}` : ''}</span></b>
+  html += `<div class="card"><div class="toolbar" style="margin:0"><b class="grow">Run <span class="mono">${esc(S.run)}</span> <span class="muted small" style="font-weight:400">${!busyNow && a.updated ? `last answer ${esc(a.updated)}` : ''}</span></b>
     <button class="btn primary" data-ai-run="suggest,documents,summary" ${busyNow ? 'disabled' : ''}>${ic('spark')}Run all</button>
     <button class="btn" data-ai-run="suggest" ${busyNow ? 'disabled' : ''}>Suggest decisions</button>
     <button class="btn" data-ai-run="documents" ${busyNow ? 'disabled' : ''}>Classify documents</button>
@@ -1091,7 +1127,7 @@ async function renderAI() {
   const docs = a.documents || [];
   if (docs.length) { const by = {}; docs.forEach(d => by[d.doc_type] = (by[d.doc_type] || 0) + 1);
     html += `<div class="card"><h3>Document types <span class="muted">${docs.length} file(s)</span></h3><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
-    ${(a.document_gaps || []).length ? `<h3 style="margin-top:12px">Clients missing KYC documents <span class="muted">${a.document_gaps.length}</span></h3><div class="tablewrap free"><table><tr><th>M2 key</th><th>Missing</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td></tr>`).join('')}</table></div>` : ''}
+    ${(a.document_gaps || []).length ? `<h3 style="margin-top:12px">Mandates missing documents <span class="muted">${a.document_gaps.length}</span></h3><p class="muted">Checked over every mandate holder the mandate is filed under. ENT and ACC need company documents and people KYC; CON and DIR need person KYC; ADM (internal) is not checked. The full table is in Archive_KYC_coverage.xlsx.</p><div class="tablewrap free"><table><tr><th>M2 key</th><th>Type</th><th>Holders</th><th>Missing in every holder</th><th>Found in another holder</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${esc(g.type || '')}</td><td>${esc((g.holders || []).join(', '))}</td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td><td>${(g.covered_elsewhere || []).map(x => `<span class="lv ok">${esc(x.need)}</span> <span class="muted">in ${esc(x.found_in.join(', '))}</span>`).join('<br>')}</td></tr>`).join('')}</table></div>` : ''}
     <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th>Confidence</th><th>By</th></tr>${docs.map(d => `<tr><td class="mono small">${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td>${meter(d.confidence)}</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
   if ((a.calls || []).length) html += `<details class="card"><summary>${ic('chev')}Model calls <span class="muted">${a.calls.length}</span></summary><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
     ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? '<span class="lv ok">ok</span>' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></details>`;
@@ -1158,7 +1194,7 @@ function renderSettings() {
   $$('[data-add]', el).forEach(b => b.onclick = () => { const box = b.previousElementSibling; box.insertAdjacentHTML('beforeend', kvRow('', '', box.dataset.ph)); bindKv(el); $('.kvedit:last-child [data-k]', box).focus(); });
   bindKv(el);
   const raw = $('#rawcfg'); const check = () => { try { JSON.parse(raw.value); $('#cfgstate').innerHTML = `<span class="saved">${ic('check')}valid JSON</span>`; $('#savecfg').disabled = false; return true; }
-    catch (e) { $('#cfgstate').innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`; $('#savecfg').disabled = true; return false; } };
+    catch (e) { $('#cfgstate').innerHTML = `<span style="color:var(--danger-fg)">${esc(e.message)}</span>`; $('#savecfg').disabled = true; return false; } };
   raw.oninput = check; check();
   $('#fmtcfg').onclick = () => { if (check()) raw.value = JSON.stringify(JSON.parse(raw.value), null, 2); };
   $('#copycfg').onclick = () => copy(raw.value, 'Settings copied');
@@ -1265,7 +1301,7 @@ async function poll() {
   }
   if (S.state === 'running') { softRender(); S.timer = setTimeout(poll, 400); return; }
   if (S.watching) { S.watching = false; const t = S.summary?.totals; const dn = decisionsNeeded().total;
-    if (S.state === 'done') toast('Run finished', {type: dn ? 'warn' : 'success', detail: `${fmt(t?.import)} to import · ${fmt(t?.review)} to review · ${dn} need a decision`,
+    if (S.state === 'done') toast('Run finished', {type: dn ? 'warn' : 'success', detail: `${fmt(t?.import)} to import, ${fmt(t?.review)} to review${dn ? `; ${openWording()}` : ''}`,
       action: dn ? {label: 'Needs decision', fn: () => go('decide')} : {label: 'Overview', fn: () => go('overview')}});
     else toast('The run stopped', {type: 'error', detail: 'See the traceback at the top of the page and run.log.'}); }
   render(); loadRuns(S.run).catch(() => {});
@@ -1338,9 +1374,12 @@ function setTheme(t) { store.set('m2theme', t); document.documentElement.dataset
   $('#themebtn').innerHTML = ic({auto: 'auto', light: 'sun', dark: 'moon'}[t]) + '<span class="sr">Theme</span>'; $('#themebtn').title = `Theme: ${t === 'auto' ? 'follows the system' : t}. Click to change.`;
   const s = $('#themesel'); if (s) s.value = t; }
 function cycleTheme() { const order = ['auto', 'light', 'dark']; const t = order[(order.indexOf(store.get('m2theme', 'auto')) + 1) % 3]; setTheme(t); toast(`Theme: ${t === 'auto' ? 'follows the system' : t}`, {ms: 1500}); }
-function closeOverlays() { let any = false; ['drawer', 'picker', 'palette', 'keys'].forEach(id => { const e = $('#' + id); if (e.classList.contains('on')) { any = true; e.classList.remove('on'); } });
+function setNavOpen(on) { $('.side').classList.toggle('open', on); $('#navbtn').setAttribute('aria-expanded', String(on)); }
+function closeOverlays() { let any = false; if ($('.side').classList.contains('open')) { setNavOpen(false); any = true; } ['drawer', 'picker', 'palette', 'keys'].forEach(id => { const e = $('#' + id); if (e.classList.contains('on')) { any = true; e.classList.remove('on'); } });
   if ($('#samplemenu').open) { $('#samplemenu').open = false; any = true; } return any; }
-document.addEventListener('click', ev => { const t = ev.target.closest('.tab'); if (t) return go(t.dataset.k);
+document.addEventListener('click', ev => { if (ev.target.closest('#navbtn')) return setNavOpen(!$('.side').classList.contains('open'));
+  if ($('.side').classList.contains('open') && !ev.target.closest('#nav')) setNavOpen(false);
+  const t = ev.target.closest('.tab'); if (t) { setNavOpen(false); return go(t.dataset.k); }
   const c = ev.target.closest('[data-close]'); if (c) return $('#' + c.dataset.close).classList.remove('on');
   if (ev.target.classList.contains('modal')) ev.target.classList.remove('on');
   if (!ev.target.closest('#samplemenu')) $('#samplemenu').open = false; });
