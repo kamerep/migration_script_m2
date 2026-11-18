@@ -133,9 +133,9 @@ KINDS = {
             'jurisdiction': ['Domizil', 'Sitz', 'Sitzland', 'Jurisdiktion', 'Jurisdiction'],
             'contract_start': ['Datum Mandatsvertrag', 'Mandatsbeginn', 'Eröffnung', 'Eröffnet', 'Engagement Letter',
                                'Date of Engagement Letter', 'Engagement Date', 'Opened', 'Opening Date',
-                               'Mandate start', 'Mandate start date'],
+                               'Mandate start', 'Mandate start date', 'MANDATS_BEGINN'],
             'contract_end': ['Mandatsende', 'Aufgehoben', 'Saldiert', 'Geschlossen', 'Closed', 'Date Closed',
-                             'Closing Date', 'Mandate end', 'Mandate end date', '-end', 'LOESCHDATUM'],
+                             'Closing Date', 'Mandate end', 'Mandate end date', '-end', 'MANDATS_ENDE', 'LOESCHDATUM'],
             'advisor': ['Verantwortlicher', 'Verantwortlich', 'Sachbearbeiter', 'Verantw.SB', 'Verantw SB', 'CDB',
                         'Kundenberater', 'Responsible', 'Responsible Employee', 'Advisor', 'Client Advisor',
                         'VSB'],
@@ -148,7 +148,7 @@ KINDS = {
             'activity': ['Zweck', 'Gesellschaftszweck', 'Purpose', 'Activity', 'Business activity',
                          'Activity Purpose'],
             'share_capital': ['Aktienkapital', 'Kapital', 'Stammkapital', 'Share Capital', 'Capital'],
-            'share_capital_currency': ['Währung Kapital', 'Kapitalwährung', 'Capital Currency'],
+            'share_capital_currency': ['Währung Kapital', 'Kapitalwährung', 'Capital Currency', 'KAPWAEHRUNG'],
             'paid_in': ['Einbezahlt', 'Liberiert', 'Paid In', 'Paid Up'],
             'fy_end': ['Geschäftsjahresende', 'Geschäftsjahr Ende', 'Abschlussdatum', 'Financial Year End',
                        'Fiscal Year End', 'FYE'],
@@ -897,8 +897,7 @@ class Migration:
             self.ev('error', 'KIND_INVALID', f"{label}: kind '{kind}' in Settings does not exist.", file=label)
             return
         filled = {i for r in rows[h + 1:] for i, c in enumerate(r) if text(c)}
-        mapping = self._match_headers([c if i in filled else '' for i, c in enumerate(normalized)],
-                                      self.kinds[kind]['fields'])
+        mapping = self._match_headers(normalized, self.kinds[kind]['fields'], filled)
         index = {field: pos for field, (pos, _alias) in mapping.items()}
         for field, (pos, alias) in sorted(mapping.items(), key=lambda kv: kv[1][0]):
             self.ev('info', 'COLUMN', f"{label}: column '{header[pos]}' -> {field}"
@@ -984,12 +983,14 @@ class Migration:
         return '-'.join(filter(None, [text(values.get('mandate_prefix')).upper(), seq.zfill(5),
                                       text(values.get('mandate_kind')).upper()]))
 
-    def _match_headers(self, normalized, fields):
-        """field -> (column position, alias); each column is used once, exact names before partial ones."""
-        found, taken = {}, set()
+    def _match_headers(self, normalized, fields, filled=None):
+        """field -> (column position, alias); each column is used once, exact names before partial ones. An empty
+        column (not in `filled`) never takes a field, but its exact name keeps the field from a partial match
+        (an empty STATUS must not hand status to STATUS_MUTDATUM)."""
+        found, taken, named = {}, set(), set()
         for exact in (True, False):
             for field, aliases in fields.items():
-                if field in found:
+                if field in found or (not exact and field in named):
                     continue
                 for alias in aliases:
                     a = norm(alias)
@@ -998,6 +999,9 @@ class Migration:
                             continue
                         if (head == a) if exact else (len(a) > 3 and (head.startswith(a + ' ') or
                                                                      head.endswith(' ' + a))):
+                            if filled is not None and pos not in filled:
+                                named.add(field)
+                                continue
                             found[field] = (pos, alias)
                             taken.add(pos)
                             break

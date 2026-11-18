@@ -495,6 +495,11 @@ def check_alias(result, column, samples, ai=None, aliases=None):
                 notes.append('samples fit')
             else:
                 return None             # e.g. 'Remark' -> email without an @ in the samples
+    dates = values and all(re.fullmatch(r'\d{4}-\d{2}-\d{2}( [\d:]+)?|\d{1,2}\.\d{1,2}\.\d{2,4}', v.strip())
+                           for v in values)
+    if dates and not set(field.split('_')) & {'date', 'start', 'end', 'expiry', 'renewal', 'birth', 'since',
+                                              'until', 'valid'}:
+        return None                     # e.g. a mandate start date offered as the mandate number
     if values and all(re.fullmatch(r'\d{1,2}', v) for v in values):
         conf = min(conf, 0.3)
         notes.append('samples look like a sort order')

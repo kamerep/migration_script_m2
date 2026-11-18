@@ -277,9 +277,12 @@ class TestTableExport(unittest.TestCase):
             book = openpyxl.Workbook()
             ws = book.active
             ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDAT', 'MANDBEZ1', 'VSB', 'ADRNR', 'GESFORM',
-                       'MANDATSFORM', 'AKTIV'])
-            ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', None, 'Example Holding Ltd', 'FF', 1201.0, 'Ltd', None, 'J'])
-            ws.append(['NOVA-PH', 'KP', 7.0, 'CON', None, 'Doe, Jane', 'FF', 1202.0, None, None, 'J'])
+                       'MANDATSFORM', 'AKTIV', 'STATUS', 'STATUS_MUTDATUM', 'MANDATS_BEGINN'])
+            day = datetime.datetime(2020, 1, 1)
+            ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', None, 'Example Holding Ltd', 'FF', 1201.0, 'Ltd', None, 'J',
+                       None, day, day])
+            ws.append(['NOVA-PH', 'KP', 7.0, 'CON', None, 'Doe, Jane', 'FF', 1202.0, None, None, 'J', None, None,
+                       day])
             book.save(src / 'Mandate list extract.xlsx')
             job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
             job.run()
@@ -292,6 +295,8 @@ class TestTableExport(unittest.TestCase):
             mapping = job.files[0]['mapping']
             self.assertEqual(mapping['legal_form'], 'GESFORM')        # the empty MANDATSFORM does not take it
             self.assertNotIn('MANDAT', mapping.values())
+            self.assertNotIn('status', mapping)                       # the empty STATUS keeps STATUS_MUTDATUM out
+            self.assertEqual(mapping['contract_start'], 'MANDATS_BEGINN')
             self.assertIn('REF_COMPOSED', [e['code'] for e in job.journal.events])
 
 

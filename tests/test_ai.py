@@ -106,6 +106,8 @@ class TestGuardrails(unittest.TestCase):
         self.assertIsNotNone(m2_ai.check_alias({**base, 'value': 'email'}, 'Mail', ['a@b.ch']))
         self.assertLessEqual(m2_ai.check_alias({**base, 'value': 'name'}, 'Order', ['1', '2'])['confidence'], 0.3)
         self.assertLessEqual(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'Ref', ['KP-1'])['confidence'], 0.4)
+        self.assertIsNone(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'MANDATS_BEGINN', ['2024-09-11']))
+        self.assertIsNotNone(m2_ai.check_alias({**base, 'value': 'contract_start'}, 'BEGINN', ['2024-09-11']))
         # 'mandate_no' must not be read as a date field
         self.assertIsNotNone(m2_ai.check_alias({**base, 'value': 'mandate_no'}, 'Date', ['x']))
 
