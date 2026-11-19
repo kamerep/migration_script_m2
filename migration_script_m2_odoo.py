@@ -264,6 +264,34 @@ KINDS = {
                    'collectively': ['Kollektiv', 'Collectively', 'Collectiv', 'Collective', 'Joint']},
         'key_fields': ['signature_type', 'collectively'],
     },
+    # M2 Mandate info > Vollmachten: powers of attorney the client grants (module csp_power_attorney in Odoo)
+    'powers_attorney': {
+        'title': 'Powers of attorney', 'words': ['vollmacht', 'vollmachten', 'power of attorney',
+                                                 'powers of attorney', 'attorney', 'bevollm'],
+        'fields': {**CLIENT_REF, 'client_name': CLIENT_REF['client_name'] + ['Vollmachtgeber', 'Grantor', 'Principal'],
+                   'attorney': ['Bevollmächtigter', 'Bevollmaechtigter', 'Bevollmächtigte', 'Vollmachtnehmer',
+                                'Attorney', 'Attorney Name', 'Attorney-in-fact'],
+                   'name': PERSON['name'], 'first_name': PERSON['first_name'], 'last_name': PERSON['last_name'],
+                   'poa_type': ['Vollmachtsart', 'Vollmachtart', 'Art der Vollmacht', 'POA Type', 'Type of POA',
+                                'Type of Power', 'Art', 'Typ', 'Type'],
+                   'scope': ['Umfang', 'Vollmachtsumfang', 'Befugnisse', 'Inhalt', 'Scope', 'Powers'],
+                   'signing_authority': SIGNING, 'collective': COLLECTIVE,
+                   'joint_with': ['Zusammen mit', 'Kollektiv mit', 'Jointly with', 'Together with'],
+                   'account': ['IBAN', 'Konto Nr', 'Kontonummer', 'Konto', 'Account No', 'Account Number'],
+                   'date_granted': ['Erteilt am', 'Ausgestellt am', 'Ausstellungsdatum', 'Datum der Vollmacht',
+                                    'Date Granted', 'Granted On', 'Issue Date'],
+                   'date_start': ['Gültig ab', 'Gueltig ab', 'Valid From'] + PERIOD_START,
+                   'date_end': ['Gültig bis', 'Gueltig bis', 'Valid Until', 'Valid To', 'Ablaufdatum', 'Expiry']
+                               + PERIOD_END,
+                   'revoked': ['Widerrufen am', 'Widerruf', 'Widerrufsdatum', 'Revoked On', 'Revoked', 'Date Revoked'],
+                   'revocation_reason': ['Widerrufsgrund', 'Grund Widerruf', 'Reason for Revocation'],
+                   'notarised': ['Notariell beglaubigt', 'Beglaubigt', 'Notarised', 'Notarized'],
+                   'apostilled': ['Apostille', 'Apostilliert', 'Apostilled'],
+                   'jurisdiction': ['Anwendbares Recht', 'Recht', 'Issued In', 'Governing Law'],
+                   'm2_ref': ['Vollmacht Nr', 'Vollmachtsnummer', 'Vollmacht ID', 'POA No', 'POA Number'],
+                   'remark': PERSON['remark']},
+        'key_fields': ['attorney', 'poa_type'],
+    },
     'fees': {
         'title': 'Fees (ABF / FLF)', 'words': ['honorar', 'fees', 'fee', 'gebühr', 'gebuehr', 'pauschale'],
         'fields': {**{k: v for k, v in CLIENT_REF.items() if k != 'client_name'},
@@ -349,6 +377,7 @@ for _kind, _spec in KINDS.items():
 
 # Officer function (normalized) -> template sheet, for a combined officers export
 OFFICER_FUNCTIONS = [
+    (r'bevollm|vollmacht|attorney', 'powers_attorney'),
     (r'sekret|secretar', 'secretaries'),
     (r'agent|domizil', 'agents'),
     (r'wirtschaftlich|beneficial|\bubo\b|\bbo\b', 'ubos'),
@@ -445,11 +474,19 @@ NO = {'0', 'false', 'no', 'nein', 'n', 'non', 'falsch', ''}
 NOT_APPLICABLE = {'n/a', 'na', 'not applicable', 'none', '-', '--', '/', 'not known', 'unbekannt', 'k.a.', 'ka',
                   'keine', 'tbd', '?', 'nil', 'null'}
 START_FIELD = {'directors': 'date_appointment', 'ubos': 'date_registry', 'shareholders': 'date_entry',
-               'secretaries': 'date_appointment', 'agents': 'date_appointment'}
+               'secretaries': 'date_appointment', 'agents': 'date_appointment', 'powers_attorney': 'date_valid_from'}
 END_FIELD = {'directors': 'date_resignation', 'ubos': 'date_removed', 'shareholders': 'date_transferred',
-             'secretaries': 'date_resignation', 'agents': 'date_resignation'}
+             'secretaries': 'date_resignation', 'agents': 'date_resignation', 'powers_attorney': 'date_valid_to'}
 REGISTER_KINDS = ['contacts', 'directors', 'ubos', 'shareholders', 'secretaries', 'agents', 'bank_accounts',
-                  'signatories']
+                  'signatories', 'powers_attorney']
+# M2 kind of power of attorney -> the Type of csp.power.attorney (label, as the import reads it)
+POA_TYPES = [(r'bank|konto|account', 'Bank'),
+             (r'general|generell|allgemein|umfassend', 'General'),
+             (r'register|handelsreg|registry|corporate|gesellschaft|company|firmen', 'Registry / Corporate'),
+             (r'prozess|gericht|litigation|court|anwalt|legal proceed', 'Litigation'),
+             (r'spezial|special|specific|einzel|limited|beschränkt|beschraenkt|single', 'Special')]
+# An archive file that is a power of attorney. A bare "POA" is Proof of Address in CSP Documents: not used.
+POA_FILE = re.compile(r'vollmacht|attorney|bevollm', re.I)
 
 COMPANY_WORDS = re.compile(r'\b(ag|gmbh|ltd|limited|inc|llc|llp|sa|sarl|trust|stiftung|foundation|corp|plc|fzco|fze|'
                            r'bv|nv|kg|holding|treuhand|anstalt|establishment|company|co|partners|group)\b\.?', re.I)
@@ -1434,7 +1471,7 @@ class Migration:
                 return sheet
             self.ev('error', 'OFFICER_TYPE_INVALID', f"Settings > officer types: '{function}' -> '{sheet}' is not a "
                     "register sheet.", fix="Use directors, ubos, shareholders, secretaries, agents, contacts, "
-                    "signatories or ignore.")
+                    "signatories, powers_attorney or ignore.")
         for pattern, sheet in OFFICER_FUNCTIONS:
             if function and re.search(pattern, function, re.I):
                 self.ev('decision', 'OFFICER_ROUTE', f"{where}: function '{function}' -> {SHEETS[sheet]['title']}.",
@@ -1499,6 +1536,8 @@ class Migration:
 
     def register_row(self, sheet, table, row):
         v, where = row['v'], f"{table['file']} row {row['row']}"
+        if sheet == 'powers_attorney' and text(v.get('attorney')):
+            v = {**v, 'name': v['attorney']}
         spec = SHEETS[sheet]
         columns = [c[0] for c in spec['columns']]
         out = {c: None for c in columns}
@@ -1632,6 +1671,8 @@ class Migration:
                     out['collectively'] = 'Yes' if code == 'jointly' else 'No'
                     self.change(sheet, where, key, 'Collectively', '', out['collectively'],
                                 f"Read from the signature type '{out['signature_type']}'.")
+        if sheet == 'powers_attorney':
+            self.poa_fields(where, key, v, out)
         for header, value in row['extra'].items():
             self.not_loaded_value(sheet, where, key, out.get('name'), header, text(value), "M2 column with no CSP "
                                   "field.")
@@ -1692,6 +1733,42 @@ class Migration:
             return
         out['_where'], out['_key'] = where, entry['ref']
         self.rows[sheet].append(out)
+
+    def poa_fields(self, where, key, v, out):
+        """The fields of a power of attorney row; Status from the dates (revoked, ended, or active)."""
+        sheet = 'powers_attorney'
+        raw_type = text(v.get('poa_type') or v.get('function'))     # an officers list: the M2 function
+        out['poa_type'] = next((label for pattern, label in POA_TYPES if re.search(pattern, raw_type, re.I)), None)
+        if not out['poa_type']:
+            out['poa_type'] = 'Other'
+            self.change(sheet, where, key, 'Type', raw_type, 'Other', "No M2 kind of power of attorney." if not
+                        raw_type else "Not a known kind of power of attorney: Other (the M2 kind is in Scope).")
+            if raw_type:
+                out['scope'] = f"M2 kind: {raw_type}"
+        elif norm(raw_type) != norm(out['poa_type']):
+            self.change(sheet, where, key, 'Type', raw_type, out['poa_type'], "M2 kind of power of attorney.")
+        out['scope'] = '; '.join(filter(None, [text(v.get('scope')), out.get('scope')])) or None
+        out['joint_with'] = text(v.get('joint_with')) or None
+        out['account'] = text(v.get('account')) or None
+        out['date_granted'] = self.convert(sheet, where, key, 'Granted On', v.get('date_granted'), self.conv.date)
+        flag = self.conv.boolean(v.get('revoked'))[0] if text(v.get('revoked')) else None   # M2 J/N or a date
+        out['date_revoked'] = None if flag else self.convert(sheet, where, key, 'Revoked On', v.get('revoked'),
+                                                            self.conv.date)
+        out['revocation_reason'] = text(v.get('revocation_reason')) or None
+        for field, label in (('notarised', 'Notarised'), ('apostilled', 'Apostilled')):
+            out[field] = self.convert(sheet, where, key, label, v.get(field), self.conv.boolean)
+        out['jurisdiction'] = self.convert(sheet, where, key, 'Issued In', v.get('jurisdiction'), self.conv.country)
+        out['m2_reference'] = text(v.get('m2_ref')) or None
+        out['notes'] = '; '.join(filter(None, (text(v.get(f)) for f in ('remark', 'remark2', 'remark3')))) or None
+        if out['date_revoked'] or flag == 'Yes':
+            out['state'] = 'Revoked'
+        elif out['date_valid_to'] and out['date_valid_to'] < datetime.date.today():
+            out['state'] = 'Expired'
+        else:
+            out['state'] = 'Active' if out.get('name') else 'Draft'
+        self.ev('decision', 'POA_STATUS', f"{where}: power of attorney of {key} to {out.get('name') or '?'} "
+                f"({out['poa_type']}): status {out['state']}"
+                + (f", ended {out['date_valid_to']}" if out['state'] == 'Expired' else '') + '.', key=key)
 
     @staticmethod
     def _iban_ok(iban):
@@ -1908,11 +1985,50 @@ class Migration:
                     f"({entry['name']}): {len(files)} file(s) indexed for attaching in Odoo.", key=entry['ref'],
                     file=folder.name)
         self.build_inventory(listed)
+        self.poa_from_documents()
         missing = [d for d in self.documents if not d['on_disk'] and not d['where'].startswith(('folder',
                                                                                                 'archive'))]
         if missing and (folders or self.tables['inventory']):
             self.ev('warning', 'DOCUMENTS_MISSING', f"{len(missing)} document(s) of the document export are not in "
                     "the copied folders.", fix="Copy the M2 document store folders next to the exports.")
+
+    def poa_from_documents(self):
+        """Files of the M2 documents that are a power of attorney: a Draft row for each client that has none from a
+        Vollmachten export, to complete in Odoo (a file name does not name the attorney). One row per document,
+        whatever its formats (pdf, docx); a revocation is only reported."""
+        from_export = {rkey(r['_key']) for r in self.rows['powers_attorney']}
+        per_client, revocations, seen = collections.Counter(), collections.Counter(), set()
+        for d in self.documents:
+            words = f"{d['folder']} {d['file']}"
+            if not POA_FILE.search(words) or d['client_state'] != 'loaded':
+                continue
+            same = (rkey(d['key']), norm(d['folder']), norm(Path(d['file']).stem))
+            if same in seen:
+                continue
+            seen.add(same)
+            if re.search(r'widerruf|revoc|revok', words, re.I):
+                revocations[d['key']] += 1
+                continue
+            if rkey(d['key']) in from_export:
+                continue
+            out = {c[0]: None for c in SHEETS['powers_attorney']['columns']}
+            out.update(client=d['key'], state='Draft',
+                       poa_type=next((label for pattern, label in POA_TYPES if re.search(pattern, words, re.I)),
+                                     'Other'),
+                       m2_reference=f"archive:{d['key']}/{d['folder'] + '/' if d['folder'] else ''}{d['file']}",
+                       notes=f"From the M2 document {d['on_disk'] or d['file']}: enter the attorney, scope and "
+                             "dates from the document, then attach it.",
+                       _where=d['where'], _key=d['key'])
+            self.rows['powers_attorney'].append(out)
+            per_client[d['key']] += 1
+        for ref, count in per_client.items():
+            self.ev('decision', 'POA_FROM_ARCHIVE', f"Client {ref}: {count} power(s) of attorney found in the M2 "
+                    "documents -> Draft entries to complete in Odoo (attorney, scope, dates).", key=ref,
+                    fix="Open the client's Powers of Attorney tab in Odoo and complete each draft from its document.")
+        for ref, count in revocations.items():
+            self.ev('review', 'POA_REVOCATION_FILE', f"Client {ref}: {count} revocation(s) of a power of attorney "
+                    "in the M2 documents: no entry made.", key=ref,
+                    fix="Mark the power of attorney it revokes as Revoked in Odoo.")
 
     def build_inventory(self, listed):
         """Files of the archive inventory, per mandate folder: indexed without copying the archive."""

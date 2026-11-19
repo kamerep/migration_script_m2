@@ -208,6 +208,13 @@ class TestDocumentRules(unittest.TestCase):
         self.assertEqual([d['doc_type'] for d in out], ['passport_id', 'invoice_fee'])
         self.assertEqual([d['confidence'] for d in out], [0.9, 0.75])
 
+    def test_poa_is_proof_of_address_unless_attorney(self):
+        out = self.run_docs([{'key': 'A', 'folder': 'KYC', 'file': 'POA 2021.pdf'},
+                             {'key': 'A', 'folder': 'Legal', 'file': 'POA - Power of Attorney.pdf'},
+                             {'key': 'A', 'folder': 'Legal', 'file': 'Bankvollmacht.pdf'}])
+        self.assertEqual([d['doc_type'] for d in out], ['proof_of_address', 'power_of_attorney',
+                                                        'power_of_attorney'])
+
     def test_accounting_software_files(self):
         out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
                              ('Lovina Ltd.qbw', 'Lovina Ltd.qbw.TLG', 'segments_1k', 'segments.gen', '_a.cfx')])

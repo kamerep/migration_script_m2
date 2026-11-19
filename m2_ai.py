@@ -61,18 +61,22 @@ CACHE_FILE = 'ai_cache.jsonl'                # model answers kept beside the run
 # Tasks whose input is only headers / codes: the only ones that may ever go to the cloud.
 CLOUD_SAFE = {'columns_cloud', 'file_kinds_cloud', 'officer_types', 'companies', 'legal_forms'}
 
-REGISTERS = ('directors', 'ubos', 'shareholders', 'secretaries', 'agents', 'contacts', 'signatories', 'ignore')
+REGISTERS = ('directors', 'ubos', 'shareholders', 'secretaries', 'agents', 'contacts', 'signatories', 'powers_attorney',
+             'ignore')
 ENTITY_TYPES = ('company', 'foundation', 'trust', 'individual')
 
 DOC_TYPES = {
     'passport_id': r'pass(port)?|reisepass|\bid\b|identit|ausweis|identity card|\bpp\b',
-    'proof_of_address': r'utility|proof of address|wohnsitz|address proof|rechnung strom|meldebest|residence',
+    # A bare "POA" is Proof of Address here (the CSP document types POA_IND / POA_ENT), unless the name also says
+    # attorney / Vollmacht.
+    'proof_of_address': r'utility|proof of address|wohnsitz|address proof|rechnung strom|meldebest|residence|'
+                        r'^(?!.*(attorney|vollmacht|bevollm)).*\bpoa\b',
     'incorporation': r'incorporat|gr[uü]ndung|certificate of inc|\bcoi\b|formation',
     'register_extract': r'register|handelsregister|\bhr[- _]?auszug|auszug|extract|good standing|incumbency',
     'articles': r'statut|articles|memorandum|\bm&a\b|\bmoa\b|\baoa\b|satzung|bylaws|deed|trust deed|charter',
     'share_register': r'aktienbuch|share ?register|shareholder|aktien|share cert|anteil',
     'resolution': r'resolution|beschluss|protokoll|minutes|\bgv\b|\bvr\b|board',
-    'power_of_attorney': r'vollmacht|power of attorney|\bpoa\b|signatory|zeichnung',
+    'power_of_attorney': r'vollmacht|attorney|bevollm|signatory|zeichnung',
     'kyc_compliance': r'kyc|\bform a\b|\bform k\b|\bfatca\b|\bcrs\b|world ?check|pep|compliance|due diligence|'
                       r'\bcdd\b|\bedd\b|sanction|source of (funds|wealth)|risk',
     'lei': r'\blei\b|legal entity identifier',
@@ -576,7 +580,8 @@ def suggest(run_dir, ai=None, config=None):
         system = ("M2 Mandat 'Detail addr.' rows link a person or company to a client with a type code or function "
                   "(German or English, often abbreviated: DIR director, VR Verwaltungsrat=directors, GF "
                   "Geschäftsführer=directors, BO/WB/wirtschaftlich Berechtigter=ubos, AK/Aktionär=shareholders, "
-                  "SEC=secretaries, RA/agent=agents, CP/Kontakt=contacts, ZB/Zeichnungsberechtigt=signatories). "
+                  "SEC=secretaries, RA/agent=agents, CP/Kontakt=contacts, ZB/Zeichnungsberechtigt=signatories, "
+                  "BEV/Bevollmächtigter=powers_attorney). "
                   "Pick the register sheet; 'ignore' if it is not a role to register. " + ANSWER)
         items = [{'id': f"o{i}", 'code': c} for i, c in enumerate(codes)]
         res = ai.classify('officer_types', system, items, set(REGISTERS))

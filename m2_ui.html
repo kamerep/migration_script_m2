@@ -780,7 +780,7 @@ function renderOverview() {
   if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
   if (!S.run) { el.innerHTML = `<div class="pagehead"><h2>Turn M2 exports into the CSP client import<p>Nothing is written to Odoo: a run produces
     <span class="mono">CSP_Import_M2.xlsx</span> for the Client Import and <span class="mono">CSP_Import_M2_Review.xlsx</span> with everything left out, and records every decision it made.</p></h2></div>
-    <div class="steps"><div class="step"><h3>Choose the folder with the M2 exports</h3><p>Addresses, mandates, officers, beneficial owners, shareholders, bank accounts, signatories, contact persons, fees, open items:
+    <div class="steps"><div class="step"><h3>Choose the folder with the M2 exports</h3><p>Addresses, mandates, officers, beneficial owners, shareholders, bank accounts, signatories, powers of attorney, contact persons, fees, open items:
       Excel or CSV, German or English headers.</p><button class="btn" data-do="browse">${ic('folder')}Browse…</button> <button class="btn ghost" data-do="sample">Use sample data</button></div>
     <div class="step"><h3>Run the migration</h3><p>Watch the eight stages and every decision live in the Journal. A run takes seconds and can be repeated as often as needed.</p>
       <button class="btn primary" data-do="run">${ic('play')}Run migration</button></div>
@@ -836,7 +836,7 @@ function renderOverview() {
 
 // ---------- needs decision ----------
 const OFFICER_SHEETS = [['directors', 'Directors'], ['ubos', 'UBOs'], ['shareholders', 'Shareholders'], ['secretaries', 'Secretaries'],
-  ['agents', 'Agents'], ['contacts', 'Contact persons'], ['signatories', 'Bank signatories'], ['ignore', 'Ignore these rows']];
+  ['agents', 'Agents'], ['contacts', 'Contact persons'], ['signatories', 'Bank signatories'], ['powers_attorney', 'Powers of attorney'], ['ignore', 'Ignore these rows']];
 async function decide(body, msg, undo) {
   try { const r = await api('/api/decide', body); S.info.config = r.config;
     toast(msg, {type: 'success', detail: body.type === 'unset' ? '' : 'Applies on the next run.',

@@ -307,7 +307,8 @@ def api_decide(params):
         if key not in aliases:
             aliases.append(key)
     elif kind == 'officer_type':
-        allowed = ('directors', 'ubos', 'shareholders', 'secretaries', 'agents', 'contacts', 'signatories', 'ignore')
+        allowed = ('directors', 'ubos', 'shareholders', 'secretaries', 'agents', 'contacts', 'signatories',
+                   'powers_attorney', 'ignore')
         if value not in allowed:
             raise Error(f"Choose one of {', '.join(allowed)}.")
         config.setdefault('officer_types', {})[key] = value

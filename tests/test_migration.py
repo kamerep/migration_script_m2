@@ -300,5 +300,86 @@ class TestTableExport(unittest.TestCase):
             self.assertIn('REF_COMPOSED', [e['code'] for e in job.journal.events])
 
 
+class TestPowersOfAttorney(unittest.TestCase):
+    """M2 Vollmachten export -> Powers of Attorney sheet; archive files that are a power of attorney -> drafts."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        src, out = Path(cls.tmp.name) / 'src', Path(cls.tmp.name) / 'out'
+        src.mkdir()
+        book = openpyxl.Workbook()
+        ws = book.active
+        ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1', 'ADRNR', 'AKTIV'])
+        ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', 'Orbit Example Holding Ltd', 1201.0, 'J'])
+        ws.append(['NOVA-PH', 'KP', 7.0, 'CON', 'Doe, Jane', 1202.0, 'J'])
+        book.save(src / 'Mandate list extract.xlsx')
+        book = openpyxl.Workbook()
+        ws = book.active
+        ws.append(['Mandat Nr', 'Bevollmächtigter', 'Vollmachtsart', 'Zeichnungsart', 'Gültig ab', 'Gültig bis',
+                   'Widerrufen am', 'Notariell beglaubigt', 'Vollmacht Nr'])
+        ws.append(['KP-00031-ENT', 'Max Muster', 'Bankvollmacht', 'Kollektiv zu zweien', '01.02.2020', None, None,
+                   'J', 'VM-1'])
+        ws.append(['KP-00031-ENT', 'Erika Beispiel', 'Generalvollmacht', 'Einzel', '01.01.2015', '31.12.2019', None,
+                   'N', 'VM-2'])
+        ws.append(['KP-00031-ENT', 'Hans Test', 'Spezialvollmacht', None, '01.01.2018', None, '15.03.2021', None,
+                   'VM-3'])
+        ws.append(['KP-00031-ENT', 'Late Start', 'Spezialvollmacht', None, '01.01.2022', '01.01.2021', None, None,
+                   'VM-4'])
+        book.save(src / 'Vollmachten.xlsx')
+        root = 'Z:\\NOVA-PH\\'
+        (src / 'Archive inventory.csv').write_text('"Path","Length","Modified"\n' + ''.join(
+            f'"{root}{path}","100","01.01.2020"\n' for path in (
+                'KP-00031-ENT\\Legal\\Bankvollmacht.pdf',                 # client with an export: no draft
+                'KP-00007-CON\\Legal\\General Power of Attorney.pdf',
+                'KP-00007-CON\\Legal\\General Power of Attorney.docx',    # same document, other format
+                'KP-00007-CON\\KYC\\POA utility bill.pdf',                # POA = Proof of Address
+                'KP-00007-CON\\Legal\\Widerruf Vollmacht.pdf')), encoding='utf-8')
+        cls.job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+        cls.job.run()
+        cls.codes = [e['code'] for e in cls.job.journal.events]
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_export_read_as_powers_of_attorney(self):
+        kinds = {t['file']: t['kind'] for t in self.job.files}
+        self.assertEqual(kinds['Vollmachten.xlsx'], 'powers_attorney')
+
+    def test_export_rows(self):
+        rows = {r['m2_reference']: r for r in self.job.rows['powers_attorney'] if r['m2_reference'].startswith('VM')}
+        self.assertEqual(set(rows), {'VM-1', 'VM-2', 'VM-3'})
+        bank = rows['VM-1']
+        self.assertEqual((bank['client'], bank['name'], bank['poa_type'], bank['signing_authority'], bank['state'],
+                          bank['notarised']), ('KP-00031-ENT', 'Max Muster', 'Bank', 'jointly', 'Active', 'Yes'))
+        self.assertEqual(bank['date_valid_from'], datetime.date(2020, 2, 1))
+        self.assertEqual((rows['VM-2']['poa_type'], rows['VM-2']['state']), ('General', 'Expired'))
+        self.assertEqual((rows['VM-3']['poa_type'], rows['VM-3']['state']), ('Special', 'Revoked'))
+        self.assertEqual(rows['VM-3']['date_revoked'], datetime.date(2021, 3, 15))
+        review = self.job.review['powers_attorney']
+        self.assertEqual([r['row']['m2_reference'] for r in review], ['VM-4'])    # ends before it starts
+
+    def test_drafts_from_archive(self):
+        drafts = [r for r in self.job.rows['powers_attorney'] if r['m2_reference'].startswith('archive:')]
+        self.assertEqual(len(drafts), 1, "one per document, none for the client of the export, none for Proof "
+                                         "of Address or a revocation")
+        draft = drafts[0]
+        self.assertEqual((draft['client'], draft['poa_type'], draft['state'], draft['name']),
+                         ('KP-00007-CON', 'General', 'Draft', None))
+        for code in ('POA_STATUS', 'POA_FROM_ARCHIVE', 'POA_REVOCATION_FILE'):
+            self.assertIn(code, self.codes)
+
+    def test_officer_function_routes_to_powers_of_attorney(self):
+        row = {'row': 2, 'v': {'function': 'Bevollmächtigter Bank', 'mandate_no': 'KP-00031-ENT'}}
+        self.assertEqual(self.job.route_officer({'file': 'Organe.xlsx'}, row), 'powers_attorney')
+
+    def test_sheet_written(self):
+        book = openpyxl.load_workbook(self.job.out / m2.IMPORT_FILE, read_only=True)
+        rows = list(book['Powers of Attorney'].iter_rows(values_only=True))
+        self.assertEqual(list(rows[0]), [c[1] for c in m2.SHEETS['powers_attorney']['columns']])
+        self.assertEqual(len(rows) - 1, 4)
+
+
 if __name__ == '__main__':
     unittest.main()

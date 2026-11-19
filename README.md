@@ -23,11 +23,17 @@ The template columns are read from `/data/odoo20_enhancements/csp_client_import/
 
 Every `.xlsx`, `.xls` and `.csv` in the folder: addresses, mandates, officers (board / secretary / agent in one list,
 routed by their function), directors, beneficial owners, shareholders, secretaries, agents, bank accounts,
-signatories, contact persons, fees (ABF / FLF / LEI), open items (invoices), compliance data and the document index.
+signatories, powers of attorney (Vollmachten), contact persons, fees (ABF / FLF / LEI), open items (invoices),
+compliance data and the document index.
 German headers, or the English grid titles of M2 Professional (*Infosystem › Mandate info*: Mandate overview,
 Address, Detail addr., Bank / Account / Authorized to sign, Fees, Invoice, Compliance, Document). Report titles above
 the header, total lines, Windows-1252 CSVs with `;` are handled. A file is classified by its headers and file name; the
 score of every candidate is kept.
+
+Powers of attorney go to the **Powers of Attorney** sheet (Odoo module `csp_power_attorney`). A Vollmachten export
+gives attorney, kind, scope, signing, validity, revocation, notarised / apostille and the M2 number; the status comes
+from the dates. A file of the M2 documents named Vollmacht or attorney gives a Draft entry for a client that has none
+from the export, to complete in Odoo. A bare "POA" in a file name is Proof of Address, not a power of attorney.
 
 An export of one mandate's grid has no mandate column: name the file after the mandate
 (`KP-482-ACC Detail addr.xlsx`) or keep the report title with the number, and every row is linked to it. On those

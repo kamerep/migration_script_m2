@@ -205,7 +205,7 @@ def m2_decide(type: str, key: str, value: str = '', kind: str = '', field: str =
     """Record one decision in the settings (m2_config.json); it applies on the next run. Only after the user
     agreed. type: company (holder code -> Odoo company), employee (M2 abbreviation -> employee name), file_kind
     (file name -> export kind or 'ignore'), alias (column header -> `field` of export `kind`), officer_type
-    (M2 type code -> directors/ubos/shareholders/secretaries/agents/contacts/signatories/ignore), exclude (M2 key)."""
+    (M2 type code -> directors/ubos/shareholders/secretaries/agents/contacts/signatories/powers_attorney/ignore), exclude (M2 key)."""
     body = {'type': type, 'key': key, 'value': value}
     if type == 'alias':
         body.update(kind=kind, field=field or value)

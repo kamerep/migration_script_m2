@@ -38,6 +38,8 @@ bin/m2ctl.sh sample        # sample exports and a terminal run on them
 
 `m2_ui.html` is read from disk on every page load: edit, reload the browser, no restart. `m2_ui.py` needs a restart.
 The migration needs `import_spec.py` of `csp_client_import` (path in `CSP_IMPORT_SPEC`, or the default in the script).
+Its Powers of Attorney sheet loads only where the Odoo module `csp_power_attorney` is installed. In this firm a bare
+"POA" is Proof of Address (document types `POA_IND` / `POA_ENT`); a power of attorney is Vollmacht / attorney (`PWRATT`).
 
 ## Driving the tool as an agent
 
