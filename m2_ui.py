@@ -434,10 +434,11 @@ def api_ai_google(params):
     """Sign in with Google for Claude on Vertex AI: action login opens Google's sign-in page in the browser
     (gcloud auth application-default login); status says whether this machine is signed in."""
     if params.get('action') == 'login':
-        gcloud = shutil.which('gcloud')
+        gcloud = m2_ai.find_gcloud()
         if not gcloud:
-            raise Error("The Google Cloud CLI (gcloud) is not installed. Install it once in a terminal: "
-                        "sudo snap install google-cloud-cli --classic, then press Sign in with Google again.")
+            raise Error("The Google Cloud CLI (gcloud) is not installed. Install it once in a terminal (it asks for "
+                        "your password): sudo snap install google-cloud-cli --classic, then press Check and Sign in "
+                        "with Google again; no restart of this tool is needed.")
         if GOOGLE_LOGIN.get('state') == 'running':
             return {'state': 'running'}
         GOOGLE_LOGIN.update(state='running', started=datetime.datetime.now().isoformat(timespec='seconds'),

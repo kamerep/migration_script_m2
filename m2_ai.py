@@ -102,11 +102,20 @@ GENERIC_NAME = re.compile(r'^(scan|img|image|dsc|doc|dok|document|dokument|file|
 
 
 # ---------------------------------------------------------------------------------------------------------------
+def find_gcloud():
+    """The Google Cloud CLI: on the PATH, or where snap and Google's own installer put it."""
+    import shutil  # noqa: PLC0415
+    found = shutil.which('gcloud')
+    for path in (Path('/snap/bin/gcloud'), Path.home() / 'google-cloud-sdk' / 'bin' / 'gcloud'):
+        if not found and path.is_file():
+            found = str(path)
+    return found
+
+
 def google_signin():
     """The Google sign-in this machine has for Claude on Vertex AI (Application Default Credentials, made by
     `gcloud auth application-default login`): signed_in, project, gcloud (the sign-in tool is installed), error."""
-    import shutil  # noqa: PLC0415
-    out = {'signed_in': False, 'project': '', 'gcloud': bool(shutil.which('gcloud')), 'library': True}
+    out = {'signed_in': False, 'project': '', 'gcloud': bool(find_gcloud()), 'library': True}
     try:
         import google.auth  # noqa: PLC0415 - optional: anthropic[vertex]
         from google.auth.exceptions import DefaultCredentialsError  # noqa: PLC0415
