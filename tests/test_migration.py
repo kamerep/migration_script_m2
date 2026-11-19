@@ -441,5 +441,35 @@ class TestLabelRowAndJurisdiction(unittest.TestCase):
         self.assertEqual([e['key'] for e in differs], ['KP-00032-ENT', 'KP-00034-ENT'])
 
 
+class TestLoadIntoOdooField(unittest.TestCase):
+    """A column mapped (Needs decision > Load into) to any field of the Odoo template sheet."""
+
+    def test_direct_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+            src.mkdir()
+            book = openpyxl.Workbook()
+            ws = book.active
+            ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1', 'MWSTPFLICHT', 'STEUERLAND', 'GEBDAT', 'M2REF'])
+            ws.append(['NOVA-PH', 'KP', 41.0, 'CON', 'Doe, Jane', 'J', 'Schweiz', '17.05.1980', 'X-1'])
+            book.save(src / 'Mandate list extract.xlsx')
+            config = {**TestEnglishRun.CONFIG, 'extra_aliases': {'mandates': {
+                'csp:vat_required': ['MWSTPFLICHT'], 'csp:tax_residency': ['STEUERLAND'],
+                'csp:date_of_birth': ['GEBDAT'], 'csp:m2_reference': ['M2REF']}}}
+            job = m2.Migration(src, out, config, journal_path=out / 'journal.jsonl')
+            job.run()
+            client = job.rows['clients'][0]
+            self.assertEqual((client['vat_required'], client['tax_residency'], client['date_of_birth']),
+                             ('Yes', 'CH', datetime.date(1980, 5, 17)))
+            self.assertEqual(client['m2_reference'], 'KP-00041-CON', "a key column is never overwritten")
+
+    def test_options_name_the_odoo_fields(self):
+        options = dict(m2.field_options('mandates'))
+        self.assertEqual(options['csp:tax_residency'], 'Clients › Tax Residency')
+        self.assertEqual(options['contract_start'], 'Clients › Contract Start Date')
+        self.assertNotIn('csp:m2_reference', options)
+        self.assertIn('Directors › Date of Appointment', dict(m2.field_options('directors')).values())
+
+
 if __name__ == '__main__':
     unittest.main()

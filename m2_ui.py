@@ -271,6 +271,7 @@ def api_state(_params):
     config = m2.load_config(CONFIG)
     return {'config': config, 'settings': ui_settings(), 'kinds': {k: v['title'] for k, v in m2.KINDS.items()},
             'kind_fields': {k: sorted(v['fields']) for k, v in m2.KINDS.items()},
+            'kind_options': {k: m2.field_options(k) for k in m2.KINDS},
             'spec': m2.SPEC_PATH, 'sheets': {k: v['title'] for k, v in m2.SHEETS.items()},
             'running': next((j['id'] for j in JOBS.values() if j['state'] == 'running'), None),
             'sample': str(HERE / 'sample_m2'), 'version': VERSION, 'home': str(HERE)}
@@ -304,6 +305,8 @@ def api_decide(params):
         source_kind, field = params.get('kind'), params.get('field')
         if source_kind not in m2.KINDS or not field:
             raise Error("Choose the export kind and the field.")
+        if field not in {value for value, _label in m2.field_options(source_kind)}:
+            raise Error(f"'{field}' is not a field a {m2.KINDS[source_kind]['title']} column can load into.")
         aliases = config.setdefault('extra_aliases', {}).setdefault(source_kind, {}).setdefault(field, [])
         if key not in aliases:
             aliases.append(key)

@@ -496,6 +496,30 @@ POA_FILE = re.compile(r'vollmacht|attorney|bevollm', re.I)
 # Fields that read a second column named by the label row: jurisdiction (first country found wins); name
 # (UP_MANDBEZ1, ALPHA: the same name again, not carried to the Notes)
 SECOND_SOURCES = ('jurisdiction', 'name')
+# Export kind -> the template sheet its rows go to. A column mapped (Needs decision > Load into) to "csp:<column>"
+# is written straight into that column of the sheet: any field of the Odoo import template can be chosen.
+KIND_SHEET = {'mandates': 'clients', 'contacts': 'contacts', 'directors': 'directors', 'ubos': 'ubos',
+              'shareholders': 'shareholders', 'secretaries': 'secretaries', 'agents': 'agents',
+              'bank_accounts': 'bank_accounts', 'signatories': 'signatories', 'powers_attorney': 'powers_attorney'}
+DIRECT = 'csp:'
+NO_DIRECT = ('m2_reference', 'client', 'company')   # keys and the operating company keep their own rules
+
+
+def field_options(kind, kinds=None):
+    """[(value, label)] the person can load an M2 column of `kind` into: the template columns of its sheet by their
+    Odoo name ("Clients › Tax Residency"), then the tool's own fields that have no column of their own."""
+    fields = (kinds or KINDS)[kind]['fields']
+    sheet = SHEETS.get(KIND_SHEET.get(kind, ''))
+    options, columns = [], set()
+    if sheet:
+        for key, header, *_rest in sheet['columns']:
+            columns.add(key)
+            if key in NO_DIRECT and key not in fields:
+                continue
+            options.append((key if key in fields else DIRECT + key, f"{sheet['title']} › {header}"))
+    options += [(f, f"M2 data › {f.replace('_', ' ')}") for f in sorted(fields) if f not in columns
+                and not f.startswith(DIRECT)]
+    return options
 # A row with one value only is a note under the table (legend, filter) unless that value is one of these
 ROW_KEYS = ('mandate_no', 'mandate_seq', 'debtor_no', 'address_no', 'name', 'client_name', 'first_name', 'last_name',
             'acc_number', 'path', 'file_name', 'invoice_no')
@@ -1401,6 +1425,7 @@ class Migration:
         extra_notes = []
         if 'jurisdiction' in out:
             out['jurisdiction'] = self.jurisdiction(where, ref, v, row.get('alt') or {})
+        self.direct_values('clients', where, ref, v, out)
         for field, label in (('holder', 'Mandate holder'), ('jurisdiction', 'Jurisdiction'), ('domicile', 'Domicile'),
                              ('legal_form', 'Legal form'), ('mandate_kind', 'M2 type'), ('language', 'Language'),
                              ('debtor_no', 'Debtor no'), ('address_no', 'Address no'), ('status', 'Status'),
@@ -1451,6 +1476,34 @@ class Migration:
         bo = text(v.get('bo_name'))
         if bo and self.config.get('ubo_from_mandate', True):
             self.pending_bo.append((where, ref, bo))
+
+    def direct_values(self, sheet, where, key, v, out):
+        """Columns the person loads straight into a template column (Load into: Clients › Tax Residency …), read
+        as that column's kind; they win over what the tool found itself."""
+        kinds = {c[0]: c[2] for c in SHEETS[sheet]['columns']}
+        for field, raw in v.items():
+            if not field.startswith(DIRECT) or not text(raw):
+                continue
+            column = field[len(DIRECT):]
+            if column not in kinds or column in NO_DIRECT:
+                continue
+            label = next(c[1] for c in SHEETS[sheet]['columns'] if c[0] == column)
+            kind = kinds[column]
+
+            def number(x, whole=kind == 'int'):
+                value, _currency, note = self.conv.number(x)
+                return (int(value) if whole and value is not None else value), note
+            func = {'date': self.conv.date, 'bool': self.conv.boolean, 'country': self.conv.country,
+                    'jurisdiction': self.conv.country, 'currency': self.conv.currency, 'float': number,
+                    'int': number}.get(kind)
+            value = self.convert(sheet, where, key, label, raw, func) if func else text(raw)
+            if kind == 'employee':
+                value = self.employee(where, key, label, raw)
+            if value is None:
+                continue
+            if out.get(column) not in (None, '', value):
+                self.change(sheet, where, key, label, out[column], value, "Settings > Load into wins.")
+            out[column] = value
 
     def jurisdiction(self, where, ref, v, alt):
         """Country of incorporation: the jurisdiction column, then a column labelled JURISDICTION, then the
@@ -1764,6 +1817,7 @@ class Migration:
                                 f"Read from the signature type '{out['signature_type']}'.")
         if sheet == 'powers_attorney':
             self.poa_fields(where, key, v, out)
+        self.direct_values(sheet, where, key, v, out)
         for header, value in row['extra'].items():
             self.not_loaded_value(sheet, where, key, out.get('name'), header, text(value), "M2 column with no CSP "
                                   "field.")

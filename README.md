@@ -98,6 +98,10 @@ each guide from its HTML.
 * **Jurisdiction** goes to Odoo (column Jurisdiction, a country): JURISDIKTION_STAAT_TXT, then the column the label
   row calls JURISDICTION (MANDBEZ2), then the domicile; differences are flagged (`JURISDICTION_DIFFERS`). A label
   row under the header and one-value notes under the table are not clients (`HEADER_LABELS`, `ROW_NOTE`).
+* **Load into** (Needs decision › Columns): a searchable list of every column of the Odoo import sheet the rows
+  go to (*Clients › Tax Residency* …) plus the tool's own M2 fields; saved as `extra_aliases` (`csp:<column>` for
+  a template column). The import template's Clients sheet also takes KYC facts (birth, nationality, passport,
+  occupation, sources of wealth and funds) and economic-substance facts (tax residency, parents, ES year end).
 * M2 staff codes (FF, AN …) reach Client Advisor / Deputy only through Settings › employee map; an unmapped code
   is left empty and listed in Needs decision, never written to the import file.
 * The import file gives the operating company as its **CSP Short Code** (the M2 holder code, set on the company's

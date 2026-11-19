@@ -696,6 +696,10 @@ function decisionsNeeded() {
   return g;
 }
 /* what the settings already answer: a decision saved after this run, waiting for the next one */
+// "Load into" choices of an export kind: [value, label]; the label is what the person sees and searches
+function fieldLabel(kind, value) { return (S.info?.kind_options?.[kind] || []).find(o => o[0] === value)?.[1] || value || ''; }
+function fieldValue(kind, text) { const t = (text || '').trim().toLowerCase(); return (S.info?.kind_options?.[kind] || []).find(o => o[1].toLowerCase() === t || o[0].toLowerCase() === t)?.[0] || ''; }
+function fieldLists(kinds) { return [...new Set(kinds)].filter(Boolean).map(k => `<datalist id="kf-${esc(k)}">${(S.info?.kind_options?.[k] || []).map(o => `<option value="${esc(o[1])}"></option>`).join('')}</datalist>`).join(''); }
 function decided(type, key, kind) {
   const c = S.info?.config || {}; if (!key || key === '_help') return '';
   if (type === 'company') return c.company_map?.[key] || '';
@@ -846,7 +850,7 @@ async function decide(body, msg, undo) {
 }
 const keyLinks = (keys, max = 12) => { const u = [...new Set(keys.filter(Boolean))]; return u.slice(0, max).map(k => `<span class="key" data-key="${esc(k)}">${esc(k)}</span>`).join(' ') + (u.length > max ? ` <span class="muted small">+${u.length - max}</span>` : ''); };
 function savedChip(type, key, kind) { const v = decided(type, key, kind); if (!v) return '';
-  return `<span class="saved" title="Saved in the settings: applies on the next run">${ic('check')}${esc(v)}</span><button class="btn ghost small" title="Take this decision back" data-undo="${esc(JSON.stringify({target: type, key, kind, field: v}))}">${ic('undo')}Undo</button>`; }
+  return `<span class="saved" title="Saved in the settings: applies on the next run">${ic('check')}${esc(type === 'alias' ? fieldLabel(kind, v) : v)}</span><button class="btn ghost small" title="Take this decision back" data-undo="${esc(JSON.stringify({target: type, key, kind, field: v}))}">${ic('undo')}Undo</button>`; }
 function renderDecide() {
   const el = panel('decide'); const g = decisionsNeeded();
   if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
@@ -884,7 +888,7 @@ function renderDecide() {
       g.column.map(e => { const kind = kindOfFile(e.file); const v = kind ? decided('alias', e.column, kind) : '';
         return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(e.column)}</b> in ${esc(e.file)} <span class="muted small">(${esc(S.info?.kinds?.[kind] || kind || '')})</span>
         <div class="small muted">e.g. ${(e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ') || 'empty column'}</div></div>
-        <div class="ctl">${kind ? `${savedChip('alias', e.column, kind)}<select data-in="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}"><option value="">Load into…</option>${(S.info?.kind_fields?.[kind] || []).map(f => `<option ${f === v ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
+        <div class="ctl">${kind ? `${savedChip('alias', e.column, kind)}<input type="search" list="kf-${esc(kind)}" data-in="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}" value="${esc(fieldLabel(kind, v))}" placeholder="Load into… type to search" aria-label="Field to load ${esc(e.column)} into" style="min-width:260px">
         <button class="btn small primary" data-save="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>${aiHint('alias', e.column, kind)}` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')),
     sec('other', g.other.length, 'Other errors and checks', 'fix at the source', '',
       g.other.map(e => `<div class="decide"><div><span class="lv ${e.level}">${e.level}</span> <span class="mono small muted">${e.code}</span> ${esc(e.message)}
@@ -897,13 +901,14 @@ function renderDecide() {
     <button class="btn primary" id="rerun">${ic('refresh')}Run again${p.done ? ` with ${p.done} decision(s)` : ''}</button></div>
     <div class="bar tall" role="progressbar" aria-label="Decisions saved" aria-valuemin="0" aria-valuemax="${p.open}" aria-valuenow="${p.done}"><i style="width:${p.open ? 100 * p.done / p.open : 0}%;background:var(--ok)"></i></div>
     <div class="toolbar" style="margin:12px 0 0"><input type="search" id="decq" aria-label="Filter the decisions" placeholder="Filter by code, column, file or mandate…" value="${esc(S.decQ)}" style="max-width:340px">
-    ${navs.map(([id, l, n]) => `<a class="chip" href="#decide" data-jump="dec-${id}">${l} ${n}</a>`).join('')}</div></div>${sections.join('')}`;
+    ${navs.map(([id, l, n]) => `<a class="chip" href="#decide" data-jump="dec-${id}">${l} ${n}</a>`).join('')}</div></div>${sections.join('')}${fieldLists(g.column.map(e => kindOfFile(e.file)))}`;
   bindAI(el);
   const val = (type, key, kind) => $$(`[data-in="${type}"]`, el).find(i => i.dataset.key === key && (i.dataset.kind || '') === (kind || ''))?.value.trim();
-  const saveRow = b => { const {save: type, key, kind} = b.dataset; const v = val(type, key, kind);
+  const saveRow = b => { const {save: type, key, kind} = b.dataset; let v = val(type, key, kind);
+    if (type === 'alias' && v) { v = fieldValue(kind, v); if (!v) return toast('Choose a field from the list: type part of its name and pick it.', {type: 'warn'}); }
     if (!v) return toast({company: 'Type the company name.', employee: 'Type the employee name.', file_kind: 'Choose the kind.', officer_type: 'Choose the sheet.', alias: 'Choose the field.'}[type], {type: 'warn'});
     const body = type === 'alias' ? {type, key, kind, field: v} : {type, key, value: v};
-    busy(b, () => decide(body, `${key} → ${v} saved`, {target: type, key, kind, field: v})); };
+    busy(b, () => decide(body, `${key} → ${type === 'alias' ? fieldLabel(kind, v) : v} saved`, {target: type, key, kind, field: v})); };
   $$('[data-save]', el).forEach(b => b.onclick = () => saveRow(b));
   $$('input[data-in]', el).forEach(i => i.onkeydown = ev => { if (ev.key === 'Enter') saveRow(i.parentElement.querySelector('[data-save]')); });
   $$('[data-undo]', el).forEach(b => b.onclick = () => decide({type: 'unset', ...JSON.parse(b.dataset.undo)}, 'Decision taken back'));
