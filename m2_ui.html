@@ -779,6 +779,25 @@ function softRender() { const a = document.activeElement;
 function keepScroll(fn) { const y = window.scrollY; fn(); window.scrollTo(0, y); }
 
 // ---------- overview ----------
+// The path from the M2 exports to Odoo, ticked off from the run and the settings: what is done, what is next
+function nextSteps(dn, sm) {
+  const cfg = S.info?.config || {}, ai = S.ai?.run === S.run ? S.ai : null, cnt = code => S.events.filter(e => e.code === code).length;
+  const archive = cnt('ARCHIVE_FOLDER_UNKNOWN'), rules = (cfg.document_rules || []).length, packs = S.pkg?.run === S.run ? (S.pkg.packages || []).length : 0;
+  const steps = [
+    ['company', !dn.company.size, 'Operating company of every mandate holder', dn.company.size ? `${dn.company.size} holder code(s) without a company: rows wait until you name it (never a default).` : 'Every holder is mapped; the import gives each company by its CSP Short Code.', 'decide', 'Map holders'],
+    ['employee', !dn.employee.size, 'M2 staff codes to Odoo employees', dn.employee.size ? `${dn.employee.size} staff code(s) not mapped: Client Advisor and Deputy stay empty until you do (Needs decision › Employees).` : 'Client Advisor and Deputy are filled.', 'decide', 'Map staff codes', true],
+    ['column', !dn.column.length, 'Columns with no CSP field', dn.column.length ? `${dn.column.length} column(s): each shows what it means and, where clear, a suggested Odoo field with Use. Nothing is lost: they stay in Notes.` : 'Every column has a place.', 'decide', 'Review columns', true],
+    ['review', !sm?.totals.review, 'Rows in review', sm?.totals.review ? `${fmt(sm.totals.review)} row(s): each says why and how to fix it.` : 'No row waits in review.', 'review', 'Open review rows'],
+    ['docs', !!ai?.documents_total, 'Documents classified into Odoo folders', ai?.documents_total ? `${fmt(ai.documents_total)} file(s) typed; ${fmt(ai.documents_upload || 0)} to upload.` : 'AI assistant › Classify documents types the files and gives each its Odoo folder.', 'ai', 'Open AI assistant', true],
+    ['sort', rules > 0, 'Unplaced documents sorted', rules ? `${rules} sorting rule(s) kept; Write sorting list again for what is left.` : 'AI assistant › Document packages › Write sorting list: decide per M2 folder, then Apply my sorting list.', 'ai', 'Sort documents', true],
+    ['packages', packs > 0, 'Document packages written', packs ? `${packs} package(s) ready for Documents › Configuration › M2 Document Packages.` : 'Needs the archive folder (the Z: drive mounted or copied here), then Write packages.', 'ai', 'Write packages', true],
+    ['archive', !archive, 'Archive folders linked to clients', archive ? `${fmt(archive)} archive folder(s) match no mandate of the exports: export the mandate lists of those holders (closed mandates included) into the source folder.` : 'Every archive folder has its client.', 'journal/ARCHIVE_FOLDER_UNKNOWN', 'See which', true],
+    ['odoo', false, 'Load in Odoo', 'Contacts › Configuration › Client Import: upload CSP_Import_M2.xlsx, press Check (nothing written), then Import. The companies must exist with their CSP Short Codes; packages after the clients.', null, null]];
+  const open = steps.filter(s => !s[1] && !s[6] && s[0] !== 'odoo').length;
+  return `<details class="card" ${steps.some(s => !s[1] && s[0] !== 'odoo') ? 'open' : ''} id="nextsteps"><summary>${ic('chev')}<b>Next steps</b> <span class="muted small">${open ? `${open} step(s) still block rows` : 'nothing blocks the import'}; optional steps add data</span></summary>
+    <ol class="nextsteps" style="margin:10px 0 0;padding-left:22px">${steps.map(([id, done, title, text, go, label, optional]) => `<li style="margin:6px 0">
+      <b>${done ? `<span class="saved">${ic('check')}</span>` : ''}${esc(title)}</b>${optional && !done ? ' <span class="muted small">(optional)</span>' : ''}
+      <div class="small ${done ? 'muted' : ''}">${esc(text)}${!done && go ? ` <button class="btn ghost small" data-step="${esc(go)}">${esc(label)}</button>` : ''}${id === 'odoo' ? ` <a class="btn ghost small" href="${dl('CSP_Import_M2.xlsx')}">${ic('download')}Import file</a>` : ''}</div></li>`).join('')}</ol></details>`; }
 function renderOverview() {
   const el = panel('overview'); const c = counts(); const sm = S.summary;
   if (S.state === 'loading') { el.innerHTML = skeleton(); return; }
@@ -807,6 +826,7 @@ function renderOverview() {
     `<button class="btn primary" data-go="review">${ic('clipboard')}Open Review rows</button>`];
   let html = `<div class="card hero" style="--c:${LEVEL_COLOR[hero[0]] || 'var(--info)'}"><div class="badge">${hero[1]}</div><div><h2>${hero[2]}</h2><p class="muted">${hero[3]}</p>
     ${running ? `<div class="bar tall" style="margin-top:8px;max-width:520px"><i style="width:${pct}%;background:var(--info)"></i></div>` : ''}</div><div class="acts">${hero[4]}</div></div>`;
+  if (!running && S.state !== 'failed') html += nextSteps(dn, sm);
   const kp = [['To import', sm?.totals.import, 'ok', 'review'], ['To review', sm?.totals.review, 'review', 'review'], ['Errors', c.error, 'error'],
     ['Warnings', c.warning, 'warning'], ['Tool decisions', c.decision, 'decision'], ['Values changed', c.change, 'change'],
     ['Not loaded', c.not_loaded, 'not_loaded'], ['Closed mandates', sm?.totals.closed, 'decision', 'review']];
@@ -833,6 +853,7 @@ function renderOverview() {
     S.filter.levels = new Set([k.dataset.lv]); S.filter.code = ''; go('journal'); });
   $$('[data-code]', el).forEach(r => r.onclick = () => { S.filter.code = r.dataset.code; S.filter.levels = new Set(LEVELS); go('journal'); });
   $$('[data-sheet]', el).forEach(r => r.onclick = () => go('review'));
+  $$('[data-step]', el).forEach(b => b.onclick = () => { const [tab, arg] = b.dataset.step.split('/'); go(tab, arg); });
   $$('[data-go]', el).forEach(a => a.onclick = () => go(a.dataset.go));
   $$('[data-rerun]', el).forEach(a => a.onclick = startRun);
   const of = $('#openfolder'); if (of) of.onclick = () => busy(of, () => api('/api/open', {run: S.run}).catch(e => toast(e.message, {type: 'error'})));
@@ -1192,7 +1213,7 @@ async function renderAI() {
     ${st.error ? `<div class="banner err">${ic('alert')}<div>${esc(st.error)}</div></div>` : ''}
     <p><span class="dot ${ol.up ? (ol.model_present ? 'green' : 'amber') : 'red'}"></span> <b>Ollama</b> <span class="mono">${esc(ol.url)}</span>, ${esc(cfg.ollama_model)} ${ol.up ? (ol.model_present ? '<span class="lv ok">ready</span>' : '<span class="lv warning">model not pulled</span>') : `<span class="lv error">not answering</span> <span class="small muted">${esc(ol.error)}</span>`}
       , embeddings ${esc(cfg.embed_model)}</p>
-    <p><span class="dot ${cfg.allow_cloud && st.claude?.key ? 'green' : 'grey'}"></span> <b>Claude</b> ${esc(cfg.claude_model)}, ${cfg.allow_cloud ? 'cloud allowed for headers and codes' : 'cloud off'}${cfg.allow_cloud && !st.claude?.key ? ' <span class="lv warning">no ANTHROPIC_API_KEY</span>' : ''}</p>
+    ${claudeLine(st, cfg)}
     <p class="small muted">Mode <b>${esc(cfg.provider)}</b>. The assistant reads a finished run and proposes decisions; it never changes a run or the settings by itself. Client names, file names, sample values and documents stay on this machine.</p></div>`;
   if (!S.run) { el.innerHTML = html + empty('spark', 'Open or start a run first', 'The assistant works on a finished run.') + aiSettingsCard(cfg); bindAISettings(el); $('#airecheck').onclick = () => { S.aiStatus = null; renderAI(); }; return; }
   html += `<div class="card"><div class="toolbar" style="margin:0"><b class="grow">Run <span class="mono">${esc(S.run)}</span> <span class="muted small" style="font-weight:400">${!busyNow && a.updated ? `last answer ${esc(a.updated)}` : ''}</span></b>
@@ -1262,11 +1283,37 @@ function bindPkg(el) {
     catch (e) { toast(e.message, {type: 'error'}); } l.disabled = false; };
   const s = $('#pkgstop', el); if (s) s.onclick = async () => { s.disabled = true;
     try { await api('/api/packages/stop', {run: S.run}); toast('Stopping after the current file…'); } catch (e) { toast(e.message, {type: 'error'}); s.disabled = false; } }; }
+// Claude: by API key, or by the Google sign-in (Claude on Google Cloud Vertex AI): the status line and its next step
+function claudeLine(st, cfg) {
+  const c = st.claude || {}, g = c.google || {}, google = c.access === 'google';
+  const ready = google ? g.signed_in && c.project : c.key;
+  const via = google ? `via Google Cloud Vertex AI${c.project ? ` (project <span class="mono">${esc(c.project)}</span>, ${esc(c.region)})` : ''}` : 'via API key';
+  const next = !cfg.allow_cloud ? '' : google ? (!g.library ? 'Google sign-in library missing' : !g.signed_in ? 'not signed in with Google: AI settings › Sign in with Google' : !c.project ? 'no Google Cloud project: AI settings › Google Cloud project' : '')
+    : (!c.key ? 'no ANTHROPIC_API_KEY: or choose Sign in with Google in AI settings' : '');
+  return `<p><span class="dot ${cfg.allow_cloud && ready ? 'green' : 'grey'}"></span> <b>Claude</b> ${esc(cfg.claude_model)} ${via}, ${cfg.allow_cloud ? 'cloud allowed for headers and codes' : 'cloud off'}${next ? ` <span class="lv warning">${esc(next)}</span>` : ''}</p>`; }
+function googleCard(st, cfg) {
+  const c = st.claude || {}, g = c.google || {}, login = S.glogin || {};
+  if ((cfg.claude_access || 'api_key') !== 'google') return '';
+  const steps = [
+    [g.gcloud, 'Google Cloud CLI installed', 'Once, in a terminal: <code>sudo snap install google-cloud-cli --classic</code>'],
+    [!!(cfg.vertex_project || c.project), 'Google Cloud project chosen', 'Type the project ID above (Google Cloud console › project picker). Billing on, the Vertex AI API on, and Claude enabled in Vertex AI Model Garden.'],
+    [g.signed_in, 'Signed in with Google', 'Press <b>Sign in with Google</b>: Google\'s page opens in the browser; choose your account and allow access.'],
+    [cfg.allow_cloud, 'Company setting allows headers and codes to go to Claude', 'Tick the company setting above. Names, values and documents never leave this machine.']];
+  return `<div class="banner" style="margin:10px 0 0;display:block"><b>Sign in with Google: Claude on Google Cloud Vertex AI</b>
+    <p class="small muted" style="margin:4px 0 8px">No Anthropic key: the Google account signs in once on this machine, and the Google Cloud project pays for the Claude calls.</p>
+    <ol class="small" style="margin:0 0 8px;padding-left:18px">${steps.map(([ok, what, how]) => `<li>${ok ? ic('check') : ''} <b>${what}</b>${ok ? '' : `: ${how}`}</li>`).join('')}</ol>
+    <button class="btn primary small" id="glogin" ${login.state === 'running' ? 'aria-busy="true" disabled' : ''}>${login.state === 'running' ? 'Waiting for Google…' : g.signed_in ? 'Sign in again' : 'Sign in with Google'}</button>
+    <button class="btn ghost small" id="gcheck">${ic('refresh')}Check</button>
+    ${login.state === 'failed' ? `<div class="small" style="margin-top:6px"><span class="lv error">sign-in failed</span> ${esc(login.error || '')}</div>` : ''}</div>`; }
 function aiSettingsCard(cfg) {
   return `<details class="card"><summary>${ic('chev')}AI settings</summary>
     <label class="tog">Mode <select data-ai-set="provider"><option value="ollama">Ollama only (everything stays here)</option><option value="auto">Ollama first, Claude for weak answers</option><option value="claude">Claude for headers/codes, Ollama for the rest</option></select></label>
     <label class="tog"><input type="checkbox" class="sw" data-ai-set="after_run" ${cfg.after_run ? 'checked' : ''}> Run the assistant by itself after every migration run</label>
     <label class="tog"><input type="checkbox" class="sw" data-ai-set="allow_cloud" ${cfg.allow_cloud ? 'checked' : ''}> Company setting: allow column headers and M2 codes to go to Claude (never names, values or documents)</label>
+    <label class="tog">Claude access <select data-ai-set="claude_access"><option value="api_key" ${(cfg.claude_access || 'api_key') === 'api_key' ? 'selected' : ''}>API key (ANTHROPIC_API_KEY in .env)</option><option value="google" ${cfg.claude_access === 'google' ? 'selected' : ''}>Sign in with Google (Google Cloud Vertex AI)</option></select></label>
+    ${cfg.claude_access === 'google' ? `<label class="tog">Google Cloud project <input data-ai-set="vertex_project" value="${esc(cfg.vertex_project || '')}" placeholder="my-firm-ai (empty: the sign-in's own project)"></label>
+    <label class="tog">Vertex AI region <select data-ai-set="vertex_region">${['global', 'us', 'eu', 'us-east5', 'europe-west1', 'asia-southeast1'].map(r => `<option ${(cfg.vertex_region || 'global') === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>` : ''}
+    ${googleCard(S.aiStatus || {}, cfg)}
     <label class="tog">Ollama model <input data-ai-set="ollama_model" value="${esc(cfg.ollama_model)}"></label>
     <label class="tog">Embedding model <input data-ai-set="embed_model" value="${esc(cfg.embed_model)}"></label>
     <label class="tog">Claude model <input data-ai-set="claude_model" value="${esc(cfg.claude_model)}"></label>
@@ -1281,8 +1328,18 @@ function bindAISettings(el) {
   $$('[data-ai-set]', el).forEach(i => i.onchange = async () => {
     const k = i.dataset.aiSet; let v = i.type === 'checkbox' ? i.checked : i.value;
     if (k === 'companies') v = v.split('\n').map(x => x.trim()).filter(Boolean);
-    try { const r = await api('/api/ai/settings', {ai: {[k]: v}}); S.aiStatus.settings = r.settings; toast('AI settings saved', {type: 'success', ms: 1800}); } catch (e) { toast(e.message, {type: 'error'}); } });
+    try { const r = await api('/api/ai/settings', {ai: {[k]: v}}); S.aiStatus.settings = r.settings; toast('AI settings saved', {type: 'success', ms: 1800});
+      if (['claude_access', 'vertex_project', 'vertex_region', 'allow_cloud'].includes(k)) { S.aiStatus = null; renderAI(); } } catch (e) { toast(e.message, {type: 'error'}); } });
+  const gl = $('#glogin', el); if (gl) gl.onclick = async () => {
+    try { await api('/api/ai/google', {action: 'login'}); S.glogin = {state: 'running'}; toast("Google's sign-in page opens in the browser", {detail: 'Choose your account and allow access; this page updates by itself.', ms: 8000}); renderAI(); pollGoogle(); }
+    catch (e) { toast(e.message, {type: 'error', ms: 12000}); } };
+  const gc = $('#gcheck', el); if (gc) gc.onclick = () => { S.aiStatus = null; renderAI(); };
 }
+async function pollGoogle() {
+  try { const r = await api('/api/ai/google', {}, {quiet: true}); S.glogin = r.login || {};
+    if (S.glogin.state === 'running') return setTimeout(pollGoogle, 3000);
+    toast(r.signed_in ? 'Signed in with Google' : 'Google sign-in did not finish', {type: r.signed_in ? 'success' : 'warn'}); S.aiStatus = null; if (S.tab === 'ai') renderAI(); }
+  catch (e) { /* the next Check shows the state */ } }
 
 // ---------- settings ----------
 function renderSettings() {

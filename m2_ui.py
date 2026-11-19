@@ -393,7 +393,7 @@ def api_open(params):
 AI_KEYS = {'enabled': bool, 'provider': str, 'ollama_url': str, 'ollama_model': str, 'embed_model': str,
            'claude_model': str, 'claude_effort': str, 'allow_cloud': bool, 'escalate_below': float,
            'min_confidence': float, 'batch': int, 'doc_model_limit': int, 'timeout': int, 'companies': list,
-           'after_run': bool}
+           'after_run': bool, 'claude_access': str, 'vertex_project': str, 'vertex_region': str}
 
 
 def api_ai_status(_params):
@@ -419,8 +419,45 @@ def api_ai_settings(params):
                 raise Error(f"AI setting {key}: {exc}") from exc
     if ai.get('provider', 'ollama') not in ('ollama', 'auto', 'claude'):
         raise Error("Provider must be ollama, auto or claude.")
+    if ai.get('claude_access', 'api_key') not in ('api_key', 'google'):
+        raise Error("Claude access must be api_key or google.")
+    if ai.get('vertex_project') and not re.fullmatch(r'[a-z][a-z0-9-]{4,28}[a-z0-9]', ai['vertex_project']):
+        raise Error("A Google Cloud project ID has 6-30 lower-case letters, digits or hyphens (e.g. my-firm-ai).")
     CONFIG.write_text(json.dumps(config, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     return {'ok': True, 'settings': m2_ai.load_settings(config)}
+
+
+GOOGLE_LOGIN = {}                # the Google sign-in started from the page: {'state', 'started', 'error'}
+
+
+def api_ai_google(params):
+    """Sign in with Google for Claude on Vertex AI: action login opens Google's sign-in page in the browser
+    (gcloud auth application-default login); status says whether this machine is signed in."""
+    if params.get('action') == 'login':
+        gcloud = shutil.which('gcloud')
+        if not gcloud:
+            raise Error("The Google Cloud CLI (gcloud) is not installed. Install it once in a terminal: "
+                        "sudo snap install google-cloud-cli --classic, then press Sign in with Google again.")
+        if GOOGLE_LOGIN.get('state') == 'running':
+            return {'state': 'running'}
+        GOOGLE_LOGIN.update(state='running', started=datetime.datetime.now().isoformat(timespec='seconds'),
+                            error=None)
+
+        def work():
+            done = subprocess.run([gcloud, 'auth', 'application-default', 'login', '--quiet'],  # noqa: S603
+                                  capture_output=True, text=True, timeout=600, check=False)
+            ok = done.returncode == 0
+            GOOGLE_LOGIN.update(state='done' if ok else 'failed',
+                                error=None if ok else (done.stderr or done.stdout)[-400:])
+            project = (m2_ai.load_settings(m2.load_config(CONFIG)).get('vertex_project') or '').strip()
+            if ok and project:                     # the project pays for and counts the Claude calls (quota)
+                subprocess.run([gcloud, 'auth', 'application-default', 'set-quota-project', project],  # noqa: S603
+                               capture_output=True, text=True, timeout=120, check=False)
+            server_log('INFO' if ok else 'WARN', f"google sign-in {'done' if ok else 'failed'}")
+
+        threading.Thread(target=work, daemon=True).start()
+        return {'state': 'running'}
+    return {**m2_ai.google_signin(), 'login': dict(GOOGLE_LOGIN)}
 
 
 def api_ai_run(params):
@@ -852,6 +889,7 @@ ROUTES = {
     ('GET', '/api/docs'): api_docs, ('GET', '/api/routes'): api_routes,
     ('GET', '/api/packages'): api_packages, ('POST', '/api/packages/build'): api_packages_build,
     ('POST', '/api/packages/stop'): api_packages_stop,
+    ('POST', '/api/ai/google'): api_ai_google,
     ('POST', '/api/sorting'): api_sorting, ('POST', '/api/sorting/learn'): api_sorting_learn,
 }
 ASSET_TYPES = {'.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',

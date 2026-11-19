@@ -47,6 +47,9 @@ DEFAULTS = {
     'claude_model': 'claude-opus-5-5',
     'claude_effort': 'low',
     'allow_cloud': False,                    # company switch: may headers/codes go to Claude?
+    'claude_access': 'api_key',              # api_key (ANTHROPIC_API_KEY) | google (Vertex AI, Google sign-in)
+    'vertex_project': '',                    # Google Cloud project with Claude enabled (empty: the sign-in's own)
+    'vertex_region': 'global',               # Vertex AI region: global, us, eu or one region
     'escalate_below': 0.6,
     'timeout': 120,
     'batch': 25,
@@ -99,6 +102,28 @@ GENERIC_NAME = re.compile(r'^(scan|img|image|dsc|doc|dok|document|dokument|file|
 
 
 # ---------------------------------------------------------------------------------------------------------------
+def google_signin():
+    """The Google sign-in this machine has for Claude on Vertex AI (Application Default Credentials, made by
+    `gcloud auth application-default login`): signed_in, project, gcloud (the sign-in tool is installed), error."""
+    import shutil  # noqa: PLC0415
+    out = {'signed_in': False, 'project': '', 'gcloud': bool(shutil.which('gcloud')), 'library': True}
+    try:
+        import google.auth  # noqa: PLC0415 - optional: anthropic[vertex]
+        from google.auth.exceptions import DefaultCredentialsError  # noqa: PLC0415
+    except ImportError:
+        out.update(library=False, error="The Google sign-in library is missing: .venv/bin/pip install "
+                                        "'anthropic[vertex]'")
+        return out
+    try:
+        _credentials, project = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
+        out.update(signed_in=True, project=project or '')
+    except DefaultCredentialsError:
+        out['error'] = "Not signed in with Google yet."
+    except Exception as exc:  # noqa: BLE001 - shown to the person as is
+        out['error'] = str(exc)[:200]
+    return out
+
+
 def load_settings(config=None, path=DEFAULT_CONFIG):
     if config is None:
         try:
@@ -251,6 +276,12 @@ class AI:
             if provider == 'ollama':
                 self._clients[provider] = anthropic.Anthropic(base_url=self.s['ollama_url'], api_key='ollama',
                                                               timeout=self.s['timeout'], max_retries=1)
+            elif self.s.get('claude_access') == 'google':
+                # Claude on Google Cloud Vertex AI: the Google sign-in (Application Default Credentials), no key
+                google = google_signin()
+                self._clients[provider] = anthropic.AnthropicVertex(
+                    project_id=self.s.get('vertex_project') or google.get('project'),
+                    region=self.s.get('vertex_region') or 'global', timeout=self.s['timeout'])
             else:
                 self._clients[provider] = anthropic.Anthropic(timeout=self.s['timeout'])
         return self._clients[provider]
@@ -289,8 +320,12 @@ class AI:
         return best
 
     def cloud_ready(self):
-        return bool(self.s['allow_cloud']) and bool(os.environ.get('ANTHROPIC_API_KEY')
-                                                    or os.environ.get('ANTHROPIC_AUTH_TOKEN'))
+        if not self.s['allow_cloud']:
+            return False
+        if self.s.get('claude_access') == 'google':
+            google = google_signin()
+            return google['signed_in'] and bool(self.s.get('vertex_project') or google.get('project'))
+        return bool(os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN'))
 
     def route(self, task):
         """Provider for the first attempt of a task."""
@@ -351,10 +386,14 @@ class AI:
             return None
 
     def status(self):
+        google = google_signin()
         out = {'provider': self.s['provider'], 'allow_cloud': self.s['allow_cloud'],
                'ollama': {'url': self.s['ollama_url'], 'model': self.s['ollama_model']},
                'claude': {'model': self.s['claude_model'], 'key': bool(os.environ.get('ANTHROPIC_API_KEY')
-                                                                       or os.environ.get('ANTHROPIC_AUTH_TOKEN'))}}
+                                                                       or os.environ.get('ANTHROPIC_AUTH_TOKEN')),
+                          'access': self.s.get('claude_access') or 'api_key',
+                          'google': google, 'region': self.s.get('vertex_region') or 'global',
+                          'project': self.s.get('vertex_project') or google.get('project') or ''}}
         try:
             import urllib.request  # noqa: PLC0415
             with urllib.request.urlopen(self.s['ollama_url'].rstrip('/') + '/api/tags', timeout=5) as r:  # noqa: S310

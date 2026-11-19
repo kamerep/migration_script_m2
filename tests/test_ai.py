@@ -339,3 +339,29 @@ class TestSortingList(unittest.TestCase):
     def test_reference_letter(self):
         self.assertEqual(m2_ai.odoo_target({'key': 'KP-1-CON', 'folder': 'KYC', 'file': 'Bank reference letter.pdf',
                                             'doc_type': 'bank'})[0], 'REFLTR_IND')
+
+
+class TestGoogleAccess(unittest.TestCase):
+    """Claude by the Google sign-in (Vertex AI) instead of an API key."""
+
+    def test_ready_and_client(self):
+        from unittest import mock
+        settings = m2_ai.load_settings({'ai': {'allow_cloud': True, 'claude_access': 'google',
+                                               'vertex_project': 'orbit-test-ai', 'vertex_region': 'global'}})
+        ai = m2_ai.AI(settings)
+        with mock.patch.object(m2_ai, 'google_signin', return_value={'signed_in': False, 'project': ''}):
+            self.assertFalse(ai.cloud_ready())
+        with mock.patch.object(m2_ai, 'google_signin', return_value={'signed_in': True, 'project': ''}), \
+                mock.patch('anthropic.AnthropicVertex') as vertex:
+            self.assertTrue(ai.cloud_ready())
+            ai._client('claude')
+            vertex.assert_called_once_with(project_id='orbit-test-ai', region='global', timeout=settings['timeout'])
+        off = m2_ai.AI(m2_ai.load_settings({'ai': {'allow_cloud': False, 'claude_access': 'google'}}))
+        with mock.patch.object(m2_ai, 'google_signin', return_value={'signed_in': True, 'project': 'p'}):
+            self.assertFalse(off.cloud_ready(), "the company switch still decides")
+
+    def test_api_key_unchanged(self):
+        from unittest import mock
+        ai = m2_ai.AI(m2_ai.load_settings({'ai': {'allow_cloud': True}}))
+        with mock.patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'x'}):
+            self.assertTrue(ai.cloud_ready())
