@@ -887,7 +887,9 @@ function renderDecide() {
     sec('column', g.column.length, 'Columns with no CSP field', 'optional', "Nothing is lost: their values are kept in the review file and the client's Notes. If one is really a CSP field under another name, map it.",
       g.column.map(e => { const kind = kindOfFile(e.file); const v = kind ? decided('alias', e.column, kind) : '';
         return `<div class="decide ${v ? 'done' : ''}"><div><b class="mono">${esc(e.column)}</b> in ${esc(e.file)} <span class="muted small">(${esc(S.info?.kinds?.[kind] || kind || '')})</span>
-        <div class="small muted">e.g. ${(e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ') || 'empty column'}</div></div>
+        ${e.meaning || e.label ? `<div class="small">${e.meaning ? `Means: <b>${esc(e.meaning)}</b>` : ''}${e.label ? `${e.meaning ? ' · ' : ''}Label in the file: <b>${esc(e.label)}</b>` : ''}</div>` : ''}
+        <div class="small muted">${e.letter ? `Column ${esc(e.letter)}${e.rows ? `, filled in ${fmt(e.filled)} of ${fmt(e.rows)} rows` : ''} · ` : ''}e.g. ${(e.samples || []).map(x => `<code>${esc(x)}</code>`).join(' ') || 'empty column'}</div>
+        ${e.suggest && !v ? `<div class="small">Suggested: <b>${esc(e.suggest_label || fieldLabel(kind, e.suggest))}</b> <button class="btn ghost small" data-use="${esc(e.suggest)}" data-key="${esc(e.column)}" data-kind="${esc(kind)}">Use</button></div>` : ''}</div>
         <div class="ctl">${kind ? `${savedChip('alias', e.column, kind)}<input type="search" list="kf-${esc(kind)}" data-in="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}" value="${esc(fieldLabel(kind, v))}" placeholder="Load into… type to search" aria-label="Field to load ${esc(e.column)} into" style="min-width:260px">
         <button class="btn small primary" data-save="alias" data-key="${esc(e.column)}" data-kind="${esc(kind)}">Save</button>${aiHint('alias', e.column, kind)}` : '<span class="muted small">after the next run</span>'}</div></div>`; }).join('')),
     sec('other', g.other.length, 'Other errors and checks', 'fix at the source', '',
@@ -910,6 +912,8 @@ function renderDecide() {
     const body = type === 'alias' ? {type, key, kind, field: v} : {type, key, value: v};
     busy(b, () => decide(body, `${key} → ${type === 'alias' ? fieldLabel(kind, v) : v} saved`, {target: type, key, kind, field: v})); };
   $$('[data-save]', el).forEach(b => b.onclick = () => saveRow(b));
+  $$('[data-use]', el).forEach(b => b.onclick = () => { const i = $$('[data-in="alias"]', el).find(x => x.dataset.key === b.dataset.key && x.dataset.kind === b.dataset.kind);
+    if (i) { i.value = fieldLabel(b.dataset.kind, b.dataset.use); i.focus(); toast('Field filled in: press Save to keep it.'); } });
   $$('input[data-in]', el).forEach(i => i.onkeydown = ev => { if (ev.key === 'Enter') saveRow(i.parentElement.querySelector('[data-save]')); });
   $$('[data-undo]', el).forEach(b => b.onclick = () => decide({type: 'unset', ...JSON.parse(b.dataset.undo)}, 'Decision taken back'));
   $$('[data-jump]', el).forEach(a => a.onclick = ev => { ev.preventDefault(); const t = $('#' + a.dataset.jump); t.open = true; t.scrollIntoView({behavior: 'smooth', block: 'start'}); });

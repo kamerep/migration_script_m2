@@ -145,6 +145,9 @@ def m2_open_decisions(run: str = '') -> dict:
                                         'ai': sug.get(('file_kind', e.get('file')))})
         elif code == 'COLUMN_UNUSED':
             groups['column'].append({'file': e.get('file'), 'column': e.get('column'), 'samples': e.get('samples'),
+                                     'meaning': e.get('meaning'), 'label': e.get('label'),
+                                     'position': e.get('letter'), 'filled': e.get('filled'), 'rows': e.get('rows'),
+                                     'suggested_field': e.get('suggest'),
                                      'ai': sug.get(('alias', e.get('column')))})
         elif e.get('level') in ('error', 'review') and code not in ('TO_REVIEW', 'CLIENT_IN_REVIEW'):
             groups['other'].append({'level': e['level'], 'code': code, 'key': e.get('key'), 'message': e['message'],

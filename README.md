@@ -98,6 +98,9 @@ each guide from its HTML.
 * **Jurisdiction** goes to Odoo (column Jurisdiction, a country): JURISDIKTION_STAAT_TXT, then the column the label
   row calls JURISDICTION (MANDBEZ2), then the domicile; differences are flagged (`JURISDICTION_DIFFERS`). A label
   row under the header and one-value notes under the table are not clients (`HEADER_LABELS`, `ROW_NOTE`).
+* **Column hints** (Needs decision › Columns): what an M2 database column means (built-in glossary of M2 names,
+  e.g. MWSTPFLICHT = VAT liable), the label the file gives it, its column letter and how full it is, and a
+  suggested Odoo field with **Use** where the meaning is clear. The filter box searches the meanings too.
 * **Load into** (Needs decision › Columns): a searchable list of every column of the Odoo import sheet the rows
   go to (*Clients › Tax Residency* …) plus the tool's own M2 fields; saved as `extra_aliases` (`csp:<column>` for
   a template column). The import template's Clients sheet also takes KYC facts (birth, nationality, passport,

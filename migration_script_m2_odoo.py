@@ -502,7 +502,73 @@ KIND_SHEET = {'mandates': 'clients', 'contacts': 'contacts', 'directors': 'direc
               'shareholders': 'shareholders', 'secretaries': 'secretaries', 'agents': 'agents',
               'bank_accounts': 'bank_accounts', 'signatories': 'signatories', 'powers_attorney': 'powers_attorney'}
 DIRECT = 'csp:'
+# What the columns of an M2 database export mean (Needs decision shows it next to an unmapped column), and the
+# template field they go to when that is clear. None: no CSP field (kept in Notes), or a compliance matter that
+# is decided in Odoo, never loaded.
+M2_COLUMNS = {
+    'MANDBEZ2': ("Mandate designation line 2 (here: the jurisdiction)", None),
+    'MANDBEZ3': ("Mandate designation line 3 (other company / jurisdiction details)", None),
+    'UP_MANDBEZ1': ("Mandate name in capitals (search copy of MANDBEZ1)", None),
+    'ALPHA': ("Sort name of the mandate", None), 'ALPHA_1': ("Sort name (address)", None),
+    'KAPWAEHRUNG': ("Share capital currency", 'share_capital_currency'),
+    'CODIERUNG': ("M2 coding / classification code", None),
+    'STATUS_MUTDATUM': ("Date the mandate status last changed", None),
+    'MSTS_KURZBEZ_1': ("Mandate status, short", None), 'MSTS_BEZ_1': ("Mandate status", None),
+    'FAKART': ("Invoicing type", None), 'FAKART_1': ("Invoicing type (address)", None),
+    'FAKDET': ("Invoice detail level", None), 'FAKDET_1': ("Invoice detail level (address)", None),
+    'FAKSTATUS': ("Invoicing status", None), 'FAKVERRECH': ("Invoice settlement (how fees are charged)", None),
+    'FAKVERRECH_CHANGE': ("Invoice settlement changed", None),
+    'FAKZUSWAEHRUNG': ("Invoice currency", None), 'FAKZUSWAEHRUNG_1': ("Invoice currency (address)", None),
+    'MWSTPFLICHT': ("VAT liable (J/N)", 'csp:vat_required'), 'MWSTPFLICHT_1': ("VAT liable, address (J/N)", None),
+    'HR_DATUM': ("Commercial register entry date", 'incorporation_date'),
+    'LOESCHDATUM': ("Deletion date (struck off the register)", None),
+    'BANKINTERN': ("Internal bank account for the mandate", None),
+    'ERFDATUM': ("Date the mandate was entered in M2", None), 'ERSTELLDATUM': ("Created on (M2)", None),
+    'ERSTELLUSER': ("Created by (M2 user)", None), 'MUTDATUM': ("Last changed on (M2)", None),
+    'MUTUSER': ("Last changed by (M2 user)", None),
+    'KORRADRNR': ("Correspondence address number", None),
+    'P_ISPAUSCHAL': ("Flat-fee mandate (J/N)", None), 'P_FAKTAT': ("Invoicing period", None),
+    'P_FAKTAT2': ("Invoicing period 2", None), 'P_FAKBAR': ("Billable (J/N)", None),
+    'P_FAKAUS': ("Invoice output (print / e-mail)", None),
+    'ALT_MT': ("Old mandate prefix (before a renumbering)", None), 'ALT_MNR': ("Old mandate number", None),
+    'ALT_MART': ("Old mandate type", None), 'ALT_MANDAT_DATUM': ("Date of the old mandate number", None),
+    'MANID': ("Internal M2 mandate ID", None), 'MADFIRMA_ID': ("Internal ID of the mandate holder", None),
+    'DOKRECHTE_NOT_SYNCHO': ("Document rights not synchronised (technical)", None),
+    'COMPL_GWG_RELEVANT': ("Anti-money-laundering relevant (GwG): compliance, decided in Odoo", None),
+    'COMPL_RISIKO_KAT': ("Compliance risk category: decided in Odoo (risk assessment), kept in Notes", None),
+    'ZEBNR': ("Beneficial-owner declaration number", None), 'ZEB_QUELLE': ("Source of that declaration", None),
+    'JURISDIKTION_LAND_ID': ("Internal ID of the jurisdiction country", None),
+    'JURISDIKTION_STAAT_TXT': ("Jurisdiction (country)", 'jurisdiction'),
+    'SPERRE_LEISTUNGSERFASSUNG': ("Time recording blocked (J/N)", None),
+    'KSP_AKTIV': ("Cost-share / surcharge active", None), 'KSP_PROZENT': ("Cost-share / surcharge percent", None),
+    'KSP_MIN_BETRAG': ("Cost-share / surcharge minimum amount", None),
+    'ACL_TEAM_ONLY_MANUELL': ("Access limited to the team (technical)", None),
+    'SPERRE_AKTIV': ("Mandate locked (J/N): see the compliance lock", None),
+    'HINWEIS_AKTIV': ("Notice shown on the mandate (J/N)", None),
+    'STEUERSTATUS_ID': ("Tax status (internal ID)", None), 'BUDGET_MIN': ("Minimum budget", None),
+    'ZEILE1': ("Address line 1", None), 'ZEILE2': ("Address line 2", None), 'ZEILE3': ("Address line 3", None),
+    'ZUSATZ1': ("Address addition 1", None), 'ZUSATZ2': ("Address addition 2", None),
+    'DEBKONTO': ("Debtor account (accounting)", None), 'ZAHLBED': ("Payment terms", None),
+    'SAMMELFAK': ("Collective invoice (J/N)", None),
+    'VSB_PERSGRUPPE': ("Group of the responsible person", None),
+    'VSB_PERSGRUPPENAME': ("Name of that group", None),
+}
+for _n in range(1, 9):
+    M2_COLUMNS.setdefault(f'FREI_FELD{_n}', (f"Free text field {_n} (meaning set per firm in M2)", None))
+    M2_COLUMNS.setdefault(f'FREI_DATUM{_n}', (f"Free date field {_n} (meaning set per firm in M2)", None))
+    M2_COLUMNS.setdefault(f'FREI_CHECK{_n}', (f"Free check box {_n} (meaning set per firm in M2)", None))
+    M2_COLUMNS.setdefault(f'FREI_WERT{_n}', (f"Free value field {_n} (meaning set per firm in M2)", None))
 NO_DIRECT = ('m2_reference', 'client', 'company')   # keys and the operating company keep their own rules
+
+
+def column_letter(pos):
+    """Spreadsheet column letter of a 0-based position: 0 -> A, 26 -> AA."""
+    letters = ''
+    pos += 1
+    while pos:
+        pos, rest = divmod(pos - 1, 26)
+        letters = chr(65 + rest) + letters
+    return letters
 
 
 def field_options(kind, kinds=None):
@@ -1030,12 +1096,20 @@ class Migration:
                 continue
             samples = [short(r[pos], 40) for r in rows[first:first + 200] if pos < len(r) and text(r[pos])][:3]
             unused.append({'column': name, 'samples': samples})
+            meaning, suggest = M2_COLUMNS.get(name.upper(), (None, None))
+            options = dict(field_options(kind, self.kinds)) if kind in self.kinds else {}
+            data_rows = [r for r in rows[first:] if sum(1 for c in r if text(c)) > 1]   # not the notes under it
+            hint = {'letter': column_letter(pos), 'filled': sum(1 for r in data_rows if pos < len(r) and text(r[pos])),
+                    'rows': len(data_rows),
+                    'label': labels.get(pos), 'meaning': meaning,
+                    'suggest': suggest if suggest in options else None,
+                    'suggest_label': options.get(suggest)}
             if samples:
                 self.ev('not_loaded', 'COLUMN_UNUSED', f"{label}: column '{name}' has no CSP field; its values are "
                         "kept in the review file (Not Loaded)" + (" and in the client's Notes." if
                                                                    self.config.get('notes_from_unmapped', True) and
                                                                    kind == 'mandates' else '.'),
-                        file=label, column=name, samples=samples,
+                        file=label, column=name, samples=samples, **hint,
                         fix=f"If it holds a CSP field, add '{name}' to Settings > extra aliases for {kind}.")
         data = []
         blank = parts = 0

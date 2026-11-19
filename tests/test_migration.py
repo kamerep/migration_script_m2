@@ -471,5 +471,30 @@ class TestLoadIntoOdooField(unittest.TestCase):
         self.assertIn('Directors › Date of Appointment', dict(m2.field_options('directors')).values())
 
 
+class TestColumnHints(unittest.TestCase):
+    """An unmapped M2 column tells what it means, where it is and which Odoo field it would go to."""
+
+    def test_hints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+            src.mkdir()
+            book = openpyxl.Workbook()
+            ws = book.active
+            ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1', 'MWSTPFLICHT', 'KSP_PROZENT', 'XYZ'])
+            ws.append(['NOVA-PH', 'KP', 51.0, 'ENT', 'Orbit Hint Ltd', 'J', 5, 'a'])
+            ws.append(['NOVA-PH', 'KP', 52.0, 'ENT', 'Orbit Hint Two Ltd', None, 5, 'b'])
+            book.save(src / 'Mandate list extract.xlsx')
+            job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+            job.run()
+            hints = {e['column']: e for e in job.journal.events if e['code'] == 'COLUMN_UNUSED'}
+            vat = hints['MWSTPFLICHT']
+            self.assertEqual((vat['letter'], vat['filled'], vat['rows']), ('F', 1, 2))
+            self.assertEqual(vat['meaning'], 'VAT liable (J/N)')
+            self.assertEqual((vat['suggest'], vat['suggest_label']), ('csp:vat_required',
+                                                                    'Clients › VAT Filing Required'))
+            self.assertIsNone(hints['KSP_PROZENT'].get('suggest'))
+            self.assertIsNone(hints['XYZ'].get('meaning'))                 # unknown column: samples only
+
+
 if __name__ == '__main__':
     unittest.main()
