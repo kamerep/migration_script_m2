@@ -159,6 +159,12 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
   folder ("Corresp. with client" → CORRCL, "Corporate documents" → CORPDOC, "Payment orders" → PAYORD), or the
   Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Emails (`.msg`, `.eml`) and program
   files are not uploaded.
+* **Sorting list.** *Write sorting list* (or `bin/m2ctl.sh ai sorting <run>`) writes `Document_Sorting.xlsx` in
+  the run folder: the files with no Odoo folder yet, one row per name pattern (sheet *To sort*) and one per M2
+  folder (sheet *By M2 folder*), with drop-downs for the Odoo folder (as named in Odoo), the document type and
+  Upload. *Apply my sorting list* (`bin/m2ctl.sh ai learn <run>`) keeps the answers as `document_rules` in
+  `m2_config.json` (this machine only) and applies them at once; every later classification uses them first. A
+  pattern row wins over its folder row. Reference letters go to *03 Reference Letter* by their name.
 * **Document packages.** *AI assistant › Document packages for Odoo* (or `bin/m2ctl.sh package [run] [archive]`,
   `POST /api/packages/build`) writes zips of up to 90 MB with a `manifest.csv` into `runs/<id>/packages/`, reading
   the files from the archive folder (the Z: drive mounted or copied here). A stopped build resumes. Upload them in

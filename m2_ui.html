@@ -1228,6 +1228,9 @@ function pkgCard() { const p = S.pkg?.run === S.run ? S.pkg : null, j = p?.job |
       ${running ? `<button class="btn" id="pkgstop">${ic('x')}Stop</button>` : `<button class="btn primary" id="pkgbuild">${ic('download')}${list.length ? 'Write the rest' : 'Write packages'}</button>`}</div>
     ${running ? `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${esc(j.step || 'starting')}</span><div class="bar tall" role="progressbar" aria-label="Package progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${j.percent || 0}" aria-valuetext="${j.percent || 0}%"><i style="width:${j.percent || 0}%;background:var(--accent)"></i></div><b>${j.percent || 0}%</b></div>` : ''}
     ${j.state === 'failed' ? `<div class="banner err" style="margin:10px 0 0">${ic('alert')}<div>${esc(j.error)}</div></div>` : ''}
+    <div class="toolbar" style="margin:10px 0 0"><span class="grow small muted">Files with no Odoo folder yet go to the top of the client's workspace. Sort them once in a list: one row per name pattern; your answers are kept as rules for every later run.</span>
+      <button class="btn" id="sortwrite">${ic('file')}Write sorting list</button>
+      <button class="btn" id="sortlearn">${ic('check')}Apply my sorting list</button></div>
     ${list.length ? `<p style="margin:10px 0 0">${fmt(list.length)} package(s), ${fmt(list.reduce((t, x) => t + x.documents, 0))} file(s), ${mb.toFixed(0)} MB in <span class="mono small">${esc(p.folder)}</span>${p.missing ? `; <span class="lv warning">${fmt(p.missing)} not found</span> (listed in packages.json)` : ''}.</p>` : ''}</div>`; }
 async function loadPkg() { const run = S.run; if (!run) return;
   try { const r = await api(`/api/packages?run=${encodeURIComponent(run)}`, undefined, {quiet: true}); if (run !== S.run) return;
@@ -1241,6 +1244,13 @@ function bindPkg(el) {
   const b = $('#pkgbuild', el); if (b) b.onclick = async () => { b.disabled = true;
     try { await api('/api/packages/build', {run: S.run, archive_root: $('#pkgroot').value.trim()}); toast('Writing the document packages…'); S.pkg = {...(S.pkg || {}), run: S.run, job: {state: 'running', percent: 0}}; loadPkg(); }
     catch (e) { toast(e.message, {type: 'error'}); b.disabled = false; } };
+  const w = $('#sortwrite', el); if (w) w.onclick = async () => { w.disabled = true;
+    try { const r = await api('/api/sorting', {run: S.run}); toast('Sorting list written', {type: 'success', detail: `${fmt(r.patterns)} name pattern(s) for ${fmt(r.files)} file(s): Document_Sorting.xlsx in the run folder.`,
+      action: {label: 'Open', fn: () => api('/api/open', {run: S.run, file: 'Document_Sorting.xlsx'})}}); }
+    catch (e) { toast(e.message, {type: 'error'}); } w.disabled = false; };
+  const l = $('#sortlearn', el); if (l) l.onclick = async () => { l.disabled = true;
+    try { const r = await api('/api/sorting/learn', {run: S.run}); toast('Sorting list applied', {type: 'success', detail: `${fmt(r.rules)} rule(s) from the list (${fmt(r.rules_total)} kept in all); ${fmt(r.documents_changed)} file(s) moved.`}); S.ai = null; loadAI(); }
+    catch (e) { toast(e.message, {type: 'error'}); } l.disabled = false; };
   const s = $('#pkgstop', el); if (s) s.onclick = async () => { s.disabled = true;
     try { await api('/api/packages/stop', {run: S.run}); toast('Stopping after the current file…'); } catch (e) { toast(e.message, {type: 'error'}); s.disabled = false; } }; }
 function aiSettingsCard(cfg) {

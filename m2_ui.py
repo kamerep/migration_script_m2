@@ -520,6 +520,24 @@ def api_ai_stop(params):
     return {'run': run_id, 'state': 'stopping'}
 
 
+def api_sorting(params):
+    """Write Document_Sorting.xlsx in a run: the files with no Odoo folder yet, one row per name pattern."""
+    path = run_dir(params.get('run'))
+    if not (path / m2_ai.SUGGESTIONS_FILE).is_file():
+        raise Error("Classify the documents first (AI assistant > Classify documents).")
+    return m2_ai.write_sorting_workbook(path, everything=bool(params.get('everything')))
+
+
+def api_sorting_learn(params):
+    """Read the filled-in Document_Sorting.xlsx of a run: its answers become rules (m2_config.json)."""
+    path = run_dir(params.get('run'))
+    if not (path / m2_ai.SORTING_FILE).is_file():
+        raise Error("Write the sorting list first, fill it in, then apply it.")
+    result = m2_ai.learn_sorting(path, CONFIG)
+    AI_VIEWS.clear()
+    return result
+
+
 PACKAGE_JOBS = {}               # run id -> {'state', 'percent', 'step', 'result', 'error', 'stop'}
 
 
@@ -831,6 +849,7 @@ ROUTES = {
     ('GET', '/api/docs'): api_docs, ('GET', '/api/routes'): api_routes,
     ('GET', '/api/packages'): api_packages, ('POST', '/api/packages/build'): api_packages_build,
     ('POST', '/api/packages/stop'): api_packages_stop,
+    ('POST', '/api/sorting'): api_sorting, ('POST', '/api/sorting/learn'): api_sorting_learn,
 }
 ASSET_TYPES = {'.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
                '.webmanifest': 'application/manifest+json'}

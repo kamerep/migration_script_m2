@@ -669,14 +669,14 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
             for t in group:
                 if answer:
                     types[t['id']] = answer
-    rows = []
+    rows, rules = [], document_rules(config)
     for i, d in enumerate(docs):
         t = types.get(f"d{i}") or {'value': 'other', 'confidence': 0.0, 'reason': 'not classified', 'provider': ''}
         where = d.get('where') or ''
         row = {'key': d.get('key'), 'holder': where[len('archive '):] if where.startswith('archive ') else where,
                'folder': d.get('folder'), 'file': d.get('file'), 'on_disk': d.get('on_disk'), 'doc_type': t['value'],
                'confidence': t['confidence'], 'provider': t.get('provider'), 'reason': t.get('reason')}
-        row['odoo_type'], row['odoo_folder'], row['upload'], row['odoo_how'] = odoo_target(row)
+        row['odoo_type'], row['odoo_folder'], row['upload'], row['odoo_how'] = odoo_target(row, rules)
         rows.append(row)
     coverage, gaps = document_coverage(rows)
     try:
@@ -744,13 +744,86 @@ PERSON_FOLDERS = {'PROFILE', 'CV', 'ID', 'POA', 'REF', 'SOW', 'WCHECK', 'RISK', 
 NOT_UPLOADED = re.compile(r'\.(msg|eml|lnk|tmp|bak|db|ini)$', re.I)
 
 
-def odoo_target(row):
-    """(Odoo document type code, Odoo folder code, upload, how) of one classified document row."""
+# Folders of the client workspace (csp_document_structure, Entity - Standard), as the person sees them in Odoo
+ODOO_FOLDER_NAMES = [
+    ('KYC', '01 KYC and Compliance'), ('PROFILE', '01 KYC and Compliance / 01 Client Profile'),
+    ('POA', '01 KYC and Compliance / 02 Proof of Address'), ('REF', '01 KYC and Compliance / 03 Reference Letter'),
+    ('SOW', '01 KYC and Compliance / 04 Source of Wealth'), ('WCHECK', '01 KYC and Compliance / 05 World Check'),
+    ('RISK', '01 KYC and Compliance / 06 Risk Assessment'), ('CORP', '02 Corporate'),
+    ('CORPDOC', '02 Corporate / 01 Corporate Documents'), ('CONTRACT', '02 Corporate / 02 Contracts'),
+    ('BANK', '03 Banking'), ('BANKMD', '03 Banking / 01 Bank Master Data'),
+    ('BANKST', '03 Banking / 02 Bank Statements'), ('PAYORD', '03 Banking / 03 Payment Orders'), ('FIN', '04 Finance'),
+    ('FINACC', '04 Finance / 01 Financial Accounting'), ('FINST', '04 Finance / 02 Financial Statements'),
+    ('INVIN', '04 Finance / 03 Invoices Received'), ('INVOUT', '04 Finance / 04 Invoices Issued'),
+    ('INVIC', '04 Finance / 05 Invoices Intercompany'), ('CORR', '05 Correspondence'),
+    ('CORRCL', '05 Correspondence / 01 Client'), ('CORRAUTH', '05 Correspondence / 02 Authorities'),
+    ('CORRBANK', '05 Correspondence / 03 Bank'), ('CORRINT', '05 Correspondence / 04 Internal Office'),
+    ('CORR3P', '05 Correspondence / 05 Third Parties'), ('OPS', '06 Operations'),
+    ('OPS_PEOPLE', '06 Operations / 01 People and Visas'), ('PREMISES', '07 Premises'),
+]
+SORTING_FILE = 'Document_Sorting.xlsx'
+REFERENCE_LETTER = re.compile(r'reference letter|referenzschreiben|referenzbrief|bank ?reference|professional '
+                              r'reference|letter of reference|\bref(erence)? ?l(e)?tr\b', re.I)
+# Odoo document types offered in the sorting list (csp_document_structure codes); a person sets the final type
+ODOO_TYPE_NAMES = [
+    ('PASSPORT', 'Passport'), ('NATID', 'National ID / Emirates ID'), ('VISA', 'Residence Visa'),
+    ('PROFILE_ENT', 'Client Profile (Entity)'), ('PROFILE_IND', 'Client Profile (Individual)'),
+    ('POA_ENT', 'Proof of Address (Entity)'), ('POA_IND', 'Proof of Address (Individual)'),
+    ('REFLTR_ENT', 'Reference Letter (Entity)'), ('REFLTR_IND', 'Reference Letter (Individual)'),
+    ('SOW_ENT', 'Source of Wealth (Entity)'), ('SOW_IND', 'Source of Wealth (Individual)'),
+    ('WCHECK_ENT', 'World-Check (Entity)'), ('WCHECK_IND', 'World-Check (Individual)'),
+    ('RISK_ENT', 'Risk Assessment (Entity)'), ('RISK_IND', 'Risk Assessment (Individual)'),
+    ('COI', 'Certificate of Incorporation'), ('MOA', 'Memorandum and Articles'), ('REGSH', 'Register of Shareholders'),
+    ('RESOLUTION', 'Board / Shareholder Resolution'), ('GOOD_STANDING', 'Certificate of Good Standing'),
+    ('PWRATT', 'Power of Attorney'), ('TRADELIC', 'Trade Licence'), ('NOC', 'No Objection Certificate'),
+    ('ATTESTED', 'Attested / Legalised Document'), ('ENGLTR', 'Engagement Letter'), ('BANKST', 'Bank Statement'),
+    ('BANK_CONF', 'Bank Account Opening Confirmation'), ('FINST', 'Audited Financial Statements'),
+    ('TENANCY', 'Tenancy / Lease Contract'), ('UTILITY_BILL', 'Utility Bill'),
+]
+SCOPES = ('This name pattern', 'Whole M2 folder')
+NOT_UPLOAD = 'Do not upload'
+
+
+def pattern_key(folder, file):
+    """The name pattern of a document: its M2 folder and its file name with the numbers masked (Inv 2019-03.pdf
+    and Inv 2020-11.pdf are one pattern)."""
+    return ' '.join((folder or '').casefold().split()), re.sub(r'\d+', '#', ' '.join((file or '').casefold().split()))
+
+
+def document_rules(config=None):
+    """The person's sorting decisions (Settings document_rules): {('pattern', folder, name) | ('folder', folder):
+    (Odoo folder code, Odoo type code, upload)}."""
+    if config is None:
+        try:
+            config = json.loads(DEFAULT_CONFIG.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            config = {}
+    rules = {}
+    for rule in config.get('document_rules') or []:
+        folder, name = pattern_key(rule.get('folder'), rule.get('name'))
+        key = ('folder', folder) if rule.get('scope') == 'folder' else ('pattern', folder, name)
+        rules[key] = (rule.get('odoo_folder') or None, rule.get('odoo_type') or None, rule.get('upload', True))
+    return rules
+
+
+def odoo_target(row, rules=None):
+    """(Odoo document type code, Odoo folder code, upload, how) of one classified document row; the person's
+    sorting decisions first."""
     kind = mandate_type(row.get('key'))
     person = kind == 'person'
     words = f"{row.get('folder') or ''} {row.get('file') or ''}"
     doc_type = row.get('doc_type')
     upload = doc_type != 'system_file' and not NOT_UPLOADED.search(row.get('file') or '')
+    if rules:
+        folder_key, name_key = pattern_key(row.get('folder'), row.get('file'))
+        rule = rules.get(('pattern', folder_key, name_key)) or rules.get(('folder', folder_key))
+        if rule:
+            code, odoo_type, keep = rule
+            if person and code and code not in PERSON_FOLDERS:
+                code = 'CORR' if code.startswith('CORR') else None
+            return odoo_type, (None if odoo_type else code), upload and keep, 'your sorting list'
+    if REFERENCE_LETTER.search(words) and doc_type not in ('invoice_fee', 'system_file'):
+        return ('REFLTR_IND' if person else 'REFLTR_ENT'), None, upload, 'Odoo document type'
     for tool_type, rx, company_code, person_code in ODOO_TYPE_RULES:
         if tool_type == doc_type and (rx is None or rx.search(words)):
             return (person_code if person else company_code), None, upload, 'Odoo document type'
@@ -765,6 +838,153 @@ def odoo_target(row):
     if folder and person and folder not in PERSON_FOLDERS:
         folder = 'CORR' if folder.startswith('CORR') else None
     return None, folder, upload, how if folder else 'workspace root'
+
+
+# -- the person's sorting list ------------------------------------------------------------------------------------
+def write_sorting_workbook(run_dir, everything=False):
+    """Document_Sorting.xlsx in the run folder: the files that would go to the top of the client's workspace (or,
+    with everything, every uploaded file the rules did not place by type), one row per name pattern, with
+    drop-downs for the Odoo folder and type. Filled in and read back with learn_sorting(), it becomes rules."""
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+    run_dir = Path(run_dir)
+    docs = json.loads((run_dir / SUGGESTIONS_FILE).read_text(encoding='utf-8')).get('documents') or []
+    groups = {}
+    for d in docs:
+        if not d.get('upload') or d.get('odoo_type') or (d.get('odoo_folder') and not everything):
+            continue
+        key = pattern_key(d.get('folder'), d.get('file'))
+        g = groups.setdefault(key, {'folder': d.get('folder') or '', 'file': d.get('file') or '', 'files': 0,
+                                    'keys': set(), 'types': {}, 'why': d.get('reason') or ''})
+        g['files'] += 1
+        g['keys'].add(d.get('key'))
+        g['types'][d.get('doc_type')] = g['types'].get(d.get('doc_type'), 0) + 1
+    book = openpyxl.Workbook()
+    readme = book.active
+    readme.title = 'Read Me'
+    for line in ("Sorting list of the M2 documents: where they go in the client's Odoo Documents folder.",
+                 "",
+                 "One row per name pattern: the same M2 folder and the same file name once numbers are masked "
+                 "(Invoice 2019-03.pdf and Invoice 2020-11.pdf are one pattern). Files = how many files it covers.",
+                 "Fill in Odoo folder (or Odoo document type, which files the document in its own folder), and "
+                 "Apply to: this name pattern, or every file of that M2 folder.",
+                 "Upload = No keeps those files in the archive.",
+                 "Sheet 'By M2 folder' is the quick way: one row per M2 folder, for every file of that folder. A row "
+                 "of 'To sort' for a name pattern wins over its folder's row.",
+                 "Leave a row empty to skip it. Save the file, then AI assistant > Document packages > Apply my "
+                 "sorting list (or: bin/m2ctl.sh ai learn). The answers are kept as rules (m2_config.json, this "
+                 "machine only) and used on every later run.",
+                 "The file names are client data: keep this file on this machine."):
+        readme.append([line])
+    readme.column_dimensions['A'].width = 130
+    readme['A1'].font = Font(bold=True, size=13)
+    lists = book.create_sheet('Lists')
+    folders = [name for _code, name in ODOO_FOLDER_NAMES]
+    types = [f"{code} - {name}" for code, name in ODOO_TYPE_NAMES]
+    for i, value in enumerate(folders, 1):
+        lists.cell(i, 1, value)
+    for i, value in enumerate(types, 1):
+        lists.cell(i, 2, value)
+    for i, value in enumerate(SCOPES, 1):
+        lists.cell(i, 3, value)
+    lists.cell(1, 4, 'Yes')
+    lists.cell(2, 4, 'No')
+    lists.sheet_state = 'hidden'
+    ws = book.create_sheet('To sort', 0)
+    head = ['Files', 'Mandates', 'M2 folder', 'File name (example)', 'Type found', 'Why not placed',
+            'Odoo folder', 'Odoo document type', 'Apply to', 'Upload']
+    ws.append(head)
+    for cell in ws[1]:
+        cell.font, cell.fill = Font(bold=True), PatternFill('solid', fgColor='DDE7F0')
+        cell.alignment = Alignment(vertical='top', wrap_text=True)
+    for g in sorted(groups.values(), key=lambda g: (-g['files'], g['folder'], g['file'])):
+        found = max(g['types'], key=g['types'].get)
+        ws.append([g['files'], len(g['keys']), g['folder'], g['file'], found, g['why'], None, None, SCOPES[0], 'Yes'])
+    last = max(2, ws.max_row)
+    for col, ref in (('G', '$A$1:$A$%d' % len(folders)), ('H', '$B$1:$B$%d' % len(types)), ('I', '$C$1:$C$2'),
+                     ('J', '$D$1:$D$2')):
+        check = DataValidation(type='list', formula1=f"=Lists!{ref}", allow_blank=True)
+        ws.add_data_validation(check)
+        check.add(f"{col}2:{col}{last}")
+    # One row per M2 folder: quicker when a whole folder goes to one place (a pattern row still wins over it)
+    per_folder = {}
+    for (folder_key, _name), g in groups.items():
+        f = per_folder.setdefault(folder_key, {'folder': g['folder'], 'files': 0, 'patterns': 0, 'keys': set()})
+        f['files'] += g['files']
+        f['patterns'] += 1
+        f['keys'] |= g['keys']
+    wf = book.create_sheet('By M2 folder', 1)
+    wf.append(['Files', 'Patterns', 'Mandates', 'M2 folder', 'Odoo folder', 'Odoo document type', 'Upload'])
+    for cell in wf[1]:
+        cell.font, cell.fill = Font(bold=True), PatternFill('solid', fgColor='DDE7F0')
+    for f in sorted(per_folder.values(), key=lambda f: (-f['files'], f['folder'])):
+        wf.append([f['files'], f['patterns'], len(f['keys']), f['folder'], None, None, 'Yes'])
+    last_f = max(2, wf.max_row)
+    for col, ref in (('E', '$A$1:$A$%d' % len(folders)), ('F', '$B$1:$B$%d' % len(types)), ('G', '$D$1:$D$2')):
+        check = DataValidation(type='list', formula1=f"=Lists!{ref}", allow_blank=True)
+        wf.add_data_validation(check)
+        check.add(f"{col}2:{col}{last_f}")
+    for col, width in zip('ABCDEFG', (7, 9, 9, 50, 42, 36, 8)):
+        wf.column_dimensions[col].width = width
+    wf.freeze_panes = 'E2'
+    wf.auto_filter.ref = f"A1:G{last_f}"
+    for col, width in zip('ABCDEFGHIJ', (7, 9, 40, 44, 15, 30, 42, 36, 18, 8)):
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = 'C2'
+    ws.auto_filter.ref = f"A1:J{last}"
+    path = run_dir / SORTING_FILE
+    book.save(path)
+    return {'file': str(path), 'patterns': len(groups), 'files': sum(g['files'] for g in groups.values())}
+
+
+def learn_sorting(run_dir, config_path=DEFAULT_CONFIG):
+    """Read the filled-in sorting list back: its answers become document_rules in m2_config.json, and the run's
+    documents get their new Odoo folder / type at once (no model call)."""
+    import openpyxl
+    run_dir = Path(run_dir)
+    book = openpyxl.load_workbook(run_dir / SORTING_FILE, read_only=True, data_only=True)
+    by_name = {name: code for code, name in ODOO_FOLDER_NAMES}
+    new = []
+    for row in list(book['To sort'].iter_rows(min_row=2, values_only=True)):
+        if len(row) < 10:
+            continue
+        folder, file, odoo_folder, odoo_type, scope, upload = row[2], row[3], row[6], row[7], row[8], row[9]
+        upload = str(upload or 'Yes').strip().casefold() not in ('no', 'n', 'nein')
+        code = by_name.get(str(odoo_folder or '').strip())
+        type_code = str(odoo_type or '').split(' - ')[0].strip() or None
+        if not code and not type_code and upload:
+            continue
+        new.append({'folder': folder or '', 'name': file or '', 'odoo_folder': code, 'odoo_type': type_code,
+                    'scope': 'folder' if str(scope or '').startswith('Whole') else 'pattern', 'upload': upload})
+    if 'By M2 folder' in book.sheetnames:
+        for row in book['By M2 folder'].iter_rows(min_row=2, values_only=True):
+            if len(row) < 7:
+                continue
+            upload = str(row[6] or 'Yes').strip().casefold() not in ('no', 'n', 'nein')
+            code = by_name.get(str(row[4] or '').strip())
+            type_code = str(row[5] or '').split(' - ')[0].strip() or None
+            if code or type_code or not upload:
+                new.append({'folder': row[3] or '', 'name': '', 'odoo_folder': code, 'odoo_type': type_code,
+                            'scope': 'folder', 'upload': upload})
+    config = json.loads(Path(config_path).read_text(encoding='utf-8')) if Path(config_path).is_file() else {}
+
+    def key(rule):
+        folder, name = pattern_key(rule['folder'], rule['name'])
+        return (rule['scope'], folder) if rule['scope'] == 'folder' else (rule['scope'], folder, name)
+    kept = {key(r): r for r in config.get('document_rules') or []}
+    kept.update({key(r): r for r in new})
+    config['document_rules'] = list(kept.values())
+    Path(config_path).write_text(json.dumps(config, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    data_file = run_dir / SUGGESTIONS_FILE
+    data = json.loads(data_file.read_text(encoding='utf-8'))
+    rules, moved = document_rules(config), 0
+    for row in data.get('documents') or []:
+        before = (row.get('odoo_type'), row.get('odoo_folder'), row.get('upload'))
+        row['odoo_type'], row['odoo_folder'], row['upload'], row['odoo_how'] = odoo_target(row, rules)
+        moved += before != (row['odoo_type'], row['odoo_folder'], row['upload'])
+    data_file.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding='utf-8')
+    return {'rules': len(new), 'rules_total': len(config['document_rules']), 'documents_changed': moved}
 
 
 # -- coverage per client, across the mandate holders ---------------------------------------------------------
@@ -939,7 +1159,7 @@ def save(run_dir, ai, **parts):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    p.add_argument('command', choices=['status', 'suggest', 'documents', 'summary', 'all'])
+    p.add_argument('command', choices=['status', 'suggest', 'documents', 'summary', 'all', 'sorting', 'learn'])
     p.add_argument('run', nargs='?', help='run folder (runs/<stamp>)')
     p.add_argument('--config', default=str(DEFAULT_CONFIG))
     a = p.parse_args(argv)
@@ -950,6 +1170,10 @@ def main(argv=None):
         return 0
     if not a.run or not Path(a.run).is_dir():
         p.error('give the run folder')
+    if a.command in ('sorting', 'learn'):                  # no model: the person's sorting list
+        result = write_sorting_workbook(a.run) if a.command == 'sorting' else learn_sorting(a.run, a.config)
+        print(json.dumps(result, indent=1))
+        return 0
     short = ai.memory_check()
     if short:
         print(short, file=sys.stderr)

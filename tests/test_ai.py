@@ -293,3 +293,49 @@ class TestCoverageAcrossHolders(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestSortingList(unittest.TestCase):
+    """The person's sorting list: written per name pattern, read back as rules, applied without the model."""
+
+    def test_round_trip(self):
+        import openpyxl
+        with tempfile.TemporaryDirectory() as tmp:
+            run, config = Path(tmp) / 'run', Path(tmp) / 'm2_config.json'
+            run.mkdir()
+            config.write_text('{"company_map": {"NOVA-PH": "Nova Services Inc"}}')
+            docs = [{'key': 'KP-1-ENT', 'folder': 'Misc', 'file': f'Scan 2019-0{n}.pdf', 'doc_type': 'other',
+                     'upload': True, 'odoo_type': None, 'odoo_folder': None} for n in (1, 2, 3)]
+            docs.append({'key': 'KP-2-ENT', 'folder': 'Old stuff', 'file': 'notes.txt', 'doc_type': 'other',
+                         'upload': True, 'odoo_type': None, 'odoo_folder': None})
+            docs.append({'key': 'KP-2-ENT', 'folder': 'Corporate documents', 'file': 'x.pdf', 'doc_type': 'other',
+                         'upload': True, 'odoo_type': None, 'odoo_folder': 'CORPDOC'})       # placed: not listed
+            (run / m2_ai.SUGGESTIONS_FILE).write_text(json.dumps({'documents': docs}))
+            out = m2_ai.write_sorting_workbook(run)
+            self.assertEqual((out['patterns'], out['files']), (2, 4))
+            book = openpyxl.load_workbook(run / m2_ai.SORTING_FILE)
+            ws = book['To sort']
+            self.assertEqual(ws['A2'].value, 3)                       # the Scan pattern: three files
+            ws['G2'] = '03 Banking / 03 Payment Orders'
+            ws['J3'] = 'No'                                           # Old stuff: keep in the archive
+            wf = book['By M2 folder']
+            self.assertEqual([r[3] for r in wf.iter_rows(min_row=2, values_only=True)], ['Misc', 'Old stuff'])
+            wf['E2'] = '04 Finance / 01 Financial Accounting'         # the whole Misc folder ...
+            book.save(run / m2_ai.SORTING_FILE)
+            result = m2_ai.learn_sorting(run, config)
+            self.assertEqual((result['rules'], result['documents_changed']), (3, 4))
+            kept = json.loads(config.read_text())
+            self.assertEqual(kept['company_map'], {'NOVA-PH': 'Nova Services Inc'})   # the rest of the settings stay
+            rows = json.loads((run / m2_ai.SUGGESTIONS_FILE).read_text())['documents']
+            self.assertEqual({r['odoo_folder'] for r in rows[:3]}, {'PAYORD'})   # ... but the pattern row wins
+            self.assertEqual(m2_ai.odoo_target({'key': 'KP-9-ENT', 'folder': 'Misc', 'file': 'other.pdf',
+                                                'doc_type': 'other'}, m2_ai.document_rules(json.loads(
+                                                    config.read_text())))[1], 'FINACC')
+            self.assertFalse(rows[3]['upload'])
+            rules = m2_ai.document_rules(kept)                        # a new file of the same pattern follows
+            self.assertEqual(m2_ai.odoo_target({'key': 'KP-9-ENT', 'folder': 'Misc', 'file': 'Scan 2024-11.pdf',
+                                                'doc_type': 'other'}, rules)[1], 'PAYORD')
+
+    def test_reference_letter(self):
+        self.assertEqual(m2_ai.odoo_target({'key': 'KP-1-CON', 'folder': 'KYC', 'file': 'Bank reference letter.pdf',
+                                            'doc_type': 'bank'})[0], 'REFLTR_IND')
