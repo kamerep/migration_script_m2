@@ -16,7 +16,8 @@ python3 -m venv --without-pip .venv && .venv/bin/python get-pip.py && .venv/bin/
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The template columns are read from `/data/odoo20_enhancements/csp_client_import/models/import_spec.py`
+The template columns are read from `/data/odoo19_enhancements/csp_client_import/models/import_spec.py` (Odoo 19, as
+on odoo.sh; the Odoo 20 copy is the fallback)
 (override with `CSP_IMPORT_SPEC`), so the output always matches the installed module.
 
 ## What it reads

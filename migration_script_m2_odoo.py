@@ -44,6 +44,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 HERE = Path(__file__).resolve().parent
 SPEC_CANDIDATES = [
     os.environ.get('CSP_IMPORT_SPEC', ''),
+    '/data/odoo19_enhancements/csp_client_import/models/import_spec.py',     # Odoo 19: what odoo.sh runs
     '/data/odoo20_enhancements/csp_client_import/models/import_spec.py',
     str(HERE / 'import_spec.py'),
 ]
