@@ -128,7 +128,7 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
 | Task | What it does | Where it runs |
 |---|---|---|
 | Suggest decisions | column → CSP field, unrecognised file → kind, M2 type code → register, holder code → company, legal form → entity type | Ollama; with `allow_cloud`, weak answers on headers/codes go to Claude |
-| Classify documents | type of each indexed file (passport, register extract, LEI, …) and clients missing KYC documents | keyword rules, then Ollama only |
+| Classify documents | type of each indexed file (passport, register extract, LEI, …), its Odoo folder and suggested Odoo document type, and clients missing KYC documents | keyword rules, then Ollama only |
 | Summary | status (green / amber / red), headline and next actions of a run | Ollama only |
 
 * Both providers are reached with the Anthropic SDK over the Messages API: Ollama (≥ 0.14) serves it on
@@ -145,6 +145,18 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
 * While the assistant works, a bar shows its progress from 0 to 100%, batch by batch, with the step it is on and
   the time left; **Stop** ends it after the current batch (`POST /api/ai/stop`). Classify documents asks once per
   name pattern, most common first, up to `doc_model_limit` names per run (default 1,000).
+* **Into Odoo's folders.** Each document also gets the folder of the client's Odoo workspace it goes to (the
+  codes of CSP Documents: CORPDOC, CONTRACT, BANKST, PAYORD, FINST, INVIN, KYC, CORRCL, CORRBANK, …) from its M2
+  folder ("Corresp. with client" → CORRCL, "Corporate documents" → CORPDOC, "Payment orders" → PAYORD), or the
+  Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Emails (`.msg`, `.eml`) and program
+  files are not uploaded.
+* **Document packages.** *AI assistant › Document packages for Odoo* (or `bin/m2ctl.sh package [run] [archive]`,
+  `POST /api/packages/build`) writes zips of up to 90 MB with a `manifest.csv` into `runs/<id>/packages/`, reading
+  the files from the archive folder (the Z: drive mounted or copied here). A stopped build resumes. Upload them in
+  Odoo under *Documents › Configuration › M2 Document Packages* (module `csp_document_import`) after the clients:
+  each file is filed in its client's folder without a document type, which a person sets when the file is checked
+  (an old file must never replace a current KYC document or tick a KYC requirement). A file loaded again is
+  skipped; a power of attorney draft gets its signed document linked.
 * Answers are saved as they come (`runs/ai_cache.jsonl`): a stopped, failed or interrupted job shows **Resume**
   (`POST /api/ai/run` with `resume`), which runs only the open tasks and reuses saved answers. The model's memory
   is checked before it loads and freed when the job ends. The page gets the first 300 documents plus counts.

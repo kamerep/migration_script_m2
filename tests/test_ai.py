@@ -215,6 +215,30 @@ class TestDocumentRules(unittest.TestCase):
         self.assertEqual([d['doc_type'] for d in out], ['proof_of_address', 'power_of_attorney',
                                                         'power_of_attorney'])
 
+    def test_emails_and_corresp_folders_are_correspondence(self):
+        out = self.run_docs([{'key': 'A', 'folder': 'Misc', 'file': 'Re update.msg'},
+                             {'key': 'A', 'folder': 'Corresp. with client', 'file': 'Note 12.pdf'}])
+        self.assertEqual([d['doc_type'] for d in out], ['correspondence', 'correspondence'])
+        self.assertEqual([d['upload'] for d in out], [False, True], "emails stay in the archive")
+        self.assertEqual(out[1]['odoo_folder'], 'CORRCL')
+
+    def test_odoo_targets(self):
+        t = m2_ai.odoo_target
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'KYC', 'file': 'Passport.pdf', 'doc_type': 'passport_id'})[:2],
+                         ('PASSPORT', None))
+        self.assertEqual(t({'key': 'KP-1-CON', 'folder': 'KYC', 'file': 'POA.pdf',
+                            'doc_type': 'proof_of_address'})[0], 'POA_IND')
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'Bank', 'file': 'Kontoauszug 03.pdf',
+                            'doc_type': 'bank'})[0], 'BANKST')
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'Corporate documents', 'file': 'x.pdf',
+                            'doc_type': 'other'})[:2], (None, 'CORPDOC'))
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'Payment orders/2019', 'file': 'x.pdf',
+                            'doc_type': 'other'})[1], 'PAYORD')
+        self.assertEqual(t({'key': 'KP-1-CON', 'folder': 'Payment orders', 'file': 'x.pdf',
+                            'doc_type': 'other'})[1], None, "no such folder for a person: workspace root")
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'QB', 'file': 'Co.qbw', 'doc_type': 'system_file'})[2],
+                         False)
+
     def test_accounting_software_files(self):
         out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
                              ('Lovina Ltd.qbw', 'Lovina Ltd.qbw.TLG', 'segments_1k', 'segments.gen', '_a.cfx')])

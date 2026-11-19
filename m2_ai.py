@@ -87,7 +87,7 @@ DOC_TYPES = {
             r'kontoeröffnung',
     'tax': r'steuer|\btax\b|\bvat\b|mwst|\btin\b',
     'contract': r'vertrag|contract|agreement|engagement|mandatsvertrag|\bnda\b|service agreement',
-    'correspondence': r'brief|letter|mail|korrespondenz|correspondence|\.msg$|\.eml$',
+    'correspondence': r'brief|letter|mail|korrespondenz|corresp|\.msg$|\.eml$',
 }
 DOC_RULES = [(k, re.compile(v, re.I)) for k, v in DOC_TYPES.items()]
 # Program data of accounting software (QuickBooks, Banana, ...): not documents to attach to the client.
@@ -631,7 +631,7 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
     types, todo = {}, []
     for i, d in enumerate(docs):
         file = d.get('file') or ''
-        own = f"{file} {d.get('description') or ''}"          # the file's own name first, then its folder
+        own = f"{file} {d.get('description') or ''}".strip()  # the file's own name first, then its folder
         hit = next((k for k, rx in DOC_RULES if rx.search(own)), None)
         how, conf = 'keyword in the file name', 0.9
         if not hit:
@@ -673,16 +673,98 @@ def classify_documents(run_dir, ai=None, config=None, use_model=True):
     for i, d in enumerate(docs):
         t = types.get(f"d{i}") or {'value': 'other', 'confidence': 0.0, 'reason': 'not classified', 'provider': ''}
         where = d.get('where') or ''
-        rows.append({'key': d.get('key'), 'holder': where[len('archive '):] if where.startswith('archive ')
-                     else where, 'folder': d.get('folder'), 'file': d.get('file'),
-                     'on_disk': d.get('on_disk'), 'doc_type': t['value'], 'confidence': t['confidence'],
-                     'provider': t.get('provider'), 'reason': t.get('reason')})
+        row = {'key': d.get('key'), 'holder': where[len('archive '):] if where.startswith('archive ') else where,
+               'folder': d.get('folder'), 'file': d.get('file'), 'on_disk': d.get('on_disk'), 'doc_type': t['value'],
+               'confidence': t['confidence'], 'provider': t.get('provider'), 'reason': t.get('reason')}
+        row['odoo_type'], row['odoo_folder'], row['upload'], row['odoo_how'] = odoo_target(row)
+        rows.append(row)
     coverage, gaps = document_coverage(rows)
     try:
         write_coverage_workbook(run_dir / COVERAGE_FILE, coverage, rows)
     except (OSError, ImportError) as exc:
         print(f"Coverage workbook not written: {exc}", file=sys.stderr)
     return save(run_dir, ai, documents=rows, document_gaps=gaps, document_coverage=coverage)
+
+
+# -- where a document goes in Odoo ---------------------------------------------------------------------------
+# The client's Documents workspace in Odoo has a fixed folder tree (csp_document_structure: Entity - Standard,
+# Individual KYC) and document types that file themselves into it. A document with an Odoo type goes where its
+# type says; the others go to the folder their M2 folder or type points to. Codes as in Odoo.
+ODOO_TYPES = [   # (tool type, pattern on folder + file name or None, Odoo type for a company, for a person)
+    ('passport_id', r'visa|residence permit|aufenthalt', 'VISA', 'VISA'),
+    ('passport_id', r'emirates id|national id|id card|identit|ausweis', 'NATID', 'NATID'),
+    ('passport_id', None, 'PASSPORT', 'PASSPORT'),
+    ('proof_of_address', None, 'POA_ENT', 'POA_IND'),
+    ('incorporation', None, 'COI', 'COI'),
+    ('register_extract', r'good standing', 'GOOD_STANDING', 'GOOD_STANDING'),
+    ('articles', None, 'MOA', 'MOA'),
+    ('share_register', r'register|aktienbuch|ubo', 'REGSH', 'REGSH'),
+    ('resolution', None, 'RESOLUTION', 'RESOLUTION'),
+    ('power_of_attorney', r'vollmacht|attorney|bevollm', 'PWRATT', 'PWRATT'),
+    ('kyc_compliance', r'world ?check', 'WCHECK_ENT', 'WCHECK_IND'),
+    ('kyc_compliance', r'risk', 'RISK_ENT', 'RISK_IND'),
+    ('kyc_compliance', r'source of (wealth|funds)|\bsow\b|mittelherkunft', 'SOW_ENT', 'SOW_IND'),
+    ('kyc_compliance', r'profile|onboarding|kyc form|\bform a\b', 'PROFILE_ENT', 'PROFILE_IND'),
+    ('contract', r'engagement|mandatsvertrag|mandate agreement|mandate letter', 'ENGLTR', 'ENGLTR'),
+    ('bank', r'statement|kontoauszug|auszug', 'BANKST', 'BANKST'),
+    ('bank', r'account opening|opening confirm|kontoer[oö]ffnung', 'BANK_CONF', 'BANK_CONF'),
+    ('financials', r'audit|financial statement|jahresrechnung|annual account|abschluss', 'FINST', 'FINST'),
+]
+ODOO_TYPE_RULES = [(t, re.compile(p, re.I) if p else None, co, pe) for t, p, co, pe in ODOO_TYPES]
+# M2 sub-folder (any level, the deepest first) -> Odoo folder, for a document without an Odoo type
+ODOO_FOLDERS = [(re.compile(p, re.I), code) for p, code in (
+    (r'^corresp.*\b(client|kunde|directors?|shareholders?|ubo)\b', 'CORRCL'),
+    (r'^corresp.*\b(bank|banque|ubs|hsbc|credit suisse|julius b|lgt|vp bank|emirates nbd|mashreq)', 'CORRBANK'),
+    (r'^corresp.*\b(authorit|tax|steuer|registr|ministry|government|court|gericht|beh[oö]rde|amt)\b',
+     'CORRAUTH'),
+    (r'^corresp.*\b(office|interis|intern|internal|b[uü]ro)\b', 'CORRINT'),
+    (r'^corresp|korrespondenz|correspondence|e-?mails?$', 'CORR3P'),
+    (r'payment order|zahlungsauftr|zahlungen', 'PAYORD'),
+    (r'bank ?statement|kontoausz', 'BANKST'),
+    (r'account opening|bank master|kontoer[oö]ffnung|signature card', 'BANKMD'),
+    (r'\bbank', 'BANK'),
+    (r'financial statement|jahresrechnung|annual account|abschl[uü]ss|audit', 'FINST'),
+    (r'invoices? (issued|out)|ausgangsrechn|our invoices|honorar|fees?$', 'INVOUT'),
+    (r'intercompany|inter-company', 'INVIC'),
+    (r'invoice|rechnung|bills?$|faktur', 'INVIN'),
+    (r'accounting|buchhaltung|ledger|expenses|spesen|belege|receipts|vat|mwst|tax|steuer', 'FINACC'),
+    (r'kyc|compliance|due diligence|\bcdd\b|gwg|world ?check', 'KYC'),
+    (r'contract|vertr[aä]g|agreement', 'CONTRACT'),
+    (r'corporate|gesellschaft|statut|register|minutes|protokoll|resolution|beschl', 'CORPDOC'),
+    (r'premises|office lease|tenancy|miete|ejari', 'PREMISES'),
+    (r'visa|people|staff|employee|mitarbeiter', 'OPS_PEOPLE'),
+)]
+TYPE_FOLDER = {   # tool type -> Odoo folder when neither an Odoo type nor the M2 folder gives one
+    'register_extract': 'CORPDOC', 'share_register': 'CORPDOC', 'lei': 'CORPDOC', 'incorporation': 'CORPDOC',
+    'kyc_compliance': 'KYC', 'invoice_fee': 'INVIN', 'financials': 'FINACC', 'bank': 'BANK', 'tax': 'FINACC',
+    'contract': 'CONTRACT', 'correspondence': 'CORR3P', 'resolution': 'CORPDOC', 'articles': 'CORPDOC',
+}
+# Folders of the person template (Individual KYC): other folder codes go to the workspace root there.
+PERSON_FOLDERS = {'PROFILE', 'CV', 'ID', 'POA', 'REF', 'SOW', 'WCHECK', 'RISK', 'CORR'}
+NOT_UPLOADED = re.compile(r'\.(msg|eml|lnk|tmp|bak|db|ini)$', re.I)
+
+
+def odoo_target(row):
+    """(Odoo document type code, Odoo folder code, upload, how) of one classified document row."""
+    kind = mandate_type(row.get('key'))
+    person = kind == 'person'
+    words = f"{row.get('folder') or ''} {row.get('file') or ''}"
+    doc_type = row.get('doc_type')
+    upload = doc_type != 'system_file' and not NOT_UPLOADED.search(row.get('file') or '')
+    for tool_type, rx, company_code, person_code in ODOO_TYPE_RULES:
+        if tool_type == doc_type and (rx is None or rx.search(words)):
+            return (person_code if person else company_code), None, upload, 'Odoo document type'
+    folder = None
+    for part in reversed([p.strip() for p in re.split(r'[\\/]', row.get('folder') or '') if p.strip()]):
+        folder = next((code for rx, code in ODOO_FOLDERS if rx.search(part)), None)
+        if folder:
+            break
+    how = 'M2 folder'
+    if not folder and doc_type in TYPE_FOLDER:
+        folder, how = TYPE_FOLDER[doc_type], 'document type'
+    if folder and person and folder not in PERSON_FOLDERS:
+        folder = 'CORR' if folder.startswith('CORR') else None
+    return None, folder, upload, how if folder else 'workspace root'
 
 
 # -- coverage per client, across the mandate holders ---------------------------------------------------------
@@ -762,9 +844,11 @@ def write_coverage_workbook(path, coverage, rows):
                    ', '.join(c['missing']), '; '.join(f"{x['need']}: in {', '.join(x['found_in'])}, not in "
                                                       f"{', '.join(x['missing_in'])}" for x in c['covered_elsewhere'])])
     wf = wb.create_sheet('Where found')
-    wf.append(['Mandate', 'Holder', 'Document type', 'Folder', 'File', 'Confidence'])
+    wf.append(['Mandate', 'Holder', 'Document type', 'Folder', 'File', 'Confidence', 'Odoo document type',
+               'Odoo folder', 'Upload'])
     for r in sorted(rows, key=lambda r: (client_key(r.get('key')), r.get('holder') or '', r['doc_type'])):
-        wf.append([r.get('key'), r.get('holder'), r['doc_type'], r.get('folder'), r.get('file'), r['confidence']])
+        wf.append([r.get('key'), r.get('holder'), r['doc_type'], r.get('folder'), r.get('file'), r['confidence'],
+                   r.get('odoo_type'), r.get('odoo_folder'), 'Yes' if r.get('upload') else 'No'])
     wh = wb.create_sheet('Per holder')
     wh.append(['Holder', 'Mandates', 'Complete', 'With gaps', 'Internal (ADM)', 'Type unknown',
                'Shared with another holder'])

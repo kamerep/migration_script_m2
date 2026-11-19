@@ -1748,18 +1748,22 @@ class Migration:
         elif norm(raw_type) != norm(out['poa_type']):
             self.change(sheet, where, key, 'Type', raw_type, out['poa_type'], "M2 kind of power of attorney.")
         out['scope'] = '; '.join(filter(None, [text(v.get('scope')), out.get('scope')])) or None
-        out['joint_with'] = text(v.get('joint_with')) or None
         out['account'] = text(v.get('account')) or None
-        out['date_granted'] = self.convert(sheet, where, key, 'Granted On', v.get('date_granted'), self.conv.date)
         flag = self.conv.boolean(v.get('revoked'))[0] if text(v.get('revoked')) else None   # M2 J/N or a date
         out['date_revoked'] = None if flag else self.convert(sheet, where, key, 'Revoked On', v.get('revoked'),
                                                             self.conv.date)
-        out['revocation_reason'] = text(v.get('revocation_reason')) or None
         for field, label in (('notarised', 'Notarised'), ('apostilled', 'Apostilled')):
             out[field] = self.convert(sheet, where, key, label, v.get(field), self.conv.boolean)
-        out['jurisdiction'] = self.convert(sheet, where, key, 'Issued In', v.get('jurisdiction'), self.conv.country)
         out['m2_reference'] = text(v.get('m2_ref')) or None
-        out['notes'] = '; '.join(filter(None, (text(v.get(f)) for f in ('remark', 'remark2', 'remark3')))) or None
+        # Grant date and country belong to the signed document in Odoo; the joint signer and the revocation
+        # reason have no field: all four are kept in Notes so nothing of M2 is lost.
+        granted = self.convert(sheet, where, key, 'Granted On', v.get('date_granted'), self.conv.date)
+        country = self.convert(sheet, where, key, 'Issued In', v.get('jurisdiction'), self.conv.country)
+        kept = [f"Granted on {granted}" if granted else '', f"Issued in {country}" if country else '',
+                f"Signs jointly with {text(v.get('joint_with'))}" if text(v.get('joint_with')) else '',
+                f"Revoked: {text(v.get('revocation_reason'))}" if text(v.get('revocation_reason')) else '']
+        out['notes'] = '; '.join(filter(None, [text(v.get(f)) for f in ('remark', 'remark2', 'remark3')] + kept)) \
+            or None
         if out['date_revoked'] or flag == 'Yes':
             out['state'] = 'Revoked'
         elif out['date_valid_to'] and out['date_valid_to'] < datetime.date.today():

@@ -107,8 +107,12 @@ case "${1:-status}" in
   ai)
     cmd="${2:-status}"; run="${3:-$(ls -1d "$HERE"/runs/*/ 2>/dev/null | sort | tail -1)}"
     if [ "$cmd" = status ]; then "$PY" "$HERE/m2_ai.py" status; else "$PY" "$HERE/m2_ai.py" "$cmd" "$run"; fi ;;
+  package)
+    run="${2:-$(ls -1d "$HERE"/runs/*/ 2>/dev/null | sort | tail -1)}"
+    root="${3:-$("$PY" -c "import json;print(json.load(open('$HERE/.m2_ui.json')).get('archive_root',''))" 2>/dev/null)}"
+    "$PY" "$HERE/m2_package.py" "$run" ${root:+--archive-root "$root"} ;;
   token) "$PY" -c "import sys; sys.argv=['x']; import m2_ui; print(m2_ui.API_TOKEN)" ;;
   mcp) exec "$PY" "$HERE/m2_mcp.py" ;;
   audit) audit "${2:-}" ;;
-  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last|ai <cmd> [run]|token|mcp|audit [run]"; exit 2 ;;
+  *) echo "Usage: $0 start|stop|restart|status|test|deploy|sample|migrate [dir]|last|ai <cmd> [run]|package [run] [archive]|token|mcp|audit [run]"; exit 2 ;;
 esac

@@ -1205,18 +1205,44 @@ async function renderAI() {
   const docs = a.documents || [], total = a.documents_total ?? docs.length;
   if (docs.length) { const by = aiDocTypes(a);
     html += `<div class="card"><h2>Document types <span class="muted">${fmt(total)} file(s)</span></h2><div class="chips">${Object.entries(by).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${n}</span>`).join('')}</div>
+    ${a.odoo_targets ? `<h2 style="margin-top:12px">Where they go in Odoo <span class="muted">${fmt(a.documents_upload || 0)} file(s) to upload; emails and program files stay in the archive</span></h2><p class="small muted">An Odoo document type (upper case, e.g. PASSPORT, COI) files itself in the client's folder for that type; the other files go to the Odoo folder of their M2 folder; root = the top of the client's workspace.</p><div class="chips">${Object.entries(a.odoo_targets).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip static">${esc(k)} ${fmt(n)}</span>`).join('')}</div>` : ''}
     ${(a.document_gaps || []).length ? `<h2 style="margin-top:12px">Mandates missing documents <span class="muted">${a.document_gaps.length}</span></h2><p class="muted">Checked over every mandate holder the mandate is filed under. ENT and ACC need company documents and people KYC; CON and DIR need person KYC; ADM (internal) is not checked. The full table is in Archive_KYC_coverage.xlsx.</p><div class="tablewrap free"><table><tr><th>M2 key</th><th>Type</th><th>Holders</th><th>Missing in every holder</th><th>Found in another holder</th></tr>${a.document_gaps.map(g => `<tr><td><span class="key" data-key="${esc(g.key)}">${esc(g.key)}</span></td><td>${esc(g.type || '')}</td><td>${esc((g.holders || []).join(', '))}</td><td>${g.missing.map(m => `<span class="lv warning">${esc(m)}</span>`).join(' ')}</td><td>${(g.covered_elsewhere || []).map(x => `<span class="lv ok">${esc(x.need)}</span> <span class="muted">in ${esc(x.found_in.join(', '))}</span>`).join('<br>')}</td></tr>`).join('')}</table></div>` : ''}
     ${total > docs.length ? `<p class="small muted" style="margin:10px 0 0">The first ${fmt(docs.length)} of ${fmt(total)} are shown here; every file and its type is in Archive_KYC_coverage.xlsx.</p>` : ''}
-    <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th>Confidence</th><th>By</th></tr>${docs.map(d => `<tr><td class="mono small">${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td>${meter(d.confidence)}</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
+    <div class="tablewrap" style="margin-top:10px"><table><tr><th>M2 key</th><th>Folder</th><th>File</th><th>Type</th><th>In Odoo</th><th>Confidence</th><th>By</th></tr>${docs.map(d => `<tr><td class="mono small">${esc(d.key)}</td><td>${esc(d.folder)}</td><td>${esc(d.file)}</td><td>${esc(d.doc_type)}</td><td class="mono small">${d.upload === false ? '<span class="muted">not uploaded</span>' : esc(d.odoo_type || d.odoo_folder || 'root')}</td><td>${meter(d.confidence)}</td><td class="small">${esc(d.provider)}</td></tr>`).join('')}</table></div></div>`; }
+  if (docs.length) html += pkgCard();
   if ((a.calls || []).length) html += `<details class="card"><summary>${ic('chev')}Model calls <span class="muted">${a.calls.length}</span></summary><div class="tablewrap"><table><tr><th>At</th><th>Task</th><th>Provider</th><th>Model</th><th class="num">Items</th><th class="num">Seconds</th><th>Result</th></tr>
     ${a.calls.slice(-80).reverse().map(c => `<tr><td class="small">${esc(c.at || '')}</td><td>${esc(c.task)}</td><td>${esc(c.provider)}</td><td class="small">${esc(c.model || '')}</td><td class="num">${esc(c.items ?? '')}</td><td class="num">${esc(c.seconds ?? '')}</td><td>${c.ok ? '<span class="lv ok">ok</span>' : `<span class="lv error">${esc(c.error)}</span>`}</td></tr>`).join('')}</table></div></details>`;
   el.innerHTML = html + aiSettingsCard(cfg);
-  bindAIStop();
+  bindAIStop(); bindPkg(el); if (docs.length && S.pkg?.run !== S.run) loadPkg();
   const rs = $('#airesume', el); if (rs) rs.onclick = () => runAI(null, true);
   $$('[data-ai-run]', el).forEach(b => b.onclick = () => runAI(b.dataset.aiRun.split(',')));
   $('#airecheck').onclick = () => { S.aiStatus = null; renderAI(); };
   bindAI(el); bindAISettings(el); bindKeys(el);
 }
+// Document packages: the files to upload into the clients' Documents folders in Odoo (all but emails)
+function pkgCard() { const p = S.pkg?.run === S.run ? S.pkg : null, j = p?.job || {}, running = j.state === 'running';
+  const list = p?.packages || [], mb = list.reduce((t, x) => t + x.bytes, 0) / 1048576;
+  return `<div class="card" id="pkgcard"><h2>${ic('folder')}Document packages for Odoo <span class="muted">${fmt(S.ai?.documents_upload || 0)} file(s) to upload</span></h2>
+    <p class="small muted">Zip files of up to 90 MB with a manifest. Upload them in Odoo under <b>Documents › Configuration › M2 Document Packages</b>, after the clients are imported. Each file goes to its client's folder; Odoo leaves the type for a person to set when the file is checked. Emails and program files stay in the archive.</p>
+    <div class="toolbar" style="margin:0"><label class="tog grow">Archive folder on this machine (the Z: drive mounted or copied) <input id="pkgroot" placeholder="/mnt/z" value="${esc(p?.archive_root || '')}"></label>
+      ${running ? `<button class="btn" id="pkgstop">${ic('x')}Stop</button>` : `<button class="btn primary" id="pkgbuild">${ic('download')}${list.length ? 'Write the rest' : 'Write packages'}</button>`}</div>
+    ${running ? `<div class="progress-row" style="margin-top:10px"><span class="spin"></span><span>${esc(j.step || 'starting')}</span><div class="bar tall" role="progressbar" aria-label="Package progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${j.percent || 0}" aria-valuetext="${j.percent || 0}%"><i style="width:${j.percent || 0}%;background:var(--accent)"></i></div><b>${j.percent || 0}%</b></div>` : ''}
+    ${j.state === 'failed' ? `<div class="banner err" style="margin:10px 0 0">${ic('alert')}<div>${esc(j.error)}</div></div>` : ''}
+    ${list.length ? `<p style="margin:10px 0 0">${fmt(list.length)} package(s), ${fmt(list.reduce((t, x) => t + x.documents, 0))} file(s), ${mb.toFixed(0)} MB in <span class="mono small">${esc(p.folder)}</span>${p.missing ? `; <span class="lv warning">${fmt(p.missing)} not found</span> (listed in packages.json)` : ''}.</p>` : ''}</div>`; }
+async function loadPkg() { const run = S.run; if (!run) return;
+  try { const r = await api(`/api/packages?run=${encodeURIComponent(run)}`, undefined, {quiet: true}); if (run !== S.run) return;
+    const was = S.pkg?.job?.state; S.pkg = r; const now = r.job?.state;
+    if (was === 'running' && now === 'done') toast('Document packages written', {type: 'success', detail: `${fmt(r.packages.length)} package(s)`});
+    if (was === 'running' && now === 'failed') toast('Writing the packages stopped: ' + (r.job.error || ''), {type: 'error'});
+    const c = $('#pkgcard'); if (c && S.tab === 'ai') { c.outerHTML = pkgCard(); bindPkg(document); }
+    if (now === 'running') { clearTimeout(S.pkgTimer); S.pkgTimer = setTimeout(loadPkg, 1500); } }
+  catch (e) { /* the card stays as it is */ } }
+function bindPkg(el) {
+  const b = $('#pkgbuild', el); if (b) b.onclick = async () => { b.disabled = true;
+    try { await api('/api/packages/build', {run: S.run, archive_root: $('#pkgroot').value.trim()}); toast('Writing the document packages…'); S.pkg = {...(S.pkg || {}), run: S.run, job: {state: 'running', percent: 0}}; loadPkg(); }
+    catch (e) { toast(e.message, {type: 'error'}); b.disabled = false; } };
+  const s = $('#pkgstop', el); if (s) s.onclick = async () => { s.disabled = true;
+    try { await api('/api/packages/stop', {run: S.run}); toast('Stopping after the current file…'); } catch (e) { toast(e.message, {type: 'error'}); s.disabled = false; } }; }
 function aiSettingsCard(cfg) {
   return `<details class="card"><summary>${ic('chev')}AI settings</summary>
     <label class="tog">Mode <select data-ai-set="provider"><option value="ollama">Ollama only (everything stays here)</option><option value="auto">Ollama first, Claude for weak answers</option><option value="claude">Claude for headers/codes, Ollama for the rest</option></select></label>

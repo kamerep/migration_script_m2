@@ -8,8 +8,8 @@ For coding agents (Claude Code and others) and for developers new to the reposit
 
 ## What this is
 
-A local tool that turns exports of M2 Mandat into the CSP client import workbook for Odoo (`csp_client_import`).
-It writes files only: nothing goes to Odoo. The data is confidential client data (KYC, UBOs, bank accounts).
+A local tool that turns exports of M2 Mandat into the CSP client import workbook for Odoo (`csp_client_import`)
+and document packages (`csp_document_import`). It writes files only: nothing goes to Odoo by itself. The data is confidential client data (KYC, UBOs, bank accounts).
 
 ## Map
 
@@ -20,11 +20,12 @@ It writes files only: nothing goes to Odoo. The data is confidential client data
 | `m2_ui.html` | The whole page: CSS, an SVG icon sprite and one `<script>`. No build step, no external resource. |
 | `m2_ai.py` | Assistant on a finished run: Ollama local, Claude optional for headers and codes only. |
 | `m2_mcp.py` | MCP server over the running UI's API (`.mcp.json` registers it). |
+| `m2_package.py` | Document packages of a run (zips + manifest) for the Odoo module `csp_document_import`. |
 | `m2_config.json` | Settings and saved decisions. |
 | `bin/m2ctl.sh` | start, stop, restart, status, test, deploy, sample, migrate, last, ai, token, mcp. |
 | `assets/` | Logo and icons: SVG sources and built PNG / ICO / web manifest (`tools/make_icons.py`). |
 | `docs/` | Guides as HTML (shown in the Docs tab) and PDF (`tools/make_docs_pdf.sh`). |
-| `tests/` | `test_migration.py`, `test_ai.py`, `test_ui.py`. |
+| `tests/` | `test_migration.py`, `test_ai.py`, `test_ui.py`, `test_package.py`. |
 | `runs/`, `logs/`, `sample_m2*/`, `.env`, `.m2_api_token` | Local only, never in git. |
 
 ## Commands

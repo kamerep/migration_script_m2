@@ -38,6 +38,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 import m2_ai
+import m2_package
 import migration_script_m2_odoo as m2
 
 HERE = Path(__file__).resolve().parent
@@ -519,6 +520,63 @@ def api_ai_stop(params):
     return {'run': run_id, 'state': 'stopping'}
 
 
+PACKAGE_JOBS = {}               # run id -> {'state', 'percent', 'step', 'result', 'error', 'stop'}
+
+
+def api_packages(params):
+    """Document packages of a run (runs/<id>/packages) to upload in Odoo: the job, or what was written."""
+    run_id = params.get('run')
+    path = run_dir(run_id)
+    job = {k: v for k, v in PACKAGE_JOBS.get(run_id, {}).items() if k != 'stop'}
+    written = read_json(path / m2_package.PACKAGES / m2_package.STATE_FILE, {}) or {}
+    return {'run': run_id, 'job': job, 'archive_root': ui_settings().get('archive_root') or '',
+            'packages': written.get('packages') or [], 'missing': len(written.get('missing') or []),
+            'folder': str(path / m2_package.PACKAGES)}
+
+
+def api_packages_build(params):
+    """Write the document packages of a run (background; all files but emails): archive_root, max_mb."""
+    run_id = params.get('run')
+    path = run_dir(run_id)
+    if PACKAGE_JOBS.get(run_id, {}).get('state') == 'running':
+        raise Error("The packages of this run are being written.")
+    root = (params.get('archive_root') or ui_settings().get('archive_root') or '').strip()
+    if root and not Path(root).expanduser().is_dir():
+        raise Error(f"Folder {root} does not exist: mount the archive drive or copy it, then give its folder.")
+    if root:
+        save_ui_settings(archive_root=root)
+    try:
+        m2_package.rows_to_upload(path)            # fails at once when the documents are not classified
+    except m2_package.Error as exc:
+        raise Error(str(exc)) from None
+    job = PACKAGE_JOBS[run_id] = {'state': 'running', 'percent': 0, 'step': '', 'result': None, 'error': None,
+                                  'stop': False}
+
+    def work():
+        try:
+            job['result'] = m2_package.build(
+                path, Path(root).expanduser() if root else None, int(params.get('max_mb') or 90),
+                progress=lambda pct, msg: job.update(percent=pct, step=msg), stop=lambda: job['stop'])
+            job['state'] = 'stopped' if job['result']['stopped'] else 'done'
+        except m2_package.Error as exc:
+            job.update(state='failed', error=str(exc))
+        except Exception as exc:  # noqa: BLE001
+            job.update(state='failed', error=f"{type(exc).__name__}: {exc}")
+            server_log('ERROR', f"packages {run_id} failed: {exc}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {'run': run_id, 'state': 'running'}
+
+
+def api_packages_stop(params):
+    """Stop writing the packages of a run after the current file; a new start resumes."""
+    job = PACKAGE_JOBS.get(params.get('run')) or {}
+    if job.get('state') != 'running':
+        raise Error("No packages are being written for this run.")
+    job['stop'] = True
+    return {'run': params.get('run'), 'state': 'stopping'}
+
+
 def api_ai(params):
     """What the assistant produced for a run (suggestions, document types, summary, model calls) and its job;
     job=1 returns the job only (for polling), docs=N the first N typed documents (default 300)."""
@@ -533,10 +591,14 @@ def api_ai(params):
     if not cached or cached[0] != stamp:
         data = read_json(file, {}) or {}
         docs = data.get('documents') or []
-        types = {}
+        types, folders = {}, {}
         for d in docs:
             types[d.get('doc_type')] = types.get(d.get('doc_type'), 0) + 1
-        data.update(documents_total=len(docs), document_types=types,
+            where = d.get('odoo_type') or d.get('odoo_folder') or ('root' if d.get('upload') else None)
+            if d.get('upload'):
+                folders[where] = folders.get(where, 0) + 1
+        data.update(documents_total=len(docs), document_types=types, odoo_targets=folders,
+                    documents_upload=sum(1 for d in docs if d.get('upload')),
                     documents_by_model=sum(1 for d in docs if d.get('provider') not in (None, '', 'rules')))
         AI_VIEWS.clear()                        # one run's view at a time: they are large
         cached = AI_VIEWS[run_id] = (stamp, data)
@@ -767,6 +829,8 @@ ROUTES = {
     ('GET', '/api/ai/status'): api_ai_status, ('GET', '/api/ai'): api_ai, ('GET', '/api/summary'): api_summary,
     ('POST', '/api/ai/run'): api_ai_run, ('POST', '/api/ai/stop'): api_ai_stop, ('POST', '/api/ai/settings'): api_ai_settings,
     ('GET', '/api/docs'): api_docs, ('GET', '/api/routes'): api_routes,
+    ('GET', '/api/packages'): api_packages, ('POST', '/api/packages/build'): api_packages_build,
+    ('POST', '/api/packages/stop'): api_packages_stop,
 }
 ASSET_TYPES = {'.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
                '.webmanifest': 'application/manifest+json'}
