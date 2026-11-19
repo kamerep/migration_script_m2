@@ -95,6 +95,11 @@ each guide from its HTML.
 ## Key rules
 
 * A mandate whose holder is not in the company map goes to review (plan §18: never a default company).
+* **Jurisdiction** goes to Odoo (column Jurisdiction, a country): JURISDIKTION_STAAT_TXT, then the column the label
+  row calls JURISDICTION (MANDBEZ2), then the domicile; differences are flagged (`JURISDICTION_DIFFERS`). A label
+  row under the header and one-value notes under the table are not clients (`HEADER_LABELS`, `ROW_NOTE`).
+* M2 staff codes (FF, AN …) reach Client Advisor / Deputy only through Settings › employee map; an unmapped code
+  is left empty and listed in Needs decision, never written to the import file.
 * The import file gives the operating company as its **CSP Short Code** (the M2 holder code, set on the company's
   CSP tab in Odoo): the first holder mapped to it, e.g. `ARVIS-PH` for the company of ARVIS-PH and ARVIS-PH 2. The
   review file and the UI keep the name. `"company_column": "name"` in `m2_config.json` writes the name instead.

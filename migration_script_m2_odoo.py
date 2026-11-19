@@ -131,7 +131,9 @@ KINDS = {
             'mandate_seq': ['MNR'],
             'legal_form': ['Rechtsform', 'Gesellschaftsform', 'Legal Form', 'Company Type', 'Mandate form',
                            'Mandatsform', 'Form', 'GESFORM'],
-            'jurisdiction': ['Domizil', 'Sitz', 'Sitzland', 'Jurisdiktion', 'Jurisdiction'],
+            # M2 table export: JURISDIKTION_STAAT_TXT is the jurisdiction, DOMIZIL_STAAT_TXT the domicile
+            'jurisdiction': ['JURISDIKTION_STAAT_TXT', 'Jurisdiktion', 'Jurisdiction', 'Jurisdiction of Incorporation'],
+            'domicile': ['DOMIZIL_STAAT_TXT', 'Domizil', 'Sitz', 'Sitzland', 'Domicile'],
             'contract_start': ['Datum Mandatsvertrag', 'Mandatsbeginn', 'Eröffnung', 'Eröffnet', 'Engagement Letter',
                                'Date of Engagement Letter', 'Engagement Date', 'Opened', 'Opening Date',
                                'Mandate start', 'Mandate start date', 'MANDATS_BEGINN'],
@@ -416,15 +418,15 @@ COUNTRY_NAMES = {
     'CH': 'Schweiz Suisse Svizzera Switzerland Swiss', 'LI': 'Liechtenstein FL', 'DE': 'Deutschland Germany Allemagne',
     'AT': 'Österreich Oesterreich Austria Autriche', 'FR': 'Frankreich France', 'IT': 'Italien Italy Italie Italia',
     'GB': 'Grossbritannien Großbritannien Vereinigtes Königreich United Kingdom UK England Great Britain Scotland Wales',
-    'US': 'USA Vereinigte Staaten United States United States of America', 'AE': 'VAE UAE Vereinigte Arabische '
+    'US': 'USA Vereinigte Staaten von Amerika Vereinigte Staaten United States United States of America', 'AE': 'VAE UAE Vereinigte Arabische '
     'Emirate United Arab Emirates Dubai Abu Dhabi', 'HK': 'Hongkong Hong Kong', 'SG': 'Singapur Singapore',
-    'CN': 'China Volksrepublik China PRC', 'VG': 'BVI British Virgin Islands Britische Jungferninseln Tortola',
+    'CN': 'China Volksrepublik China PRC', 'VG': 'BVI British Virgin Islands British Virgin Island Britischen Jungferninseln Britische Jungferninseln Tortola',
     'KY': 'Cayman Islands Kaimaninseln Cayman', 'PA': 'Panama', 'BZ': 'Belize', 'MH': 'Marshall Islands '
     'Marshallinseln', 'SC': 'Seychellen Seychelles', 'CY': 'Zypern Cyprus', 'MT': 'Malta', 'LU': 'Luxemburg '
     'Luxembourg', 'NL': 'Niederlande Netherlands Holland', 'BE': 'Belgien Belgium', 'ES': 'Spanien Spain',
     'PT': 'Portugal', 'IE': 'Irland Ireland', 'GI': 'Gibraltar', 'JE': 'Jersey', 'GG': 'Guernsey', 'IM': 'Isle of Man',
-    'BS': 'Bahamas', 'BM': 'Bermuda', 'MU': 'Mauritius', 'RU': 'Russland Russia Russian Federation', 'UA': 'Ukraine',
-    'PL': 'Polen Poland', 'CZ': 'Tschechien Czech Republic Czechia', 'HU': 'Ungarn Hungary', 'GR': 'Griechenland Greece',
+    'BS': 'Bahamas', 'BM': 'Bermuda', 'MU': 'Mauritius', 'RU': 'Russland Russische Föderation Russia Russian Federation', 'UA': 'Ukraine',
+    'PL': 'Polen Poland', 'CZ': 'Tschechien Tschechische Republik Czech Republic Czechia', 'HU': 'Ungarn Hungary', 'GR': 'Griechenland Greece',
     'TR': 'Türkei Tuerkei Turkey Türkiye', 'IL': 'Israel', 'SA': 'Saudi-Arabien Saudi Arabia', 'QA': 'Katar Qatar',
     'KW': 'Kuwait', 'BH': 'Bahrain', 'OM': 'Oman', 'IN': 'Indien India', 'PK': 'Pakistan', 'PH': 'Philippinen '
     'Philippines', 'MY': 'Malaysia', 'ID': 'Indonesien Indonesia', 'TH': 'Thailand', 'VN': 'Vietnam', 'JP': 'Japan',
@@ -437,9 +439,9 @@ COUNTRY_NAMES = {
     'Bulgaria', 'LB': 'Libanon Lebanon', 'JO': 'Jordanien Jordan', 'IR': 'Iran', 'IQ': 'Irak Iraq', 'KZ': 'Kasachstan '
     'Kazakhstan', 'AZ': 'Aserbaidschan Azerbaijan', 'GE': 'Georgien Georgia', 'AM': 'Armenien Armenia',
     'CW': 'Curaçao Curacao', 'AI': 'Anguilla', 'TC': 'Turks and Caicos Islands', 'VC': 'St. Vincent '
-    'Saint Vincent and the Grenadines', 'KN': 'St. Kitts and Nevis Saint Kitts and Nevis Nevis', 'LC': 'St. Lucia '
+    'Saint Vincent and the Grenadines', 'KN': 'St. Kitts and Nevis Saint Kitts and Nevis St. Christoph und Nevis Nevis', 'SZ': 'Swasiland Swaziland Eswatini', 'LC': 'St. Lucia '
     'Saint Lucia', 'AG': 'Antigua and Barbuda Antigua', 'WS': 'Samoa', 'VU': 'Vanuatu', 'CK': 'Cook Islands',
-    'LR': 'Liberia', 'DM': 'Dominica', 'GD': 'Grenada', 'BB': 'Barbados', 'UY': 'Uruguay', 'CR': 'Costa Rica',
+    'LR': 'Liberia', 'LV': 'Lettland Latvia', 'LT': 'Litauen Lithuania', 'EE': 'Estland Estonia', 'DM': 'Dominica', 'GD': 'Grenada', 'BB': 'Barbados', 'UY': 'Uruguay', 'CR': 'Costa Rica',
 }
 COUNTRY_MULTI = {'Saint Vincent and the Grenadines', 'United States of America', 'United Arab Emirates', 'Hong Kong',
                  'British Virgin Islands', 'Cayman Islands', 'Marshall Islands', 'Isle of Man', 'Turks and Caicos '
@@ -447,7 +449,8 @@ COUNTRY_MULTI = {'Saint Vincent and the Grenadines', 'United States of America',
                  'New Zealand', 'Czech Republic', 'Saudi Arabia', 'Russian Federation', 'South Korea',
                  'Great Britain', 'United Kingdom', 'United States', 'Vereinigtes Königreich',
                  'Vereinigte Staaten', 'Vereinigte Arabische Emirate', 'Volksrepublik China', 'Abu Dhabi',
-                 'Britische Jungferninseln', 'Saint Lucia', 'St. Lucia', 'St. Vincent', 'St. Kitts and Nevis',
+                 'British Virgin Island', 'Britischen Jungferninseln', 'Britische Jungferninseln', 'Vereinigte Staaten von Amerika', 'Russische Föderation',
+                 'Tschechische Republik', 'St. Christoph und Nevis', 'Saint Lucia', 'St. Lucia', 'St. Vincent', 'St. Kitts and Nevis',
                  'Costa Rica', 'Private Foundation'}
 ISO3 = {'CHE': 'CH', 'LIE': 'LI', 'DEU': 'DE', 'AUT': 'AT', 'GBR': 'GB', 'USA': 'US', 'ARE': 'AE', 'HKG': 'HK',
         'SGP': 'SG', 'CHN': 'CN', 'VGB': 'VG', 'CYM': 'KY', 'PAN': 'PA', 'BLZ': 'BZ', 'MHL': 'MH', 'SYC': 'SC',
@@ -456,12 +459,13 @@ ISO3 = {'CHE': 'CH', 'LIE': 'LI', 'DEU': 'DE', 'AUT': 'AT', 'GBR': 'GB', 'USA': 
 COUNTRY_INDEX = {}
 for _code, _names in COUNTRY_NAMES.items():
     _rest = _names
-    for _multi in COUNTRY_MULTI:
+    for _multi in sorted(COUNTRY_MULTI, key=len, reverse=True):     # longest first: "… von Amerika" before "…"
         if _multi in _rest:
             COUNTRY_INDEX[' '.join(_multi.casefold().split())] = _code
             _rest = _rest.replace(_multi, ' ')
     for _word in _rest.split():
         COUNTRY_INDEX[_word.casefold()] = _code
+COUNTRY_INDEX['china volksrepublik'] = 'CN'                # M2 writes "China, Volksrepublik"
 
 CURRENCIES = {'CHF', 'EUR', 'USD', 'GBP', 'AED', 'HKD', 'SGD', 'CNY', 'JPY', 'CAD', 'AUD', 'NZD', 'SEK', 'NOK',
               'DKK', 'PLN', 'CZK', 'HUF', 'RUB', 'INR', 'PHP', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'ZAR', 'TRY',
@@ -473,7 +477,7 @@ SIGNING_MAP = [(r'einzel|sole|single|singly|alone|allein', 'singly'),
 YES = {'1', 'true', 'yes', 'ja', 'x', 'y', 'j', 'oui', 'wahr'}
 NO = {'0', 'false', 'no', 'nein', 'n', 'non', 'falsch', ''}
 NOT_APPLICABLE = {'n/a', 'na', 'not applicable', 'none', '-', '--', '/', 'not known', 'unbekannt', 'k.a.', 'ka',
-                  'keine', 'tbd', '?', 'nil', 'null'}
+                  'keine', 'tbd', '?', 'nil', 'null', 'kein land', 'no country'}
 START_FIELD = {'directors': 'date_appointment', 'ubos': 'date_registry', 'shareholders': 'date_entry',
                'secretaries': 'date_appointment', 'agents': 'date_appointment', 'powers_attorney': 'date_valid_from'}
 END_FIELD = {'directors': 'date_resignation', 'ubos': 'date_removed', 'shareholders': 'date_transferred',
@@ -489,6 +493,12 @@ POA_TYPES = [(r'bank|konto|account', 'Bank'),
 # An archive file that is a power of attorney. A bare "POA" is Proof of Address in CSP Documents: not used.
 POA_FILE = re.compile(r'vollmacht|attorney|bevollm', re.I)
 
+# Fields that read a second column named by the label row: jurisdiction (first country found wins); name
+# (UP_MANDBEZ1, ALPHA: the same name again, not carried to the Notes)
+SECOND_SOURCES = ('jurisdiction', 'name')
+# A row with one value only is a note under the table (legend, filter) unless that value is one of these
+ROW_KEYS = ('mandate_no', 'mandate_seq', 'debtor_no', 'address_no', 'name', 'client_name', 'first_name', 'last_name',
+            'acc_number', 'path', 'file_name', 'invoice_no')
 COMPANY_WORDS = re.compile(r'\b(ag|gmbh|ltd|limited|inc|llc|llp|sa|sarl|trust|stiftung|foundation|corp|plc|fzco|fze|'
                            r'bv|nv|kg|holding|treuhand|anstalt|establishment|company|co|partners|group)\b\.?', re.I)
 # An M2 mandate number in a file name or report title: KP-482-ACC, KP-00482-ACC, M-0001
@@ -690,7 +700,8 @@ class Convert:
             return 'GB', "'UK' read as GB."
         if upper in ISO3:
             return ISO3[upper], f"ISO3 code '{value}' read as {ISO3[upper]}."
-        key = ' '.join(value.casefold().replace('-', ' ').split())
+        key = ' '.join(value.casefold().replace('-', ' ').replace(',', ' ').split())
+        key = re.sub(r'^(the |republic of |republik |kingdom of |königreich |commonwealth of )', '', key)
         if key in COUNTRY_INDEX:
             code = COUNTRY_INDEX[key]
             return code, None if key == code.casefold() else f"'{value}' read as {code}."
@@ -900,6 +911,11 @@ class Migration:
             self.ev('decision', 'HEADER_ROW', f"{label}: header found on row {h + 1}; rows above it "
                     f"({'; '.join(short(' '.join(text(c) for c in r if text(c)), 60) for r in rows[:h])}) are a "
                     "report title, not data.", file=label, row=h + 1)
+        labels = self._label_row(rows, h)
+        if labels:
+            self.ev('decision', 'HEADER_LABELS', f"{label}: row {h + 2} describes the columns "
+                    f"({', '.join(f'{header[i]} = {t}' for i, t in sorted(labels.items())[:8])}"
+                    f"{' …' if len(labels) > 8 else ''}): read as column labels, not as data.", file=label, row=h + 2)
         normalized = [norm(c) for c in header]
         scores = {}
         for kind, spec in self.kinds.items():
@@ -934,9 +950,28 @@ class Migration:
         if kind not in self.kinds:
             self.ev('error', 'KIND_INVALID', f"{label}: kind '{kind}' in Settings does not exist.", file=label)
             return
-        filled = {i for r in rows[h + 1:] for i, c in enumerate(r) if text(c)}
+        first = h + 2 if labels else h + 1
+        filled = {i for r in rows[first:] for i, c in enumerate(r) if text(c)}
         mapping = self._match_headers(normalized, self.kinds[kind]['fields'], filled)
         index = {field: pos for field, (pos, _alias) in mapping.items()}
+        # A column whose label names a field: the field when the header did not give it, else a second source
+        alts = collections.defaultdict(list)
+        if labels:
+            by_label = self._match_headers([norm(labels.get(i, '')) for i in range(len(header))],
+                                           self.kinds[kind]['fields'], filled)
+            for field, (pos, alias) in by_label.items():
+                if pos in index.values() or norm(alias) != norm(labels[pos]):
+                    continue                        # exact labels only: "… AND JURISDICTION" is not one
+                if field in index and field not in SECOND_SOURCES:
+                    continue
+                if field not in index:
+                    index[field] = pos
+                    mapping[field] = (pos, labels[pos])
+                else:
+                    alts[field].append(pos)
+                self.ev('info', 'COLUMN', f"{label}: column '{header[pos]}' (label '{labels[pos]}') -> {field}"
+                        + (" (second source)" if alts[field] and alts[field][-1] == pos else ''), file=label,
+                        column=header[pos], field=field)
         for field, (pos, alias) in sorted(mapping.items(), key=lambda kv: kv[1][0]):
             self.ev('info', 'COLUMN', f"{label}: column '{header[pos]}' -> {field}"
                     + (f" (alias '{alias}')" if norm(alias) != norm(header[pos]) else ''), file=label, column=header[pos],
@@ -964,12 +999,12 @@ class Migration:
                         "none in the file name: its rows cannot be linked to a client.", file=label,
                         fix="Export with the mandate column, or put the mandate number in the file name "
                         "(e.g. 'KP-482-ACC Bank.xlsx').")
-        used = set(index.values())
+        used = set(index.values()) | {pos for positions in alts.values() for pos in positions}
         unused = []
         for pos, name in enumerate(header):
             if pos in used or not name:
                 continue
-            samples = [short(r[pos], 40) for r in rows[h + 1:h + 200] if pos < len(r) and text(r[pos])][:3]
+            samples = [short(r[pos], 40) for r in rows[first:first + 200] if pos < len(r) and text(r[pos])][:3]
             unused.append({'column': name, 'samples': samples})
             if samples:
                 self.ev('not_loaded', 'COLUMN_UNUSED', f"{label}: column '{name}' has no CSP field; its values are "
@@ -980,9 +1015,18 @@ class Migration:
                         fix=f"If it holds a CSP field, add '{name}' to Settings > extra aliases for {kind}.")
         data = []
         blank = parts = 0
-        for number_, raw in enumerate(rows[h + 1:], start=h + 2):
+        notes = 0
+        for number_, raw in enumerate(rows[first:], start=first + 1):
             if not any(text(c) for c in raw):
                 blank += 1
+                continue
+            cells = [i for i, c in enumerate(raw) if text(c)]
+            keys = {index[f] for f in ROW_KEYS if f in index}
+            if len(cells) == 1 and len(header) >= 4 and cells[0] not in keys:
+                notes += 1                          # a note under the table (legend, filter, footer), not a row
+                self.ev('decision', 'ROW_NOTE', f"{label} row {number_}: one value in column "
+                        f"'{header[cells[0]] if cells[0] < len(header) else cells[0] + 1}' only: a note under the "
+                        "table, not data.", file=label, row=number_)
                 continue
             if self._is_total(raw):
                 self.ev('decision', 'ROW_TOTAL', f"{label} row {number_}: a total / subtotal line of the report, "
@@ -998,7 +1042,8 @@ class Migration:
                 parts += 1
             extra = {header[i]: raw[i] for i in range(min(len(raw), len(header)))
                      if i not in used and header[i] and text(raw[i])}
-            data.append({'row': number_, 'v': values, 'extra': extra})
+            alt = {f: [raw[i] for i in positions if i < len(raw) and text(raw[i])] for f, positions in alts.items()}
+            data.append({'row': number_, 'v': values, 'extra': extra, 'alt': alt})
         table = {'file': label, 'kind': kind, 'rows': data, 'header': header, 'mapping': {f: header[i] for f, i in
                                                                                           index.items()},
                  'unused': unused, 'note': note, 'scores': dict(ranked[:5])}
@@ -1011,6 +1056,25 @@ class Migration:
         self.files.append(table)
         self.ev('info', 'FILE_READ', f"{label}: {len(data)} data rows ({note})" + (f", {blank} blank rows skipped"
                                                                                   if blank else '') + '.', file=label)
+
+    @staticmethod
+    def _label_row(rows, h):
+        """{column: label} when the row under the header describes the columns (CLIENT NUM under MNR) instead of
+        holding data: every cell is text, and at least one stands in a column that is numbers below it."""
+        if h + 2 >= len(rows):
+            return {}
+        row = rows[h + 1]
+        cells = {i: text(c) for i, c in enumerate(row) if text(c)}
+        number = re.compile(r'[\d.,\s\'/:-]+')       # numbers, amounts, dates: data, never a label
+        if len(cells) < 3 or any(isinstance(row[i], (int, float, datetime.date)) or number.fullmatch(t)
+                                 for i, t in cells.items()):
+            return {}
+        below = rows[h + 2:h + 52]
+
+        def numeric(i):
+            values = [r[i] for r in below if i < len(r) and text(r[i])]
+            return len(values) >= 3 and sum(1 for v in values if re.fullmatch(r'[\d.,\s-]+', text(v))) >= 0.8 * len(values)
+        return cells if any(numeric(i) and not re.fullmatch(r'[\d.,\s-]+', t) for i, t in cells.items()) else {}
 
     @staticmethod
     def _compose_mandate_no(values):
@@ -1335,13 +1399,15 @@ class Migration:
 
         # notes: the M2 data with no CSP column
         extra_notes = []
-        for field, label in (('holder', 'Mandate holder'), ('jurisdiction', 'Jurisdiction'),
+        if 'jurisdiction' in out:
+            out['jurisdiction'] = self.jurisdiction(where, ref, v, row.get('alt') or {})
+        for field, label in (('holder', 'Mandate holder'), ('jurisdiction', 'Jurisdiction'), ('domicile', 'Domicile'),
                              ('legal_form', 'Legal form'), ('mandate_kind', 'M2 type'), ('language', 'Language'),
                              ('debtor_no', 'Debtor no'), ('address_no', 'Address no'), ('status', 'Status'),
                              ('bo_name', 'Beneficial owner (M2)')):
             if text(v.get(field)):
                 extra_notes.append((label, text(v.get(field))))
-        if text(v.get('jurisdiction')):
+        if text(v.get('jurisdiction')) and 'jurisdiction' not in out:
             self.not_loaded_value('clients', where, ref, name, 'Jurisdiction', text(v.get('jurisdiction')),
                                   "The Clients template has no jurisdiction column: kept in Notes.")
         for header, value in list(row['extra'].items()) + list((address[1]['extra'] if address else {}).items()):
@@ -1385,6 +1451,30 @@ class Migration:
         bo = text(v.get('bo_name'))
         if bo and self.config.get('ubo_from_mandate', True):
             self.pending_bo.append((where, ref, bo))
+
+    def jurisdiction(self, where, ref, v, alt):
+        """Country of incorporation: the jurisdiction column, then a column labelled JURISDICTION, then the
+        domicile; the first that reads as a country. Sources that read as another country are flagged."""
+        sources = [('Jurisdiction', v.get('jurisdiction'))] + [('Jurisdiction (labelled column)', x)
+                                                             for x in alt.get('jurisdiction', [])]
+        sources.append(('Domicile', v.get('domicile')))
+        found = [(label, raw, self.conv.country(raw)[0]) for label, raw in sources if text(raw)]
+        codes = [(label, raw, code) for label, raw, code in found if code]
+        if not codes:
+            if any(text(raw).casefold() not in NOT_APPLICABLE for _l, raw, _c in found):
+                self.not_loaded_value('clients', where, ref, None, 'Jurisdiction',
+                                      ' / '.join(text(raw) for _l, raw, _c in found), "Not a known country: kept in "
+                                      "Notes.")
+            return None
+        label, raw, code = codes[0]
+        if label != 'Jurisdiction' or norm(text(raw)) != norm(code):
+            self.change('clients', where, ref, 'Jurisdiction', text(raw), code, f"From {label}.")
+        others = sorted({c for _l, _r, c in codes[1:] if c != code})
+        if others:
+            self.ev('warning', 'JURISDICTION_DIFFERS', f"{where}: jurisdiction {code} ({label}); the M2 data also "
+                    f"says {', '.join(others)} ({', '.join(l for l, _r, c in codes[1:] if c != code)}).", key=ref,
+                    fix="Check the jurisdiction of incorporation in M2 and in Odoo.")
+        return code
 
     def register_lookup(self, ref, v, name, out, closed=False, review=False):
         state = 'closed' if closed else 'review' if review else 'loaded'
@@ -2151,8 +2241,8 @@ class Migration:
         if not value:
             return None
         emap = {norm(k): v for k, v in (self.config.get('employee_map') or {}).items() if not k.startswith('_')}
-        if not emap:
-            return value
+        if not emap and ' ' in value:
+            return value                            # a full name: Odoo finds the employee by it
         if norm(value) in emap:
             name = emap[norm(value)]
             if norm(name) != norm(value):

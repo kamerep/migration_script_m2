@@ -114,7 +114,7 @@ class TestSampleRun(unittest.TestCase):
         self.assertEqual(refs['M-0001']['advisor'], 'Peter Kamere')
         self.assertEqual((refs['M-0001']['share_capital'], refs['M-0001']['share_capital_currency']),
                          (100000.0, 'CHF'))
-        self.assertIn('Jurisdiction: Zug', refs['M-0001']['notes'])
+        self.assertIn('Domicile: Zug', refs['M-0001']['notes'])
         self.assertNotIn('M-0006', refs)  # closed mandate
         self.assertIn('MANDATE_CLOSED', self.codes)
         self.assertIn('DUPLICATE_REF', self.codes)
@@ -381,11 +381,64 @@ class TestPowersOfAttorney(unittest.TestCase):
         self.assertEqual({r[column] for r in rows[1:]}, {'NOVA-PH'})       # Odoo finds it by CSP Short Code
         self.assertEqual({r['company'] for r in self.job.rows['clients']}, {'Nova Services Inc'})  # review: name
 
+    def test_unmapped_initials_never_reach_the_import(self):
+        job = m2.Migration(Path(self.tmp.name) / 'src', Path(self.tmp.name) / 'out2', {**TestEnglishRun.CONFIG,
+                                                                                    'employee_map': {}})
+        job.run()
+        self.assertTrue(all(not r.get('advisor') or ' ' in r['advisor'] for r in job.rows['clients']))
+
     def test_sheet_written(self):
         book = openpyxl.load_workbook(self.job.out / m2.IMPORT_FILE, read_only=True)
         rows = list(book['Powers of Attorney'].iter_rows(values_only=True))
         self.assertEqual(list(rows[0]), [c[1] for c in m2.SHEETS['powers_attorney']['columns']])
         self.assertEqual(len(rows) - 1, 4)
+
+
+class TestLabelRowAndJurisdiction(unittest.TestCase):
+    """An M2 table export with a row of column labels under the header and notes under the table."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        src, out = Path(cls.tmp.name) / 'src', Path(cls.tmp.name) / 'out'
+        src.mkdir()
+        book = openpyxl.Workbook()
+        ws = book.active
+        ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1', 'MANDBEZ2', 'JURISDIKTION_STAAT_TXT',
+                   'DOMIZIL_STAAT_TXT', 'ADRNR'])
+        ws.append(['DATABASE/OFFICE', 'DATABASE ID', 'CLIENT NUM', 'COMPANY CATEGORY', 'COMPANY NAME',
+                   'JURISDICTION', None, None, None])
+        ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', 'Orbit One Ltd', 'BVI', 'Britischen Jungferninseln\xa0', None, 1.0])
+        ws.append(['NOVA-PH', 'KP', 32.0, 'ENT', 'Orbit Two Ltd', 'Seychelles', 'Kein Land', 'Schweiz', 2.0])
+        ws.append(['NOVA-PH', 'KP', 33.0, 'ENT', 'Orbit Three Ltd', None, 'Kein Land', 'Russische Föderation', 3.0])
+        ws.append(['NOVA-PH', 'KP', 34.0, 'ENT', 'Orbit Four Ltd', 'Panama', 'Vereinigte Staaten von Amerika', None,
+                   4.0])
+        ws.append([None] * 9)
+        ws.append([None, None, None, 'Filter: open mandates', None, None, None, None, None])
+        book.save(src / 'Mandate list extract.xlsx')
+        cls.job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+        cls.job.run()
+        cls.codes = [e['code'] for e in cls.job.journal.events]
+        cls.clients = {r['m2_reference']: r for r in cls.job.rows['clients']}
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_label_row_and_note_are_not_clients(self):
+        self.assertEqual(len(self.clients), 4)
+        self.assertEqual(sum(len(v) for v in self.job.review.values()), 0)
+        self.assertIn('HEADER_LABELS', self.codes)
+        self.assertIn('ROW_NOTE', self.codes)
+
+    def test_jurisdiction_sources_in_order(self):
+        j = {ref: r['jurisdiction'] for ref, r in self.clients.items()}
+        self.assertEqual(j['KP-00031-ENT'], 'VG')        # JURISDIKTION_STAAT_TXT (German name, no-break spaces)
+        self.assertEqual(j['KP-00032-ENT'], 'SC')        # "Kein Land": the column labelled JURISDICTION
+        self.assertEqual(j['KP-00033-ENT'], 'RU')        # then the domicile
+        self.assertEqual(j['KP-00034-ENT'], 'US')
+        differs = [e for e in self.job.journal.events if e['code'] == 'JURISDICTION_DIFFERS']
+        self.assertEqual([e['key'] for e in differs], ['KP-00032-ENT', 'KP-00034-ENT'])
 
 
 if __name__ == '__main__':
