@@ -427,29 +427,45 @@ def api_ai_settings(params):
     return {'ok': True, 'settings': m2_ai.load_settings(config)}
 
 
-GOOGLE_LOGIN = {}                # the Google sign-in started from the page: {'state', 'started', 'error'}
+GOOGLE_LOGIN = {}                # the Google sign-in started from the page: {'state', 'started', 'error', 'url'}
+GOOGLE_PROC = {}                 # its gcloud process, waiting for the verification code (not sent to the page)
 
 
 def api_ai_google(params):
-    """Sign in with Google for Claude on Vertex AI: action login opens Google's sign-in page in the browser
-    (gcloud auth application-default login); status says whether this machine is signed in."""
+    """Sign in with Google for Claude on Vertex AI: action login starts the sign-in and returns Google's link to
+    open; action code passes the verification code Google shows back to it; otherwise the sign-in state."""
     if params.get('action') == 'login':
         gcloud = m2_ai.find_gcloud()
         if not gcloud:
             raise Error("The Google Cloud CLI (gcloud) is not installed. Install it once in a terminal (it asks for "
                         "your password): sudo snap install google-cloud-cli --classic, then press Check and Sign in "
                         "with Google again; no restart of this tool is needed.")
-        if GOOGLE_LOGIN.get('state') == 'running':
-            return {'state': 'running'}
+        if GOOGLE_LOGIN.get('state') == 'running' and GOOGLE_PROC.get('proc') and GOOGLE_PROC['proc'].poll() is None:
+            return {'state': 'running', 'url': GOOGLE_LOGIN.get('url')}
         GOOGLE_LOGIN.update(state='running', started=datetime.datetime.now().isoformat(timespec='seconds'),
-                            error=None)
+                            error=None, url=None)
+        # This server has no desktop, so gcloud cannot open a browser: it prints the sign-in link and waits for
+        # the verification code Google shows after the sign-in. The page opens the link in the person's own
+        # browser and sends the code back here (action code).
+        env = {k: v for k, v in os.environ.items() if k not in ('DISPLAY', 'WAYLAND_DISPLAY')}
+        proc = subprocess.Popen([gcloud, 'auth', 'application-default', 'login', '--no-launch-browser'],  # noqa: S603
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE,
+                                text=True, env=env)
+        GOOGLE_PROC['proc'] = proc
+        found = threading.Event()
+        lines = []
 
         def work():
-            done = subprocess.run([gcloud, 'auth', 'application-default', 'login', '--quiet'],  # noqa: S603
-                                  capture_output=True, text=True, timeout=600, check=False)
-            ok = done.returncode == 0
+            for line in proc.stdout:
+                lines.append(line)
+                url = re.search(r'https://accounts\.google\.com/\S+', line)
+                if url and not GOOGLE_LOGIN.get('url'):
+                    GOOGLE_LOGIN['url'] = url.group(0)
+                    found.set()
+            ok = proc.wait() == 0
             GOOGLE_LOGIN.update(state='done' if ok else 'failed',
-                                error=None if ok else (done.stderr or done.stdout)[-400:])
+                                error=None if ok else re.sub(r'https://\S+', '<link>', ''.join(lines))[-400:])
+            found.set()
             project = (m2_ai.load_settings(m2.load_config(CONFIG)).get('vertex_project') or '').strip()
             if ok and project:                     # the project pays for and counts the Claude calls (quota)
                 subprocess.run([gcloud, 'auth', 'application-default', 'set-quota-project', project],  # noqa: S603
@@ -457,7 +473,25 @@ def api_ai_google(params):
             server_log('INFO' if ok else 'WARN', f"google sign-in {'done' if ok else 'failed'}")
 
         threading.Thread(target=work, daemon=True).start()
-        return {'state': 'running'}
+        found.wait(20)                             # gcloud prints the link within a second or two
+        if not GOOGLE_LOGIN.get('url'):
+            proc.kill()
+            raise Error("gcloud did not give a sign-in link: " + (GOOGLE_LOGIN.get('error') or 'try again'))
+        return {'state': 'running', 'url': GOOGLE_LOGIN['url']}
+    if params.get('action') == 'code':
+        proc, code = GOOGLE_PROC.get('proc'), str(params.get('code') or '').strip()
+        if not proc or proc.poll() is not None:
+            raise Error("No Google sign-in is waiting for a code: press Sign in with Google first.")
+        if not re.fullmatch(r'[\w/.\-]{10,200}', code):
+            raise Error("Paste the whole verification code Google shows after the sign-in (it starts with 4/).")
+        proc.stdin.write(code + '\n')
+        proc.stdin.flush()
+        try:
+            proc.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            raise Error("Google did not answer within a minute: press Sign in with Google again.") from None
+        time.sleep(0.5)                            # the reading thread records the outcome
+        return {**m2_ai.google_signin(), 'login': dict(GOOGLE_LOGIN)}
     return {**m2_ai.google_signin(), 'login': dict(GOOGLE_LOGIN)}
 
 

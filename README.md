@@ -155,7 +155,8 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
   are never above 40 %). Suggestions below `min_confidence` are hidden.
 * **Claude without an API key: Sign in with Google.** AI settings › *Claude access* › *Sign in with Google (Google
   Cloud Vertex AI)*, the Google Cloud project and region (`global`), then **Sign in with Google**: Google's sign-in
-  page opens in the browser (`gcloud auth application-default login`), and the assistant calls Claude on Vertex AI
+  page opens in a new tab; after signing in, paste the verification code Google shows into the card (`gcloud auth
+  application-default login --no-launch-browser`, run by the tool), and the assistant calls Claude on Vertex AI
   with that sign-in (`anthropic.AnthropicVertex`). Once per machine: the Google Cloud CLI
   (`sudo snap install google-cloud-cli --classic`) and `.venv/bin/pip install 'anthropic[vertex]'`. The project
   needs billing, the Vertex AI API and Claude enabled in Model Garden; Google bills the calls. The company switch

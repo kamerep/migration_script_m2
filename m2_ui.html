@@ -1297,12 +1297,15 @@ function googleCard(st, cfg) {
   const steps = [
     [g.gcloud, 'Google Cloud CLI installed', 'Once, in a terminal: <code>sudo snap install google-cloud-cli --classic</code>'],
     [!!(cfg.vertex_project || c.project), 'Google Cloud project chosen', 'Type the project ID above (Google Cloud console › project picker). Billing on, the Vertex AI API on, and Claude enabled in Vertex AI Model Garden.'],
-    [g.signed_in, 'Signed in with Google', 'Press <b>Sign in with Google</b>: Google\'s page opens in the browser; choose your account and allow access.'],
+    [g.signed_in, 'Signed in with Google', 'Press <b>Sign in with Google</b>: Google\'s page opens in a new tab; choose your account, allow the Google Cloud access, then paste the verification code it shows into the box here.'],
     [cfg.allow_cloud, 'Company setting allows headers and codes to go to Claude', 'Tick the company setting above. Names, values and documents never leave this machine.']];
   return `<div class="banner" style="margin:10px 0 0;display:block"><b>Sign in with Google: Claude on Google Cloud Vertex AI</b>
     <p class="small muted" style="margin:4px 0 8px">No Anthropic key: the Google account signs in once on this machine, and the Google Cloud project pays for the Claude calls.</p>
     <ol class="small" style="margin:0 0 8px;padding-left:18px">${steps.map(([ok, what, how]) => `<li>${ok ? ic('check') : ''} <b>${what}</b>${ok ? '' : `: ${how}`}</li>`).join('')}</ol>
-    <button class="btn primary small" id="glogin" ${login.state === 'running' ? 'aria-busy="true" disabled' : ''}>${login.state === 'running' ? 'Waiting for Google…' : g.signed_in ? 'Sign in again' : 'Sign in with Google'}</button>
+    ${login.state === 'running' && login.url ? `<div class="small" style="margin:0 0 8px"><b>1.</b> Sign in on Google's page: <a href="${esc(login.url)}" target="_blank" rel="noopener">${ic('open')}Open Google sign-in</a> (opened in a new tab; allow the Google Cloud access it asks for).
+      <br><b>2.</b> Google then shows a verification code: copy it and paste it here.
+      <div class="toolbar" style="margin:6px 0 0"><input id="gcode" placeholder="Verification code (4/…)" autocomplete="off" style="min-width:320px" aria-label="Verification code from Google"><button class="btn primary small" id="gsend">${ic('check')}Send code</button></div></div>` : ''}
+    <button class="btn ${login.state === 'running' ? '' : 'primary'} small" id="glogin">${login.state === 'running' ? 'Start again' : g.signed_in ? 'Sign in again' : 'Sign in with Google'}</button>
     <button class="btn ghost small" id="gcheck">${ic('refresh')}Check</button>
     ${login.state === 'failed' ? `<div class="small" style="margin-top:6px"><span class="lv error">sign-in failed</span> ${esc(login.error || '')}</div>` : ''}</div>`; }
 function aiSettingsCard(cfg) {
@@ -1330,17 +1333,20 @@ function bindAISettings(el) {
     if (k === 'companies') v = v.split('\n').map(x => x.trim()).filter(Boolean);
     try { const r = await api('/api/ai/settings', {ai: {[k]: v}}); S.aiStatus.settings = r.settings; toast('AI settings saved', {type: 'success', ms: 1800});
       if (['claude_access', 'vertex_project', 'vertex_region', 'allow_cloud'].includes(k)) { S.aiStatus = null; renderAI(); } } catch (e) { toast(e.message, {type: 'error'}); } });
-  const gl = $('#glogin', el); if (gl) gl.onclick = async () => {
-    try { await api('/api/ai/google', {action: 'login'}); S.glogin = {state: 'running'}; toast("Google's sign-in page opens in the browser", {detail: 'Choose your account and allow access; this page updates by itself.', ms: 8000}); renderAI(); pollGoogle(); }
-    catch (e) { toast(e.message, {type: 'error', ms: 12000}); } };
+  const gl = $('#glogin', el); if (gl) gl.onclick = async () => { gl.disabled = true;
+    try { const r = await api('/api/ai/google', {action: 'login'}); S.glogin = {state: 'running', url: r.url};
+      if (r.url) window.open(r.url, '_blank', 'noopener');
+      toast("Sign in on Google's page, then paste the code it shows", {detail: 'If no tab opened, use Open Google sign-in in the card.', ms: 9000}); renderAI(); }
+    catch (e) { toast(e.message, {type: 'error', ms: 12000}); gl.disabled = false; } };
+  const gs = $('#gsend', el); if (gs) gs.onclick = async () => { const code = $('#gcode', el).value.trim(); if (!code) return toast('Paste the code Google shows.', {type: 'warn'});
+    gs.disabled = true;
+    try { const r = await api('/api/ai/google', {action: 'code', code}); S.glogin = r.login || {};
+      toast(r.signed_in ? 'Signed in with Google' : 'Google did not accept the code', {type: r.signed_in ? 'success' : 'error', detail: r.signed_in ? '' : (S.glogin.error || '')});
+      S.aiStatus = null; renderAI(); }
+    catch (e) { toast(e.message, {type: 'error', ms: 12000}); gs.disabled = false; } };
+  const gi = $('#gcode', el); if (gi) gi.onkeydown = ev => { if (ev.key === 'Enter') $('#gsend', el)?.click(); };
   const gc = $('#gcheck', el); if (gc) gc.onclick = () => { S.aiStatus = null; renderAI(); };
 }
-async function pollGoogle() {
-  try { const r = await api('/api/ai/google', {}, {quiet: true}); S.glogin = r.login || {};
-    if (S.glogin.state === 'running') return setTimeout(pollGoogle, 3000);
-    toast(r.signed_in ? 'Signed in with Google' : 'Google sign-in did not finish', {type: r.signed_in ? 'success' : 'warn'}); S.aiStatus = null; if (S.tab === 'ai') renderAI(); }
-  catch (e) { /* the next Check shows the state */ } }
-
 // ---------- settings ----------
 function renderSettings() {
   const el = panel('settings'); const cfg = S.info?.config || {};
