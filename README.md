@@ -95,6 +95,9 @@ each guide from its HTML.
 ## Key rules
 
 * A mandate whose holder is not in the company map goes to review (plan §18: never a default company).
+* The import file gives the operating company as its **CSP Short Code** (the M2 holder code, set on the company's
+  CSP tab in Odoo): the first holder mapped to it, e.g. `ARVIS-PH` for the company of ARVIS-PH and ARVIS-PH 2. The
+  review file and the UI keep the name. `"company_column": "name"` in `m2_config.json` writes the name instead.
 * Closed mandates (status closed, or end date passed) are not loaded unless switched on; their register rows follow.
 * M2 `Surname, Given name` becomes `Given Surname`; persons split in name columns are joined.
 * Register rows link to their client by mandate no → debtor no → address no → exact unique name; close names are

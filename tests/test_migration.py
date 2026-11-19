@@ -374,6 +374,13 @@ class TestPowersOfAttorney(unittest.TestCase):
         row = {'row': 2, 'v': {'function': 'Bevollmächtigter Bank', 'mandate_no': 'KP-00031-ENT'}}
         self.assertEqual(self.job.route_officer({'file': 'Organe.xlsx'}, row), 'powers_attorney')
 
+    def test_company_written_as_short_code(self):
+        book = openpyxl.load_workbook(self.job.out / m2.IMPORT_FILE, read_only=True)
+        rows = list(book['Clients'].iter_rows(values_only=True))
+        column = list(rows[0]).index('Operating Company')
+        self.assertEqual({r[column] for r in rows[1:]}, {'NOVA-PH'})       # Odoo finds it by CSP Short Code
+        self.assertEqual({r['company'] for r in self.job.rows['clients']}, {'Nova Services Inc'})  # review: name
+
     def test_sheet_written(self):
         book = openpyxl.load_workbook(self.job.out / m2.IMPORT_FILE, read_only=True)
         rows = list(book['Powers of Attorney'].iter_rows(values_only=True))

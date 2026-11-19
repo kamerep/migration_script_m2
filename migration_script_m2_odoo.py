@@ -1257,7 +1257,7 @@ class Migration:
         if holder and norm(holder) in company_map:
             out['company'] = company_map[norm(holder)]
             self.ev('decision', 'COMPANY', f"Mandate {ref}: holder '{holder}' -> operating company "
-                    f"'{out['company']}' (Settings > company map).", key=ref)
+                    f"'{out['company']}' (Settings > company map; the import file gives its CSP Short Code).", key=ref)
         elif holder and norm(holder) in {norm(x) for x in company_map.values()}:
             out['company'] = next(x for x in company_map.values() if norm(x) == norm(holder))
             self.ev('decision', 'COMPANY', f"Mandate {ref}: holder '{holder}' is an operating company name.", key=ref)
@@ -2279,8 +2279,20 @@ class Migration:
 
     # -- writing ---------------------------------------------------------------------------------------------
 
+    def company_codes(self):
+        """Operating company name -> its CSP Short Code in Odoo: the first M2 holder mapped to it (ARVIS-PH for the
+        company of ARVIS-PH and ARVIS-PH 2). With 'company_column': 'name' in the settings the name is written."""
+        if self.config.get('company_column', 'code') == 'name':
+            return {}
+        codes = {}
+        for holder, name in (self.config.get('company_map') or {}).items():
+            if not holder.startswith('_') and name and name not in codes:
+                codes[name] = holder
+        return codes
+
     def write(self):
         bold, fill = Font(bold=True), PatternFill('solid', fgColor='DDE7F0')
+        codes = self.company_codes()
         book = openpyxl.Workbook()
         book.remove(book.active)
         for sheet in ORDER:
@@ -2289,7 +2301,8 @@ class Migration:
                 continue
             ws = book.create_sheet(spec['title'])
             self._table(ws, [c[1] for c in spec['columns']],
-                        [[r.get(c[0]) for c in spec['columns']] for r in self.rows[sheet]], bold, fill)
+                        [[codes.get(r.get(c[0]), r.get(c[0])) if c[2] == 'company' else r.get(c[0])
+                          for c in spec['columns']] for r in self.rows[sheet]], bold, fill)
         book.save(self.out / IMPORT_FILE)
         self.ev('info', 'WRITTEN', f"{IMPORT_FILE}: " + ', '.join(f"{SHEETS[k]['title']} {len(self.rows[k])}"
                                                                     for k in ORDER if self.rows[k]), file=IMPORT_FILE)
