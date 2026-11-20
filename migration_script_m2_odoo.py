@@ -2326,12 +2326,16 @@ class Migration:
                         f"-> client {entry['ref']} ({entry['name']}): {len(files)} file(s) indexed.", key=entry['ref'],
                         file=files[0][0]['file'])
             else:
+                company = {norm(k): v for k, v in (self.config.get('company_map') or {}).items()}.get(norm(holder))
+                of = f" of {holder}" + (f" ({company})" if company else '') if holder else ''
                 self.ev('warning' if clients else 'info', 'ARCHIVE_FOLDER_UNKNOWN', f"Archive folder "
-                        f"'{folder}'{' of ' + holder if holder else ''}: {len(files)} file(s); "
-                        + ("not a mandate of the exports (closed, or exported under another number)." if clients
+                        f"'{folder}'{of}: {len(files)} file(s); "
+                        + (f"mandate {folder} is not in the mandate export, so its files have no client yet (the "
+                           "holder is fine: it is the mandate number that is missing)." if clients
                            else "indexed under its folder name (archive only, no mandate export in this run)."),
                         key=folder, file=files[0][0]['file'],
-                        fix="Add the mandate to the exports, or check the folder name." if clients else None)
+                        fix=(f"Export mandate {folder} from M2 with the mandate list (closed mandates included), or "
+                             "check the folder name.") if clients else None)
         self.check_holders(tops)
         for holder, count in copies.items():
             self.ev('info', 'ARCHIVE_COPY', f"Archive '{holder}': {count} file(s) identical to a file of the same "
