@@ -624,7 +624,7 @@ def api_packages(params):
     written = read_json(path / m2_package.PACKAGES / m2_package.STATE_FILE, {}) or {}
     return {'run': run_id, 'job': job, 'archive_root': ui_settings().get('archive_root') or '',
             'packages': written.get('packages') or [], 'missing': len(written.get('missing') or []),
-            'folder': str(path / m2_package.PACKAGES)}
+            'emails': written.get('emails') or {}, 'folder': str(path / m2_package.PACKAGES)}
 
 
 def api_packages_build(params):

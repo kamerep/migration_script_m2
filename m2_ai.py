@@ -797,6 +797,14 @@ TYPE_FOLDER = {   # tool type -> Odoo folder when neither an Odoo type nor the M
 # Folders of the person template (Individual KYC): other folder codes go to the workspace root there.
 PERSON_FOLDERS = {'PROFILE', 'CV', 'ID', 'POA', 'REF', 'SOW', 'WCHECK', 'RISK', 'CORR'}
 NOT_UPLOADED = re.compile(r'\.(msg|eml|lnk|tmp|bak|db|ini)$', re.I)
+# Emails: not uploaded themselves; the packages take their attachments out and file those (m2_package)
+EMAIL = re.compile(r'\.(msg|eml)$', re.I)
+# The accounting data among the program files, kept in Financial Accounting: QuickBooks company files, backups and
+# transaction logs, tax-filing data files. Search indexes the program rebuilds itself stay out.
+ACCOUNTING_DATA = re.compile(r'\.(qbw|qbb|qbm|qbx|tlg)$', re.I)
+TAX_DATA = re.compile(r'\.dat$', re.I)
+TAX_FOLDER = re.compile(r'\b(bir|ewt|tax|vat|steuer|submission|filing)\b', re.I)
+REBUILT_INDEX = re.compile(r'searchindex|suggestionindex', re.I)
 
 
 # Folders of the client workspace (csp_document_structure, Entity - Standard), as the person sees them in Odoo
@@ -868,7 +876,11 @@ def odoo_target(row, rules=None):
     person = kind == 'person'
     words = f"{row.get('folder') or ''} {row.get('file') or ''}"
     doc_type = row.get('doc_type')
-    upload = doc_type != 'system_file' and not NOT_UPLOADED.search(row.get('file') or '')
+    file = row.get('file') or ''
+    if doc_type == 'system_file' and not REBUILT_INDEX.search(row.get('folder') or '') and (
+            ACCOUNTING_DATA.search(file) or (TAX_DATA.search(file) and TAX_FOLDER.search(row.get('folder') or ''))):
+        return None, (None if person else 'FINACC'), True, 'accounting program file'
+    upload = doc_type != 'system_file' and not NOT_UPLOADED.search(file)
     if rules:
         folder_key, name_key = pattern_key(row.get('folder'), row.get('file'))
         rule = rules.get(('pattern', folder_key, name_key)) or rules.get(('folder', folder_key))

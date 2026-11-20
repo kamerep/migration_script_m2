@@ -8,7 +8,7 @@ Nothing is written to Odoo. The run produces files you load with *Contacts › C
 ## Quick start
 
 ```bash
-python3 -m venv --without-pip .venv && .venv/bin/python get-pip.py && .venv/bin/pip install openpyxl xlrd anthropic mcp
+python3 -m venv --without-pip .venv && .venv/bin/python get-pip.py && .venv/bin/pip install openpyxl xlrd anthropic mcp olefile
 .venv/bin/python m2_ui.py                 # UI on http://127.0.0.1:8796 (next free port if taken)
 .venv/bin/python migration_script_m2_odoo.py <exports folder> [<output folder>]   # same run, terminal only
 .venv/bin/python make_sample_m2.py        # fictitious M2 exports in ./sample_m2 to try it
@@ -180,8 +180,11 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
 * **Into Odoo's folders.** Each document also gets the folder of the client's Odoo workspace it goes to (the
   codes of CSP Documents: CORPDOC, CONTRACT, BANKST, PAYORD, FINST, INVIN, KYC, CORRCL, CORRBANK, …) from its M2
   folder ("Corresp. with client" → CORRCL, "Corporate documents" → CORPDOC, "Payment orders" → PAYORD), or the
-  Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Emails (`.msg`, `.eml`) and program
-  files are not uploaded.
+  Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Emails (`.msg`, `.eml`) are not
+  uploaded, but the packages take their attachments out and file each one by its own name, else in the email's
+  folder (signature images, attached emails and attachments already packed are skipped; `.msg` needs
+  `.venv/bin/pip install olefile`). QuickBooks company files, backups and logs (`.qbw`, `.qbb`, `.tlg`) and
+  tax-filing `.dat` files go to Financial Accounting (FINACC); search indexes and settings files are not uploaded.
 * **Sorting list.** *Write sorting list* (or `bin/m2ctl.sh ai sorting <run>`) writes `Document_Sorting.xlsx` in
   the run folder: the files with no Odoo folder yet, one row per name pattern (sheet *To sort*) and one per M2
   folder (sheet *By M2 folder*), with drop-downs for the Odoo folder (as named in Odoo), the document type and

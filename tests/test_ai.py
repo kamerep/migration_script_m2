@@ -236,8 +236,12 @@ class TestDocumentRules(unittest.TestCase):
                             'doc_type': 'other'})[1], 'PAYORD')
         self.assertEqual(t({'key': 'KP-1-CON', 'folder': 'Payment orders', 'file': 'x.pdf',
                             'doc_type': 'other'})[1], None, "no such folder for a person: workspace root")
-        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'QB', 'file': 'Co.qbw', 'doc_type': 'system_file'})[2],
-                         False)
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'QB', 'file': 'Co.qbw', 'doc_type': 'system_file'})[1:3],
+                         ('FINACC', True), "QuickBooks data: Financial Accounting")
+        self.assertFalse(t({'key': 'KP-1-ENT', 'folder': 'QB/Co.qbw.SearchIndex', 'file': 'x.cfs',
+                            'doc_type': 'system_file'})[2], "an index the program rebuilds stays out")
+        self.assertFalse(t({'key': 'KP-1-ENT', 'folder': 'Printer_Settings', 'file': 'p.ini',
+                            'doc_type': 'system_file'})[2])
 
     def test_accounting_software_files(self):
         out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
