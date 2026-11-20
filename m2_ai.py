@@ -767,20 +767,27 @@ ODOO_FOLDERS = [(re.compile(p, re.I), code) for p, code in (
      'CORRAUTH'),
     (r'^corresp.*\b(office|interis|intern|internal|b[uü]ro)\b', 'CORRINT'),
     (r'^corresp|korrespondenz|correspondence|e-?mails?$', 'CORR3P'),
-    (r'payment order|zahlungsauftr|zahlungen', 'PAYORD'),
+    (r'betreibung|beteibung|debt collection|enforcement', 'CORRAUTH'),
+    (r'payment order|zahlungsauftr|zahlungen|^payments?$|check vouchers?', 'PAYORD'),
     (r'bank ?statement|kontoausz', 'BANKST'),
     (r'account opening|bank master|kontoer[oö]ffnung|signature card', 'BANKMD'),
-    (r'\bbank', 'BANK'),
+    (r'\bbank|custody account|^(ubs|ubp|hsbc|credit suisse|julius ?b[aä]e?r|lgt|vp bank|emirates nbd|mashreq|'
+     r'barclays|citi(bank)?|bnp( paribas)?|dbs|ocbc|standard chartered|pictet|lombard odier|edmond de rothschild|'
+     r'efg|bsi|safra sarasin|cbd|adcb|fab|enbd|rakbank)$', 'BANK'),
     (r'financial statement|jahresrechnung|annual account|abschl[uü]ss|audit', 'FINST'),
     (r'invoices? (issued|out)|ausgangsrechn|our invoices|honorar|fees?$', 'INVOUT'),
     (r'intercompany|inter-company', 'INVIC'),
     (r'invoice|rechnung|bills?$|faktur', 'INVIN'),
-    (r'accounting|buchhaltung|ledger|expenses|spesen|belege|receipts|vat|mwst|tax|steuer', 'FINACC'),
-    (r'kyc|compliance|due diligence|\bcdd\b|gwg|world ?check', 'KYC'),
+    (r'accounting|buchhaltung|ledger|expenses|spesen|belege|receipts|vat|mwst|tax|steuer|vouchers?|petty cash|'
+     r'\bpcf\b|cash monitoring|quickbooks|\bqb\b|accounts$|^(sub )?income$|^capital$|estimates', 'FINACC'),
+    (r'kyc|compliance|due diligence|\bcdd\b|gwg|world ?check|data protection|gdpr|economic substance|\besr\b',
+     'KYC'),
     (r'contract|vertr[aä]g|agreement', 'CONTRACT'),
-    (r'corporate|gesellschaft|statut|register|minutes|protokoll|resolution|beschl', 'CORPDOC'),
-    (r'premises|office lease|tenancy|miete|ejari', 'PREMISES'),
-    (r'visa|people|staff|employee|mitarbeiter', 'OPS_PEOPLE'),
+    (r'corporate|gesellschaft|statut|register|minutes|protokoll|resolution|beschl|location of records|'
+     r'registered office|\bfil(l)?ings?\b|stempel|company seal|stamps?$', 'CORPDOC'),
+    (r'premises|office lease|tenancy|miete|ejari|^unit[- ]?\d+$|utilit|dewa|^du bills$', 'PREMISES'),
+    (r'visa|people|staff|employee|mitarbeiter|salary|payroll|social insurance|^cvs?$|curriculum', 'OPS_PEOPLE'),
+    (r'insurance|travel|hotel|tickets?$|seminars?|training', 'OPS'),
 )]
 TYPE_FOLDER = {   # tool type -> Odoo folder when neither an Odoo type nor the M2 folder gives one
     'register_extract': 'CORPDOC', 'share_register': 'CORPDOC', 'lei': 'CORPDOC', 'incorporation': 'CORPDOC',

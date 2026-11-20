@@ -291,6 +291,21 @@ class TestCoverageAcrossHolders(unittest.TestCase):
             self.assertEqual(wb['Per holder'].max_row, 3)
 
 
+class TestM2FolderToOdoo(unittest.TestCase):
+    """M2 sub-folders with no document type go to the matching folder of the client's Odoo workspace."""
+
+    def test_folders(self):
+        cases = {'Miscellaneous/Orbit Group/102016/UBP/Operations/7153065': 'BANK', 'Payments': 'PAYORD',
+                 '2020 Check Vouchers': 'PAYORD', 'PCF and 600k': 'FINACC', 'Panama Accounts': 'FINACC',
+                 'Data Protection': 'KYC', 'ESR British Virgin Islands': 'KYC', 'Liability Insurance': 'OPS',
+                 'Salary Loan - Employee': 'OPS_PEOPLE', 'Unit 1401': 'PREMISES', 'BVI Filling': 'CORPDOC',
+                 'Signed Notice of location of records': 'CORPDOC', 'Betreibungen': 'CORRAUTH',
+                 'Client profiling': None, 'Scanned Documents': None}
+        for folder, want in cases.items():
+            got = m2_ai.odoo_target({'key': 'KP-1-ENT', 'folder': folder, 'file': 'x.pdf', 'doc_type': 'other'})[1]
+            self.assertEqual(got, want, folder)
+
+
 if __name__ == '__main__':
     unittest.main()
 
