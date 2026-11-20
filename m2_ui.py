@@ -335,7 +335,7 @@ def api_decide(params):
             config['excluded_keys'].append(key)
     elif kind == 'setting':
         if key not in ('require_company', 'include_closed_mandates', 'notes_from_unmapped', 'date_order',
-                       'addresses_without_mandate', 'ubo_from_mandate', 'tag_m2'):
+                       'addresses_without_mandate', 'ubo_from_mandate', 'tag_m2', 'clients_from_archive'):
             raise Error(f"Unknown setting {key}.")
         config[key] = value
     else:

@@ -1536,6 +1536,14 @@ class Migration:
             self.closed.append((where, ref, name, why))
             self.register_lookup(ref, v, name, out, closed=True)
             return
+        if self.config.get('clients_from_archive') and not self.on_archive(ref):
+            why = 'no folder in the archive inventory'
+            self.ev('decision', 'CLIENT_NOT_IN_ARCHIVE', f"Mandate {ref}: no folder in the archive inventory: not "
+                    "loaded as a client (Settings > clients come from the archive folders).", key=ref,
+                    fix="Check the mandate number, or switch the setting off to load every mandate of the list.")
+            self.closed.append((where, ref, name, why))
+            self.register_lookup(ref, v, name, out, closed=True)
+            return
         if not out['name']:
             review_reason = "No name."
         if review_reason:
@@ -2254,6 +2262,20 @@ class Migration:
             self.ev('review', 'POA_REVOCATION_FILE', f"Client {ref}: {count} revocation(s) of a power of attorney "
                     "in the M2 documents: no entry made.", key=ref,
                     fix="Mark the power of attorney it revokes as Revoked in Odoo.")
+
+    def on_archive(self, ref):
+        """Whether the archive inventory has a folder for this mandate, or for its number under another service
+        (AP-00123-ACC for AP-00123-ENT). Always true without an inventory."""
+        if not self.tables['inventory']:
+            return True
+        if not hasattr(self, '_archive_refs'):
+            stem = lambda k: '-'.join([k.split('-')[0].upper(), k.split('-')[1].lstrip('0')]) if k.count('-') >= 2 \
+                else k.upper()
+            self._archive_stem = stem
+            self._archive_refs = {stem(x) for table in self.tables['inventory'] for row in table['rows']
+                                  for x in re.split(r'[\\/]+', text(row['v'].get('path')))[:-1]
+                                  if MANDATE_RE.fullmatch(x)}
+        return self._archive_stem(str(ref)) in self._archive_refs
 
     def build_inventory(self, listed):
         """Files of the archive inventory, per mandate folder: indexed without copying the archive."""

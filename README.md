@@ -227,6 +227,11 @@ padding ignored), the folder above it is kept as the holder's archive. Rules: `A
 folders), `ARCHIVE_NO_FOLDER` (mandates with no archive folder). The AI assistant then types the documents and lists
 the clients missing KYC documents.
 
+**Settings › Clients come from the archive folders** (`clients_from_archive`, on for the M: inventory of current
+clients): the inventory decides who is a client and the mandate list only gives the details. A mandate of the list with
+no folder (nor a folder of its number under another service, ACC for ENT) is not loaded (`CLIENT_NOT_IN_ARCHIVE`).
+An inventory of `M:\Dokument\Mandate\<holder>` (M2's document store) reads the same as one of `Z:\<holder>`.
+
 While the Windows script writes the inventory, **Overview › Archive inventory** shows a progress bar of the mandate holders
 done, being listed and waiting (from `archive_holders.txt` beside the CSV), and *Run migration* asks before running on an
 unfinished listing.

@@ -1366,6 +1366,7 @@ function renderSettings() {
   el.innerHTML = `<div class="card"><h2>Rules</h2>
     <label class="tog"><input type="checkbox" class="sw" data-set="require_company" ${cfg.require_company !== false ? 'checked' : ''}> A mandate without a known operating company goes to review (never a default company)</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="include_closed_mandates" ${cfg.include_closed_mandates ? 'checked' : ''}> Load closed mandates too (status closed, or ended)</label>
+    <label class="tog"><input type="checkbox" class="sw" data-set="clients_from_archive" ${cfg.clients_from_archive ? 'checked' : ''}> Clients come from the archive folders: a mandate of the list with no folder in the archive inventory is not loaded</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="notes_from_unmapped" ${cfg.notes_from_unmapped !== false ? 'checked' : ''}> Keep the M2 values with no CSP column in the client's Notes</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="ubo_from_mandate" ${cfg.ubo_from_mandate !== false ? 'checked' : ''}> Create a UBO from the beneficial owner named on a mandate</label>
     <label class="tog"><input type="checkbox" class="sw" data-set="tag_m2" ${cfg.tag_m2 !== false ? 'checked' : ''}> Tag the loaded clients "M2"</label>

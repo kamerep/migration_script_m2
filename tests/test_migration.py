@@ -553,5 +553,33 @@ class TestServiceFolderLink(unittest.TestCase):
         self.assertEqual([d['client_state'] for d in job.documents], ['not in the exports'])
 
 
+class TestClientsFromArchive(unittest.TestCase):
+    """With clients_from_archive on, the archive inventory decides who is a client; the mandate list gives details."""
+
+    def test_only_mandates_with_a_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+            src.mkdir()
+            book = openpyxl.Workbook()
+            ws = book.active
+            ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1'])
+            ws.append(['NOVA-PH', 'KP', 11.0, 'ENT', 'Orbit One Ltd'])
+            ws.append(['NOVA-PH', 'KP', 12.0, 'ENT', 'Orbit Two Ltd'])
+            ws.append(['NOVA-PH', 'KP', 13.0, 'ENT', 'Orbit Three Ltd'])
+            book.save(src / 'Mandate list extract.xlsx')
+            (src / 'M2 Archive inventory.csv').write_text(
+                '"Path","Length","Modified"\n'
+                '"Dokument\\Mandate\\NOVA-PH\\KP-00011-ENT\\KYC\\Passport.pdf","100","2024-01-15 10:00"\n'
+                '"Dokument\\Mandate\\NOVA-PH\\KP-00012-ACC\\Invoices\\Invoice.pdf","100","2024-01-15 10:00"\n',
+                encoding='utf-8')
+            job = m2.Migration(src, out, {**TestEnglishRun.CONFIG, 'clients_from_archive': True},
+                               journal_path=out / 'journal.jsonl')
+            job.run()
+            self.assertEqual(sorted(r['m2_reference'] for r in job.rows['clients']), ['KP-00011-ENT', 'KP-00012-ENT'])
+            self.assertEqual([c[1] for c in job.closed], ['KP-00013-ENT'])
+            self.assertIn('CLIENT_NOT_IN_ARCHIVE', [e['code'] for e in job.journal.events])
+            self.assertNotIn('ARCHIVE_NO_FOLDER', [e['code'] for e in job.journal.events])
+
+
 if __name__ == '__main__':
     unittest.main()
