@@ -496,5 +496,31 @@ class TestColumnHints(unittest.TestCase):
             self.assertIsNone(hints['XYZ'].get('meaning'))                 # unknown column: samples only
 
 
+class TestDocumentStoreLayout(unittest.TestCase):
+    """An inventory of M2's own document store (M:\\Dokument\\Mandate\\<holder>\\<mandate>\\…): the holder is the
+    folder right above the mandate folder, not the top folder of the drive."""
+
+    def test_holder_above_the_mandate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+            src.mkdir()
+            book = openpyxl.Workbook()
+            ws = book.active
+            ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1'])
+            ws.append(['NOVA-PH', 'KP', 31.0, 'ENT', 'Orbit Store Ltd'])
+            book.save(src / 'Mandate list extract.xlsx')
+            (src / 'M2 Archive inventory - NOVA-PH.csv').write_text(
+                '"Path","Length","Modified"\n'
+                '"Dokument\\Mandate\\NOVA-PH\\KP-00031-ENT\\KYC\\Passport copy.pdf","100","2024-01-15 10:00"\n'
+                '"Dokument\\Mandate\\NOVA-PH 2\\KP-00031-ENT\\Bank\\Statement.pdf","100","2024-01-15 10:00"\n',
+                encoding='utf-8')
+            job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+            job.run()
+            where = {d['file']: d['where'] for d in job.documents}
+            self.assertEqual(where, {'Passport copy.pdf': 'archive NOVA-PH', 'Statement.pdf': 'archive NOVA-PH 2'})
+            self.assertEqual({d['client_state'] for d in job.documents}, {'loaded'})
+            self.assertTrue(all(d['on_disk'].startswith('archive: Dokument\\Mandate\\') for d in job.documents))
+
+
 if __name__ == '__main__':
     unittest.main()

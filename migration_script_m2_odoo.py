@@ -591,6 +591,8 @@ ROW_KEYS = ('mandate_no', 'mandate_seq', 'debtor_no', 'address_no', 'name', 'cli
             'acc_number', 'path', 'file_name', 'invoice_no')
 COMPANY_WORDS = re.compile(r'\b(ag|gmbh|ltd|limited|inc|llc|llp|sa|sarl|trust|stiftung|foundation|corp|plc|fzco|fze|'
                            r'bv|nv|kg|holding|treuhand|anstalt|establishment|company|co|partners|group)\b\.?', re.I)
+# Folders of M2's own document store above the mandate holders (M:\Dokument\Mandate\<holder>\<mandate>)
+STORE_FOLDERS = {'dokument', 'dokumente', 'mandate', 'mandat', 'mandates', 'documents', 'document'}
 # An M2 mandate number in a file name or report title: KP-482-ACC, KP-00482-ACC, M-0001
 MANDATE_RE = re.compile(r'(?<![A-Za-z0-9])([A-Z]{1,5}-\d{1,6}(?:-[A-Z0-9]{1,6})?)(?![A-Za-z0-9])')
 LEVELS = ('error', 'review', 'warning', 'decision', 'change', 'not_loaded', 'info')
@@ -2265,14 +2267,19 @@ class Migration:
                 parts = [x for x in re.split(r'[\\/]+', raw) if x and not re.fullmatch(r'[A-Za-z]:', x)]
                 if len(parts) < 2 or parts[-1].lower().endswith('.lnk'):   # loose root files, shortcuts
                     continue
-                tops.add(parts[0])
                 pos = next((i for i, x in enumerate(parts[:-1]) if MANDATE_RE.fullmatch(x)
                             or any(self.lookup[b].get(rkey(x)) for b in ('mandate', 'debtor'))), None)
                 if pos is None:
+                    tops.add(parts[0])
                     per_folder.setdefault(('', parts[0] if len(parts) > 1 else ''), []).append((table, row, parts,
                                                                                                 None))
                     continue
-                holder = parts[0] if pos else ''        # the top folder of the drive: the mandate holder
+                # the mandate holder is the top folder, after M2's own containers: Z:\ARVIS-PH\AP-00031-ENT and
+                # M:\Dokument\Mandate\ARVIS-PH\AP-00031-ENT (M2's document store) both give ARVIS-PH, and a
+                # holder folder holding a copy of another (ARVIS-PH 2\ARVIS-PH\...) stays ARVIS-PH 2
+                top = next((i for i, x in enumerate(parts[:pos]) if x.casefold() not in STORE_FOLDERS), pos)
+                holder = parts[top] if top < pos else ''
+                tops.add(holder or parts[0])
                 per_folder.setdefault((holder, parts[pos]), []).append((table, row, parts, pos))
         clients = bool(self.lookup['mandate'])
         seen, copies, copied = set(), collections.Counter(), set()   # copies: same mandate, path, name and size
