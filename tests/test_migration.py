@@ -522,5 +522,36 @@ class TestDocumentStoreLayout(unittest.TestCase):
             self.assertTrue(all(d['on_disk'].startswith('archive: Dokument\\Mandate\\') for d in job.documents))
 
 
+class TestServiceFolderLink(unittest.TestCase):
+    """An archive folder of another service of the same mandate number (ACC accounting for an ENT company)."""
+
+    def run_with(self, mandates, folder):
+        tmp = tempfile.mkdtemp()
+        src, out = Path(tmp) / 'src', Path(tmp) / 'out'
+        src.mkdir()
+        book = openpyxl.Workbook()
+        ws = book.active
+        ws.append(['MADFIRMA', 'MT', 'MNR', 'MART', 'MANDBEZ1'])
+        for number, kind, name in mandates:
+            ws.append(['NOVA-PH', 'KP', float(number), kind, name])
+        book.save(src / 'Mandate list extract.xlsx')
+        (src / 'M2 Archive inventory.csv').write_text(
+            '"Path","Length","Modified"\n'
+            f'"Dokument\\Mandate\\NOVA-PH\\{folder}\\Invoices\\Invoice 2024-01.pdf","100","2024-01-15 10:00"\n',
+            encoding='utf-8')
+        job = m2.Migration(src, out, TestEnglishRun.CONFIG, journal_path=out / 'journal.jsonl')
+        job.run()
+        return job
+
+    def test_acc_folder_goes_to_the_ent_client(self):
+        job = self.run_with([(123, 'ENT', 'Orbit Service Ltd')], 'KP-00123-ACC')
+        self.assertEqual([(d['key'], d['client_state']) for d in job.documents], [('KP-00123-ENT', 'loaded')])
+        self.assertIn('ARCHIVE_SERVICE_LINK', [e['code'] for e in job.journal.events])
+
+    def test_two_clients_with_the_number_stay_apart(self):
+        job = self.run_with([(123, 'ENT', 'Orbit Service Ltd'), (123, 'CON', 'Doe, Jane')], 'KP-00123-ACC')
+        self.assertEqual([d['client_state'] for d in job.documents], ['not in the exports'])
+
+
 if __name__ == '__main__':
     unittest.main()

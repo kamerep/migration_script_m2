@@ -2292,6 +2292,13 @@ class Migration:
             entry = None
             for bucket in ('mandate', 'debtor', 'address'):
                 entry = entry or self.lookup[bucket].get(rkey(folder))
+            if not entry:
+                entry = self._same_number(folder)
+                if entry:
+                    self.ev('decision', 'ARCHIVE_SERVICE_LINK', f"Archive folder '{folder}' -> client {entry['ref']} "
+                            f"({entry['name']}): same mandate number, another service (e.g. ACC = accounting for the "
+                            "ENT company); its files are filed under this client.", key=entry['ref'],
+                            file=files[0][0]['file'])
             key = entry['ref'] if entry else folder
             seen.add(rkey(key))
             for table, row, parts, pos in files:
@@ -2336,6 +2343,23 @@ class Migration:
                 self.ev('warning', 'ARCHIVE_NO_FOLDER', f"{len(without)} mandate(s) of the exports have no folder in "
                         f"the archive inventory: {', '.join(without[:20])}{' …' if len(without) > 20 else ''}.",
                         fix="Check the archive path, or the mandate holder folder the inventory was made of.")
+
+    def _same_number(self, folder):
+        """The one client whose mandate number is the folder's with another service suffix (AP-00123-ACC ->
+        AP-00123-ENT), or None when there is none or more than one."""
+        found = MANDATE_RE.fullmatch(folder)
+        if not found or folder.count('-') < 2:
+            return None
+        prefix, number = folder.split('-')[:2]
+        stem = f"{prefix.upper()}-{number.lstrip('0')}"
+        if not hasattr(self, '_by_number'):
+            self._by_number = collections.defaultdict(list)
+            for entry in {id(e): e for e in self.lookup['mandate'].values()}.values():
+                parts = str(entry['ref']).split('-')
+                if len(parts) >= 3:
+                    self._by_number[f"{parts[0].upper()}-{parts[1].lstrip('0')}"].append(entry)
+        matches = [e for e in self._by_number.get(stem, []) if e.get('state') != 'closed']
+        return matches[0] if len(matches) == 1 else None
 
     def check_holders(self, tops):
         """Compare the inventory's holders with archive_holders.txt (one per line) in the source folder, when it
