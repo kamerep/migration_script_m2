@@ -11,6 +11,10 @@ CHROME="$(command -v google-chrome || command -v chromium || command -v chromium
 [ "$#" -gt 0 ] || set -- "$HERE"/docs/*.html
 for html in "$@"; do
   pdf="${html%.html}.pdf"
+  if [ "$(basename "$html")" = M2_Migration_User_Guide.html ] && command -v node >/dev/null; then
+    node "$HERE/tools/print_pdf.mjs" "$html" "$pdf"   # read on paper: cover, page numbers in the footer
+    continue
+  fi
   "$CHROME" --headless --no-sandbox --disable-gpu --no-pdf-header-footer --print-to-pdf="$pdf" \
     "file://$(realpath "$html")" >/dev/null 2>&1
   echo "Written: $pdf"
