@@ -9,3 +9,6 @@ m2_db/
 .m2_api_token
 .env
 n8n/.n8n/
+
+# Archive inventories of the Z: drive (closed and archived clients), set aside: client data, never in git
+m2_db_z_archive/
