@@ -219,8 +219,8 @@ class TestDocumentRules(unittest.TestCase):
         out = self.run_docs([{'key': 'A', 'folder': 'Misc', 'file': 'Re update.msg'},
                              {'key': 'A', 'folder': 'Corresp. with client', 'file': 'Note 12.pdf'}])
         self.assertEqual([d['doc_type'] for d in out], ['correspondence', 'correspondence'])
-        self.assertEqual([d['upload'] for d in out], [False, True], "emails stay in the archive")
-        self.assertEqual(out[1]['odoo_folder'], 'CORRCL')
+        self.assertEqual([d['upload'] for d in out], [True, True], "every file goes, emails too")
+        self.assertEqual([d['odoo_folder'] for d in out], ['CORR', 'CORRCL'], "an email goes to Correspondence")
 
     def test_odoo_targets(self):
         t = m2_ai.odoo_target
@@ -235,13 +235,15 @@ class TestDocumentRules(unittest.TestCase):
         self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'Payment orders/2019', 'file': 'x.pdf',
                             'doc_type': 'other'})[1], 'PAYORD')
         self.assertEqual(t({'key': 'KP-1-CON', 'folder': 'Payment orders', 'file': 'x.pdf',
-                            'doc_type': 'other'})[1], None, "no such folder for a person: workspace root")
+                            'doc_type': 'other'})[1], 'FIN', "a person's payment orders: Finance")
+        self.assertEqual(t({'key': 'KP-1-CON', 'folder': 'Contracts', 'file': 'x.pdf', 'doc_type': 'other'})[1],
+                         'CORP', "a person's contracts: Corporate and Contracts")
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'Scans', 'file': 'x.pdf', 'doc_type': 'other'})[1:],
+                         ('M2ARCH', True, 'to sort: M2 Archive'), "nothing says where: M2 Archive (to sort)")
         self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'QB', 'file': 'Co.qbw', 'doc_type': 'system_file'})[1:3],
                          ('FINACC', True), "QuickBooks data: Financial Accounting")
-        self.assertFalse(t({'key': 'KP-1-ENT', 'folder': 'QB/Co.qbw.SearchIndex', 'file': 'x.cfs',
-                            'doc_type': 'system_file'})[2], "an index the program rebuilds stays out")
-        self.assertFalse(t({'key': 'KP-1-ENT', 'folder': 'Printer_Settings', 'file': 'p.ini',
-                            'doc_type': 'system_file'})[2])
+        self.assertEqual(t({'key': 'KP-1-ENT', 'folder': 'QB/Co.qbw.SearchIndex', 'file': 'x.cfs',
+                            'doc_type': 'system_file'})[1:3], ('FINACC', True), "every program file goes too")
 
     def test_accounting_software_files(self):
         out = self.run_docs([{'key': 'A', 'folder': 'QB 2017/X', 'file': n} for n in
@@ -304,7 +306,7 @@ class TestM2FolderToOdoo(unittest.TestCase):
                  'Data Protection': 'KYC', 'ESR British Virgin Islands': 'KYC', 'Liability Insurance': 'OPS',
                  'Salary Loan - Employee': 'OPS_PEOPLE', 'Unit 1401': 'PREMISES', 'BVI Filling': 'CORPDOC',
                  'Signed Notice of location of records': 'CORPDOC', 'Betreibungen': 'CORRAUTH',
-                 'Client profiling': None, 'Scanned Documents': None}
+                 'Client profiling': 'M2ARCH', 'Scanned Documents': 'M2ARCH'}
         for folder, want in cases.items():
             got = m2_ai.odoo_target({'key': 'KP-1-ENT', 'folder': folder, 'file': 'x.pdf', 'doc_type': 'other'})[1]
             self.assertEqual(got, want, folder)

@@ -104,8 +104,8 @@ class TestPackages(unittest.TestCase):
         self.run.mkdir()
         files = [('KP-00031-ENT', 'Corporate documents', 'Minutes.pdf', b'm' * 600, 'CORPDOC', None, True),
                  ('KP-00031-ENT', 'Legal', 'Vollmacht.pdf', b'v' * 600, None, 'PWRATT', True),
-                 ('KP-00031-ENT', 'Corresp. with client', 'Re.msg', outlook_msg(), 'CORRCL', None, False),
-                 ('KP-00031-ENT', 'Corresp. with client', 'Invoice.eml', eml(), 'CORRCL', None, False),
+                 ('KP-00031-ENT', 'Corresp. with client', 'Re.msg', outlook_msg(), 'CORRCL', None, True),
+                 ('KP-00031-ENT', 'Corresp. with client', 'Invoice.eml', eml(), 'CORRCL', None, True),
                  ('KP-00031-ENT', 'QB', 'Orbit Ltd.QBW', b'q' * 700, 'FINACC', None, True),
                  ('KP-00007-CON', 'KYC', 'Gone.pdf', None, 'KYC', None, True)]                     # not on disk
         docs, typed = [], []
@@ -125,13 +125,15 @@ class TestPackages(unittest.TestCase):
 
     def test_packages_and_manifest(self):
         result = m2_package.build(self.run, self.archive, max_mb=1)
-        self.assertEqual((result['packed'], result['missing'], result['packages']), (6, 1, 1))
+        self.assertEqual((result['packed'], result['missing'], result['packages']), (8, 1, 1))
         with zipfile.ZipFile(self.run / 'packages' / 'M2_Documents_0001.zip') as book:
             rows = list(csv.DictReader(io.TextIOWrapper(book.open('manifest.csv'), encoding='utf-8')))
-            self.assertEqual([r['name'] for r in rows], ['Minutes.pdf', 'Invoice 2024-01.pdf', 'Passport copy.pdf',
-                                                         'Passport Example.pdf', 'Vollmacht.pdf', 'Orbit Ltd.QBW'])
+            self.assertEqual([r['name'] for r in rows], ['Minutes.pdf', 'Invoice.eml', 'Invoice 2024-01.pdf',
+                                                         'Passport copy.pdf', 'Re.msg', 'Passport Example.pdf',
+                                                         'Vollmacht.pdf', 'Orbit Ltd.QBW'])
             by_name = {r['name']: r for r in rows}
             self.assertEqual(by_name['Orbit Ltd.QBW']['folder'], 'FINACC')
+            self.assertEqual(by_name['Re.msg']['folder'], 'CORRCL')                          # the email itself
             self.assertEqual(by_name['Passport Example.pdf']['suggested_type'], 'PASSPORT')   # by its own name
             self.assertEqual(by_name['Invoice 2024-01.pdf']['folder'], 'CORRCL')            # the email's folder
             self.assertTrue(by_name['Passport Example.pdf']['m2_path'].endswith('Re.msg > Passport Example.pdf'))
@@ -144,7 +146,7 @@ class TestPackages(unittest.TestCase):
     def test_resume_writes_nothing_twice(self):
         m2_package.build(self.run, self.archive, max_mb=1)
         again = m2_package.build(self.run, self.archive, max_mb=1)
-        self.assertEqual((again['packages'], again['packed']), (1, 6))
+        self.assertEqual((again['packages'], again['packed']), (1, 8))
         self.assertEqual(again['emails'], {'read': 2, 'attachments': 3, 'signature_images': 1, 'duplicates': 0,
                                            'attached_emails': 1, 'unreadable': 0})
 

@@ -180,11 +180,14 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
 * **Into Odoo's folders.** Each document also gets the folder of the client's Odoo workspace it goes to (the
   codes of CSP Documents: CORPDOC, CONTRACT, BANKST, PAYORD, FINST, INVIN, KYC, CORRCL, CORRBANK, …) from its M2
   folder ("Corresp. with client" → CORRCL, "Corporate documents" → CORPDOC, "Payment orders" → PAYORD), or the
-  Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Emails (`.msg`, `.eml`) are not
-  uploaded, but the packages take their attachments out and file each one by its own name, else in the email's
-  folder (signature images, attached emails and attachments already packed are skipped; `.msg` needs
-  `.venv/bin/pip install olefile`). QuickBooks company files, backups and logs (`.qbw`, `.qbb`, `.tlg`) and
-  tax-filing `.dat` files go to Financial Accounting (FINACC); search indexes and settings files are not uploaded.
+  Odoo document type it matches (PASSPORT, COI, MOA, RESOLUTION, PWRATT, …). Every file is uploaded. Emails
+  (`.msg`, `.eml`) go to Correspondence (CORR, or the CORR… folder of their M2 folder), and the packages also take
+  their attachments out and file each one by its own name, else in the email's folder (signature images, attached
+  emails and attachments already packed are skipped; `.msg` needs `.venv/bin/pip install olefile`). Program files
+  (QuickBooks) go to Financial Accounting. A person's (CON, DIR) non-KYC files go to the Individual template's
+  Finance (FIN) or Corporate and Contracts (CORP) folder. A file nothing places goes to **08 M2 Archive (to sort)**
+  (M2ARCH). These folders come from `csp_document_structure` 19.0.1.4.5; `csp_document_import` 19.0.1.0.2 adds
+  them to workspaces made before.
 * **Sorting list.** *Write sorting list* (or `bin/m2ctl.sh ai sorting <run>`) writes `Document_Sorting.xlsx` in
   the run folder: the files with no Odoo folder yet, one row per name pattern (sheet *To sort*) and one per M2
   folder (sheet *By M2 folder*), with drop-downs for the Odoo folder (as named in Odoo), the document type and

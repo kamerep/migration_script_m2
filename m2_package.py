@@ -2,9 +2,9 @@
 
 The tool still writes files only. A package is a zip of at most `max_mb` MB with a manifest.csv; the Odoo module
 csp_document_import reads it (Documents > Configuration > M2 Document Packages) and files each document in the
-client's workspace folder. Emails (.msg, .eml) stay in the archive, but their attachments are taken out and filed
-like any other document of the client (signature images and attachments already packed are skipped). QuickBooks
-company files, backups and logs go to Financial Accounting; other program files stay in the archive.
+client's workspace folder. Every file goes: emails (.msg, .eml) to Correspondence, with their attachments also taken
+out and filed like any other document of the client (signature images and attachments already packed are skipped),
+program files (QuickBooks) to Financial Accounting, a file whose place is not known to M2 Archive (to sort).
 
     .venv/bin/python m2_package.py runs/<id> --archive-root /mnt/z [--max-mb 90]
 
@@ -123,7 +123,7 @@ def rows_to_upload(run_dir):
     out = []
     for doc, t in zip(docs, typed):
         is_email = bool(EMAIL.search(doc.get('file') or ''))
-        if not (t.get('upload') or is_email) or doc.get('client_state') != 'loaded':
+        if not t.get('upload') or doc.get('client_state') != 'loaded':
             continue
         out.append({**doc, 'odoo_type': t.get('odoo_type'), 'odoo_folder': t.get('odoo_folder'), 'email': is_email})
     out.sort(key=lambda d: (d['key'], str(d.get('created') or ''), d.get('folder') or '', d['file']))
@@ -222,6 +222,7 @@ def build(run_dir, archive_root=None, max_mb=90, progress=None, stop=None):
                 continue
             mail['read'] += 1
             mail['attached_emails'] += embedded
+            add(doc, doc['file'], data, doc.get('odoo_folder'), doc.get('odoo_type'), ref, doc.get('on_disk') or '')
             for i, (raw_name, payload, cid) in enumerate(attachments, 1):
                 name = safe_name(raw_name, i)
                 if IMAGE.search(name) and (cid or len(payload) < INLINE_MAX):

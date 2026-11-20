@@ -793,18 +793,14 @@ TYPE_FOLDER = {   # tool type -> Odoo folder when neither an Odoo type nor the M
     'register_extract': 'CORPDOC', 'share_register': 'CORPDOC', 'lei': 'CORPDOC', 'incorporation': 'CORPDOC',
     'kyc_compliance': 'KYC', 'invoice_fee': 'INVIN', 'financials': 'FINACC', 'bank': 'BANK', 'tax': 'FINACC',
     'contract': 'CONTRACT', 'correspondence': 'CORR3P', 'resolution': 'CORPDOC', 'articles': 'CORPDOC',
+    'power_of_attorney': 'CORPDOC', 'passport_id': 'KYC', 'proof_of_address': 'KYC',
 }
 # Folders of the person template (Individual KYC): other folder codes go to the workspace root there.
-PERSON_FOLDERS = {'PROFILE', 'CV', 'ID', 'POA', 'REF', 'SOW', 'WCHECK', 'RISK', 'CORR'}
-NOT_UPLOADED = re.compile(r'\.(msg|eml|lnk|tmp|bak|db|ini)$', re.I)
-# Emails: not uploaded themselves; the packages take their attachments out and file those (m2_package)
+PERSON_FOLDERS = {'PROFILE', 'CV', 'ID', 'POA', 'REF', 'SOW', 'WCHECK', 'RISK', 'CORR', 'FIN', 'CORP', 'M2ARCH'}
+FINANCE_CODES = {'BANK', 'BANKMD', 'BANKST', 'PAYORD', 'FIN', 'FINACC', 'FINST', 'INVIN', 'INVOUT', 'INVIC'}
+CORPORATE_CODES = {'CORP', 'CORPDOC', 'CONTRACT'}
+# Emails are uploaded to Correspondence; the packages also file their attachments (m2_package)
 EMAIL = re.compile(r'\.(msg|eml)$', re.I)
-# The accounting data among the program files, kept in Financial Accounting: QuickBooks company files, backups and
-# transaction logs, tax-filing data files. Search indexes the program rebuilds itself stay out.
-ACCOUNTING_DATA = re.compile(r'\.(qbw|qbb|qbm|qbx|tlg)$', re.I)
-TAX_DATA = re.compile(r'\.dat$', re.I)
-TAX_FOLDER = re.compile(r'\b(bir|ewt|tax|vat|steuer|submission|filing)\b', re.I)
-REBUILT_INDEX = re.compile(r'searchindex|suggestionindex', re.I)
 
 
 # Folders of the client workspace (csp_document_structure, Entity - Standard), as the person sees them in Odoo
@@ -823,6 +819,7 @@ ODOO_FOLDER_NAMES = [
     ('CORRBANK', '05 Correspondence / 03 Bank'), ('CORRINT', '05 Correspondence / 04 Internal Office'),
     ('CORR3P', '05 Correspondence / 05 Third Parties'), ('OPS', '06 Operations'),
     ('OPS_PEOPLE', '06 Operations / 01 People and Visas'), ('PREMISES', '07 Premises'),
+    ('M2ARCH', '08 M2 Archive (to sort)'),
 ]
 SORTING_FILE = 'Document_Sorting.xlsx'
 REFERENCE_LETTER = re.compile(r'reference letter|referenzschreiben|referenzbrief|bank ?reference|professional '
@@ -869,42 +866,52 @@ def document_rules(config=None):
     return rules
 
 
+def person_folder(code):
+    """The folder of the person template (Individual KYC) for a folder code of the entity template."""
+    if not code or code in PERSON_FOLDERS:
+        return code
+    if code.startswith('CORR'):
+        return 'CORR'
+    if code in FINANCE_CODES:
+        return 'FIN'
+    if code in CORPORATE_CODES:
+        return 'CORP'
+    return 'PROFILE' if code == 'KYC' else 'M2ARCH'
+
+
 def odoo_target(row, rules=None):
     """(Odoo document type code, Odoo folder code, upload, how) of one classified document row; the person's
-    sorting decisions first."""
-    kind = mandate_type(row.get('key'))
-    person = kind == 'person'
+    sorting decisions first. Every file is uploaded and has a folder: M2 Archive (to sort) when nothing says where."""
+    person = mandate_type(row.get('key')) == 'person'
+    place = person_folder if person else (lambda code: code)
     words = f"{row.get('folder') or ''} {row.get('file') or ''}"
     doc_type = row.get('doc_type')
-    file = row.get('file') or ''
-    if doc_type == 'system_file' and not REBUILT_INDEX.search(row.get('folder') or '') and (
-            ACCOUNTING_DATA.search(file) or (TAX_DATA.search(file) and TAX_FOLDER.search(row.get('folder') or ''))):
-        return None, (None if person else 'FINACC'), True, 'accounting program file'
-    upload = doc_type != 'system_file' and not NOT_UPLOADED.search(file)
+    m2_folder = None
+    for part in reversed([p.strip() for p in re.split(r'[\\/]', row.get('folder') or '') if p.strip()]):
+        m2_folder = next((code for rx, code in ODOO_FOLDERS if rx.search(part)), None)
+        if m2_folder:
+            break
     if rules:
         folder_key, name_key = pattern_key(row.get('folder'), row.get('file'))
         rule = rules.get(('pattern', folder_key, name_key)) or rules.get(('folder', folder_key))
         if rule:
             code, odoo_type, keep = rule
-            if person and code and code not in PERSON_FOLDERS:
-                code = 'CORR' if code.startswith('CORR') else None
-            return odoo_type, (None if odoo_type else code), upload and keep, 'your sorting list'
-    if REFERENCE_LETTER.search(words) and doc_type not in ('invoice_fee', 'system_file'):
-        return ('REFLTR_IND' if person else 'REFLTR_ENT'), None, upload, 'Odoo document type'
+            return odoo_type, (None if odoo_type else place(code or 'M2ARCH')), keep, 'your sorting list'
+    if doc_type == 'system_file':
+        return None, place('FINACC'), True, 'accounting program file'
+    if EMAIL.search(row.get('file') or ''):
+        code = m2_folder if (m2_folder or '').startswith('CORR') else 'CORR'
+        return None, place(code), True, 'email: Correspondence'
+    if REFERENCE_LETTER.search(words) and doc_type != 'invoice_fee':
+        return ('REFLTR_IND' if person else 'REFLTR_ENT'), None, True, 'Odoo document type'
     for tool_type, rx, company_code, person_code in ODOO_TYPE_RULES:
         if tool_type == doc_type and (rx is None or rx.search(words)):
-            return (person_code if person else company_code), None, upload, 'Odoo document type'
-    folder = None
-    for part in reversed([p.strip() for p in re.split(r'[\\/]', row.get('folder') or '') if p.strip()]):
-        folder = next((code for rx, code in ODOO_FOLDERS if rx.search(part)), None)
-        if folder:
-            break
-    how = 'M2 folder'
-    if not folder and doc_type in TYPE_FOLDER:
-        folder, how = TYPE_FOLDER[doc_type], 'document type'
-    if folder and person and folder not in PERSON_FOLDERS:
-        folder = 'CORR' if folder.startswith('CORR') else None
-    return None, folder, upload, how if folder else 'workspace root'
+            return (person_code if person else company_code), None, True, 'Odoo document type'
+    if m2_folder:
+        return None, place(m2_folder), True, 'M2 folder'
+    if doc_type in TYPE_FOLDER:
+        return None, place(TYPE_FOLDER[doc_type]), True, 'document type'
+    return None, 'M2ARCH', True, 'to sort: M2 Archive'
 
 
 # -- the person's sorting list ------------------------------------------------------------------------------------
