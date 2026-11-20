@@ -24,7 +24,7 @@ and document packages (`csp_document_import`). It writes files only: nothing goe
 | `m2_config.json` | Settings and saved decisions. |
 | `bin/m2ctl.sh` | start, stop, restart, status, test, deploy, sample, migrate, last, ai, token, mcp. |
 | `assets/` | Logo and icons: SVG sources and built PNG / ICO / web manifest (`tools/make_icons.py`). |
-| `docs/` | Guides as HTML (shown in the Docs tab) and PDF (`tools/make_docs_pdf.sh`). |
+| `docs/` | Guides as HTML (shown in the Docs tab) and PDF (`tools/make_docs_pdf.sh`); the user guide is built by `tools/make_user_guide.py` from screenshots of the sample data with client data hidden. |
 | `tests/` | `test_migration.py`, `test_ai.py`, `test_ui.py`, `test_package.py`. |
 | `runs/`, `logs/`, `sample_m2*/`, `.env`, `.m2_api_token` | Local only, never in git. |
 

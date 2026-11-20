@@ -132,7 +132,7 @@ class TestServer(unittest.TestCase):
     def test_docs(self):
         docs = json.loads(self.get('/api/docs')[2])['docs']
         ids = [d['id'] for d in docs]
-        self.assertEqual(ids[0], 'M2_Migration_Running_and_UI')
+        self.assertEqual(ids[:2], ['M2_Migration_User_Guide', 'M2_Migration_Running_and_UI'])  # user guide first
         for ident in ('ref-api', 'ref-mcp', 'ref-cli'):
             self.assertIn(ident, ids)
         for doc in docs:

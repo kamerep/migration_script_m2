@@ -817,7 +817,7 @@ def api_health():
 
 
 # -- documentation shown in the Docs tab -----------------------------------------------------------------------
-GUIDE_ORDER = ['M2_Migration_Running_and_UI', 'M2_Migration_Rules_and_Decisions', 'M2_Migration_AI_Assistant',
+GUIDE_ORDER = ['M2_Migration_User_Guide', 'M2_Migration_Running_and_UI', 'M2_Migration_Rules_and_Decisions', 'M2_Migration_AI_Assistant',
                'M2_Migration_Archive_Inventory', 'M2_Migration_n8n_Workflows']
 
 

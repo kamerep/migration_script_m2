@@ -161,6 +161,10 @@ decisions; nothing is applied until somebody presses **Accept** (or tells Claude
   (`sudo snap install google-cloud-cli --classic`) and `.venv/bin/pip install 'anthropic[vertex]'`. The project
   needs billing, the Vertex AI API and Claude enabled in Model Garden; Google bills the calls. The company switch
   `allow_cloud` and the privacy rule below apply the same way.
+* **Hide client data** (eye button at the bottom of the side bar, or `?privacy=1`): client names, values, messages,
+  trails and AI summaries turn into grey bars, labels, buttons and counts stay; for screen sharing, screenshots and
+  training. The user guide (`docs/M2_Migration_User_Guide`, first in the Docs tab) is built from screenshots of the
+  sample data taken this way: `python3 tools/make_user_guide.py <screenshots>`.
 * **Next steps** (Overview): the path from the exports to Odoo as a checklist, ticked off from the run and the
   settings, each open step with what to do and a button to go there.
 * **Privacy:** client names, file names, sample values and documents never leave the machine. Only column headers
